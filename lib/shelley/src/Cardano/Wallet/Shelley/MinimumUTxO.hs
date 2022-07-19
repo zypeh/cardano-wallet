@@ -74,7 +74,7 @@ computeMinimumCoinForShelleyBasedEra
     (MinimumUTxOForShelleyBasedEra era pp) tokenMap =
         extractResult $
         Cardano.calculateMinimumUTxO era
-            (embedTokenMapWithinPaddedTxOut era tokenMap)
+            (embedTokenMapWithinPaddedTxOut era maxLengthAddress tokenMap)
             (Cardano.fromLedgerPParams era pp)
   where
     extractResult :: Either Cardano.MinimumUTxOError Cardano.Value -> Coin
@@ -130,10 +130,11 @@ computeMinimumCoinForShelleyBasedEra
 --
 embedTokenMapWithinPaddedTxOut
     :: Cardano.ShelleyBasedEra era
+    -> Address
     -> TokenMap
     -> Cardano.TxOut Cardano.CtxTx era
-embedTokenMapWithinPaddedTxOut era m =
-    toCardanoTxOut era $ TxOut maxLengthAddress $ TokenBundle maxLengthCoin m
+embedTokenMapWithinPaddedTxOut era addr m =
+    toCardanoTxOut era $ TxOut addr $ TokenBundle maxLengthCoin m
 
 -- | An 'Address' value that is maximal in length when serialized to bytes.
 --
