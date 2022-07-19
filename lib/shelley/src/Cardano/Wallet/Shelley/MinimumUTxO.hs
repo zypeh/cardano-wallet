@@ -10,7 +10,6 @@
 module Cardano.Wallet.Shelley.MinimumUTxO
     ( computeMinimumCoinForUTxO
     , maxLengthCoin
-    , maxLengthAddress
     , unsafeLovelaceToWalletCoin
     , unsafeValueToLovelace
     ) where
@@ -19,8 +18,6 @@ import Prelude
 
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
-import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddressByron )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
@@ -141,22 +138,6 @@ embedTokenMapWithinPaddedTxOut
     -> Cardano.TxOut Cardano.CtxTx era
 embedTokenMapWithinPaddedTxOut era addr m =
     toCardanoTxOut era $ TxOut addr $ TokenBundle maxLengthCoin m
-
--- | An 'Address' value that is maximal in length when serialized to bytes.
---
--- When serialized to bytes, this 'Address' value has a length that is greater
--- than or equal to the serialized length of any 'Address' value that is valid
--- for inclusion in a transaction output.
---
-maxLengthAddress :: Address
-maxLengthAddress = maxLengthAddressByron
-    -- This should be the longest possible address the wallet can generate,
-    -- with a length of 86 bytes. (We can look at the callsites to encodeAddress
-    -- to confirm)
-    --
-    -- With 4310 lovelace/byte, the minimum utxo value for a pure-ada output is
-    -- now 1.107670 ada (according to /v2/network/information). The largest
-    -- possible overestimation should be (86-29) bytes, or 0.245670 ada.
 
 -- | A 'Coin' value that is maximal in length when serialized to bytes.
 --
