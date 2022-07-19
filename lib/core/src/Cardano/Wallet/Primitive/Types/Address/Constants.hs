@@ -9,6 +9,7 @@
 module Cardano.Wallet.Primitive.Types.Address.Constants
     ( maxLengthAddress
     , maxLengthAddressByron
+    , maxLengthAddressShelley
     ) where
 
 import Prelude
@@ -49,3 +50,10 @@ maxLengthAddressByron = Address
     xpub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
       where
         xprvPass = mempty :: BS.ByteString
+
+-- | The longest Shelley-style 'Address' that the wallet can generate.
+--
+-- See: https://cips.cardano.org/cips/cip19/#binaryformat
+--
+maxLengthAddressShelley :: Address
+maxLengthAddressShelley = Address $ BS.replicate 57 0
