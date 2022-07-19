@@ -20,7 +20,7 @@ import Cardano.Api.Gen
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
 import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddress )
+    ( maxLengthAddress, maxLengthAddressByron )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
@@ -123,21 +123,26 @@ spec = do
 
         describe "Golden Tests" $ do
 
-            goldenTests_computeMinimumCoinForUTxO "Shelley"
-                goldenMinimumUTxO_Shelley
-                goldenMinimumCoins_Shelley
-            goldenTests_computeMinimumCoinForUTxO "Allegra"
-                goldenMinimumUTxO_Allegra
-                goldenMinimumCoins_Allegra
-            goldenTests_computeMinimumCoinForUTxO "Mary"
-                goldenMinimumUTxO_Mary
-                goldenMinimumCoins_Mary
-            goldenTests_computeMinimumCoinForUTxO "Alonzo"
-                goldenMinimumUTxO_Alonzo
-                goldenMinimumCoins_Alonzo
-            goldenTests_computeMinimumCoinForUTxO "Babbage"
-                goldenMinimumUTxO_Babbage
-                goldenMinimumCoins_Babbage
+            goldenTests_computeMinimumCoinForUTxO
+                "Byron Address in Shelley Era"
+                goldenMinimumUTxO_ShelleyEra
+                goldenMinimumCoins_ByronAddress_ShelleyEra
+            goldenTests_computeMinimumCoinForUTxO
+                "Byron Address in Allegra Era"
+                goldenMinimumUTxO_AllegraEra
+                goldenMinimumCoins_ByronAddress_AllegraEra
+            goldenTests_computeMinimumCoinForUTxO
+                "Byron Address in Mary Era"
+                goldenMinimumUTxO_MaryEra
+                goldenMinimumCoins_ByronAddress_MaryEra
+            goldenTests_computeMinimumCoinForUTxO
+                "Byron Address in Alonzo Era"
+                goldenMinimumUTxO_AlonzoEra
+                goldenMinimumCoins_ByronAddress_AlonzoEra
+            goldenTests_computeMinimumCoinForUTxO
+                "Byron Address in Babbage Era"
+                goldenMinimumUTxO_BabbageEra
+                goldenMinimumCoins_ByronAddress_BabbageEra
 
 -- Check that it's possible to evaluate 'computeMinimumCoinForUTxO' without
 -- any run-time error.
@@ -303,101 +308,102 @@ goldenTests_computeMinimumCoinForUTxO
     -- ^ The era name.
     -> MinimumUTxO
     -- ^ The minimum UTxO function.
-    -> [(TokenMap, Coin)]
+    -> [(Address, TokenMap, Coin)]
     -- ^ Mappings from 'TokenMap' values to expected minimum 'Coin' values.
     -> Spec
 goldenTests_computeMinimumCoinForUTxO
-    eraName minimumUTxO expectedMinimumCoins =
+    testName minimumUTxO expectedMinimumCoins =
         goldenTests title
-            (\(minUTxO, m) ->
-                computeMinimumCoinForUTxO minUTxO maxLengthAddress m)
+            (\(minUTxO, address, m) ->
+                computeMinimumCoinForUTxO minUTxO address m)
             (mkTest <$> expectedMinimumCoins)
   where
     mkTest
-        :: (TokenMap, Coin) -> GoldenTestData (MinimumUTxO, TokenMap) Coin
-    mkTest (tokenMap, coinExpected) = GoldenTestData
-        { params = (minimumUTxO, tokenMap)
+        :: (Address, TokenMap, Coin)
+        -> GoldenTestData (MinimumUTxO, Address, TokenMap) Coin
+    mkTest (address, tokenMap, coinExpected) = GoldenTestData
+        { params = (minimumUTxO, address, tokenMap)
         , resultExpected = coinExpected
         }
     title = unwords
-        ["goldenTests_computeMinimumCoinForUTxO", eraName]
+        ["goldenTests_computeMinimumCoinForUTxO:", testName]
 
 --------------------------------------------------------------------------------
 -- Golden 'MinimumUTxO' values
 --------------------------------------------------------------------------------
 
-goldenMinimumUTxO_Shelley :: MinimumUTxO
-goldenMinimumUTxO_Shelley =
+goldenMinimumUTxO_ShelleyEra :: MinimumUTxO
+goldenMinimumUTxO_ShelleyEra =
     minimumUTxOForShelleyBasedEra ShelleyBasedEraShelley
         def {Shelley._minUTxOValue = testParameter_minUTxOValue_Shelley}
 
-goldenMinimumUTxO_Allegra :: MinimumUTxO
-goldenMinimumUTxO_Allegra =
+goldenMinimumUTxO_AllegraEra :: MinimumUTxO
+goldenMinimumUTxO_AllegraEra =
     minimumUTxOForShelleyBasedEra ShelleyBasedEraAllegra
         def {Shelley._minUTxOValue = testParameter_minUTxOValue_Allegra}
 
-goldenMinimumUTxO_Mary :: MinimumUTxO
-goldenMinimumUTxO_Mary =
+goldenMinimumUTxO_MaryEra :: MinimumUTxO
+goldenMinimumUTxO_MaryEra =
     minimumUTxOForShelleyBasedEra ShelleyBasedEraMary
         def {Shelley._minUTxOValue = testParameter_minUTxOValue_Mary}
 
-goldenMinimumUTxO_Alonzo :: MinimumUTxO
-goldenMinimumUTxO_Alonzo =
+goldenMinimumUTxO_AlonzoEra :: MinimumUTxO
+goldenMinimumUTxO_AlonzoEra =
     minimumUTxOForShelleyBasedEra ShelleyBasedEraAlonzo
         def {Alonzo._coinsPerUTxOWord = testParameter_coinsPerUTxOWord_Alonzo}
 
-goldenMinimumUTxO_Babbage :: MinimumUTxO
-goldenMinimumUTxO_Babbage =
+goldenMinimumUTxO_BabbageEra :: MinimumUTxO
+goldenMinimumUTxO_BabbageEra =
     minimumUTxOForShelleyBasedEra ShelleyBasedEraBabbage
         def {Babbage._coinsPerUTxOByte = testParameter_coinsPerUTxOByte_Babbage}
 
 --------------------------------------------------------------------------------
--- Golden minimum 'Coin' values
+-- Golden minimum 'Coin' values: Byron-style addresses
 --------------------------------------------------------------------------------
 
-goldenMinimumCoins_Shelley :: [(TokenMap, Coin)]
-goldenMinimumCoins_Shelley =
-    [ (goldenTokenMap_0, Coin 1_000_000)
-    , (goldenTokenMap_1, Coin 1_000_000)
-    , (goldenTokenMap_2, Coin 1_000_000)
-    , (goldenTokenMap_3, Coin 1_000_000)
-    , (goldenTokenMap_4, Coin 1_000_000)
+goldenMinimumCoins_ByronAddress_ShelleyEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_ShelleyEra =
+    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_000_000)
     ]
 
-goldenMinimumCoins_Allegra :: [(TokenMap, Coin)]
-goldenMinimumCoins_Allegra =
-    [ (goldenTokenMap_0, Coin 1_000_000)
-    , (goldenTokenMap_1, Coin 1_000_000)
-    , (goldenTokenMap_2, Coin 1_000_000)
-    , (goldenTokenMap_3, Coin 1_000_000)
-    , (goldenTokenMap_4, Coin 1_000_000)
+goldenMinimumCoins_ByronAddress_AllegraEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_AllegraEra =
+    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_000_000)
     ]
 
-goldenMinimumCoins_Mary :: [(TokenMap, Coin)]
-goldenMinimumCoins_Mary =
-    [ (goldenTokenMap_0, Coin 1_000_000)
-    , (goldenTokenMap_1, Coin 1_444_443)
-    , (goldenTokenMap_2, Coin 1_555_554)
-    , (goldenTokenMap_3, Coin 1_740_739)
-    , (goldenTokenMap_4, Coin 1_999_998)
+goldenMinimumCoins_ByronAddress_MaryEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_MaryEra =
+    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_000_000)
+    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_444_443)
+    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_555_554)
+    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_740_739)
+    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_999_998)
     ]
 
-goldenMinimumCoins_Alonzo :: [(TokenMap, Coin)]
-goldenMinimumCoins_Alonzo =
-    [ (goldenTokenMap_0, Coin   999_978)
-    , (goldenTokenMap_1, Coin 1_344_798)
-    , (goldenTokenMap_2, Coin 1_448_244)
-    , (goldenTokenMap_3, Coin 1_620_654)
-    , (goldenTokenMap_4, Coin 1_862_028)
+goldenMinimumCoins_ByronAddress_AlonzoEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_AlonzoEra =
+    [ (maxLengthAddressByron, goldenTokenMap_0, Coin   999_978)
+    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_344_798)
+    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_448_244)
+    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_620_654)
+    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_862_028)
     ]
 
-goldenMinimumCoins_Babbage :: [(TokenMap, Coin)]
-goldenMinimumCoins_Babbage =
-    [ (goldenTokenMap_0, Coin 1_107_670)
-    , (goldenTokenMap_1, Coin 1_262_830)
-    , (goldenTokenMap_2, Coin 1_435_230)
-    , (goldenTokenMap_3, Coin 1_435_230)
-    , (goldenTokenMap_4, Coin 2_124_830)
+goldenMinimumCoins_ByronAddress_BabbageEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_BabbageEra =
+    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_107_670)
+    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_262_830)
+    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_435_230)
+    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_435_230)
+    , (maxLengthAddressByron, goldenTokenMap_4, Coin 2_124_830)
     ]
 
 --------------------------------------------------------------------------------
