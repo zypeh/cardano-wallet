@@ -7,7 +7,8 @@
 -- Provides various 'Address' constants used by the wallet.
 --
 module Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddressByron
+    ( maxLengthAddress
+    , maxLengthAddressByron
     ) where
 
 import Prelude
@@ -24,6 +25,11 @@ import qualified Cardano.Crypto.Wallet as CC
 import qualified Codec.CBOR.Write as CBOR
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
+
+-- | The longest 'Address' that the wallet can generate.
+--
+maxLengthAddress :: Address
+maxLengthAddress = maxLengthAddressByron
 
 -- | The longest Byron-style 'Address' that the wallet can generate.
 --
