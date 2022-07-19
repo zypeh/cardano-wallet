@@ -124,6 +124,8 @@ import Cardano.Wallet.Primitive.Types
     )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Address.Constants
+    ( maxLengthAddress )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
@@ -1498,7 +1500,7 @@ txConstraints era protocolParams witnessTag = TxConstraints
         TokenQuantity $ fromIntegral $ maxBound @Word64
 
     txOutputMinimumAdaQuantity =
-        computeMinimumCoinForUTxO (minimumUTxO protocolParams)
+        computeMinimumCoinForUTxO (minimumUTxO protocolParams) maxLengthAddress
 
     txRewardWithdrawalCost c =
         marginalCostOf empty {txRewardWithdrawal = c}

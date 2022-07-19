@@ -49,14 +49,19 @@ import qualified Cardano.Api.Shelley as Cardano
 -- | Computes a minimum 'Coin' value for a 'TokenMap' that is destined for
 --   inclusion in a transaction output.
 --
-computeMinimumCoinForUTxO :: HasCallStack => MinimumUTxO -> TokenMap -> Coin
+computeMinimumCoinForUTxO
+    :: HasCallStack
+    => MinimumUTxO
+    -> Address
+    -> TokenMap
+    -> Coin
 computeMinimumCoinForUTxO = \case
     MinimumUTxONone ->
-        const (Coin 0)
+        \_address _tokenMap -> Coin 0
     MinimumUTxOConstant c ->
-        const c
-    MinimumUTxOForShelleyBasedEraOf pp ->
-        computeMinimumCoinForShelleyBasedEra pp maxLengthAddress
+        \_address _tokenMap -> c
+    MinimumUTxOForShelleyBasedEraOf minUTxO ->
+        computeMinimumCoinForShelleyBasedEra minUTxO
 
 -- | Computes a minimum 'Coin' value for a 'TokenMap' that is destined for
 --   inclusion in a transaction output.

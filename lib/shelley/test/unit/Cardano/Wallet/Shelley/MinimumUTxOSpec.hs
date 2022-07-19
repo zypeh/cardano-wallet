@@ -19,6 +19,8 @@ import Cardano.Api.Gen
     ( genAddressAny )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Address.Constants
+    ( maxLengthAddress )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
@@ -57,7 +59,6 @@ import Cardano.Wallet.Shelley.Compatibility
     ( toCardanoTxOut )
 import Cardano.Wallet.Shelley.MinimumUTxO
     ( computeMinimumCoinForUTxO
-    , maxLengthAddress
     , maxLengthCoin
     , unsafeLovelaceToWalletCoin
     , unsafeValueToLovelace
@@ -145,7 +146,7 @@ prop_computeMinimumCoinForUTxO_evaluation
     :: MinimumUTxO -> TokenMap -> Property
 prop_computeMinimumCoinForUTxO_evaluation minimumUTxO m = property $
     -- Use an arbitrary test to force evaluation of the result:
-    computeMinimumCoinForUTxO minimumUTxO m >= Coin 0
+    computeMinimumCoinForUTxO minimumUTxO maxLengthAddress m >= Coin 0
 
 -- Check that 'computeMinimumCoinForUTxO' produces a result that is within
 -- bounds, as determined by the Cardano API function 'calculateMinimumUTxO'.
@@ -211,8 +212,8 @@ prop_computeMinimumCoinForUTxO_shelleyBasedEra_bounds
     -- minimum 'Coin' value.
     --
     ourComputeMinCoin :: TokenMap -> Coin
-    ourComputeMinCoin =
-        computeMinimumCoinForUTxO (minimumUTxOForShelleyBasedEra era pp)
+    ourComputeMinCoin = computeMinimumCoinForUTxO
+        (minimumUTxOForShelleyBasedEra era pp) maxLengthAddress
 
 -- Compares the stability of:
 --
@@ -290,8 +291,8 @@ prop_computeMinimumCoinForUTxO_shelleyBasedEra_stability
     -- minimum 'Coin' value.
     --
     ourComputeMinCoin :: TokenMap -> Coin
-    ourComputeMinCoin =
-        computeMinimumCoinForUTxO (minimumUTxOForShelleyBasedEra era pp)
+    ourComputeMinCoin = computeMinimumCoinForUTxO
+        (minimumUTxOForShelleyBasedEra era pp) maxLengthAddress
 
 --------------------------------------------------------------------------------
 -- Golden tests
@@ -308,7 +309,8 @@ goldenTests_computeMinimumCoinForUTxO
 goldenTests_computeMinimumCoinForUTxO
     eraName minimumUTxO expectedMinimumCoins =
         goldenTests title
-            (uncurry computeMinimumCoinForUTxO)
+            (\(minUTxO, m) ->
+                computeMinimumCoinForUTxO minUTxO maxLengthAddress m)
             (mkTest <$> expectedMinimumCoins)
   where
     mkTest
