@@ -56,7 +56,7 @@ computeMinimumCoinForUTxO = \case
     MinimumUTxOConstant c ->
         const c
     MinimumUTxOForShelleyBasedEraOf pp ->
-        computeMinimumCoinForShelleyBasedEra pp
+        computeMinimumCoinForShelleyBasedEra pp maxLengthAddress
 
 -- | Computes a minimum 'Coin' value for a 'TokenMap' that is destined for
 --   inclusion in a transaction output.
@@ -68,13 +68,14 @@ computeMinimumCoinForUTxO = \case
 computeMinimumCoinForShelleyBasedEra
     :: HasCallStack
     => MinimumUTxOForShelleyBasedEra
+    -> Address
     -> TokenMap
     -> Coin
 computeMinimumCoinForShelleyBasedEra
-    (MinimumUTxOForShelleyBasedEra era pp) tokenMap =
+    (MinimumUTxOForShelleyBasedEra era pp) addr tokenMap =
         extractResult $
         Cardano.calculateMinimumUTxO era
-            (embedTokenMapWithinPaddedTxOut era maxLengthAddress tokenMap)
+            (embedTokenMapWithinPaddedTxOut era addr tokenMap)
             (Cardano.fromLedgerPParams era pp)
   where
     extractResult :: Either Cardano.MinimumUTxOError Cardano.Value -> Coin
