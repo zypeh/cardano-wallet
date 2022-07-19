@@ -20,17 +20,23 @@ import Cardano.Wallet.Primitive.Types
     ( ProtocolMagic (..) )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Data.Function
+    ( on )
 
 import qualified Cardano.Byron.Codec.Cbor as Byron
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Codec.CBOR.Write as CBOR
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
+import qualified Data.List as L
 
 -- | The longest 'Address' that the wallet can generate.
 --
 maxLengthAddress :: Address
-maxLengthAddress = maxLengthAddressByron
+maxLengthAddress = L.maximumBy (compare `on` (BS.length . unAddress))
+    [ maxLengthAddressByron
+    , maxLengthAddressShelley
+    ]
 
 -- | The longest Byron-style 'Address' that the wallet can generate.
 --
