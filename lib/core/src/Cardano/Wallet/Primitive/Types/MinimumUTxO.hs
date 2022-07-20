@@ -10,11 +10,13 @@
 --
 module Cardano.Wallet.Primitive.Types.MinimumUTxO
     (
-    -- * Types
-      MinimumUTxO (..)
-    , MinimumUTxOForShelleyBasedEra (..)
+    -- * The 'AddressEra' type
+      AddressEra (..)
+    , maxLengthAddressForEra
 
-    -- * Constructor functions
+    -- * The 'MinimumUTxO' type
+    , MinimumUTxO (..)
+    , MinimumUTxOForShelleyBasedEra (..)
     , minimumUTxONone
     , minimumUTxOConstant
     , minimumUTxOForShelleyBasedEra
@@ -27,6 +29,10 @@ import Cardano.Api.Shelley
     ( ShelleyBasedEra, ShelleyLedgerEra, fromLedgerPParams )
 import Cardano.Ledger.Core
     ( PParams )
+import Cardano.Wallet.Primitive.Types.Address
+    ( Address )
+import Cardano.Wallet.Primitive.Types.Address.Constants
+    ( maxLengthAddressByron, maxLengthAddressShelley )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin )
 import Control.DeepSeq
@@ -35,6 +41,36 @@ import Data.Function
     ( on )
 import Fmt
     ( Buildable (..), blockListF )
+
+--------------------------------------------------------------------------------
+-- The 'AddressEra' type
+--------------------------------------------------------------------------------
+
+-- | Represents an era for 'Address' values.
+--
+data AddressEra
+    = AddressEraByron
+    -- ^ Represents the Byron address era.
+    | AddressEraShelley
+    -- ^ Represents the Shelley address era.
+
+-- | Produces an 'Address' value of maximal length for the given 'AddressEra'.
+--
+-- This function returns a valid 'Address' with a length that is greater than
+-- or equal to any 'Address' that the wallet is capable of generating for the
+-- given 'AddressEra'.
+--
+-- Please note that the returned address should:
+--
+--  - never be used for anything besides its length and validity properties.
+--  - never be used as a payment target within a real transaction.
+--
+maxLengthAddressForEra :: AddressEra -> Address
+maxLengthAddressForEra = \case
+    AddressEraByron ->
+        maxLengthAddressByron
+    AddressEraShelley ->
+        maxLengthAddressShelley
 
 --------------------------------------------------------------------------------
 -- The 'MinimumUTxO' type
