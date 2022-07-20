@@ -20,11 +20,13 @@ import Cardano.Api.Gen
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
 import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddress, maxLengthAddressByron, maxLengthAddressShelley )
+    ( maxLengthAddress )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( MinimumUTxO
+    ( AddressEra (..)
+    , AddressSpec (..)
+    , MinimumUTxO
     , MinimumUTxOForShelleyBasedEra (..)
     , minimumUTxOForShelleyBasedEra
     )
@@ -176,7 +178,7 @@ prop_computeMinimumCoinForUTxO_evaluation
     :: MinimumUTxO -> TokenMap -> Property
 prop_computeMinimumCoinForUTxO_evaluation minimumUTxO m = property $
     -- Use an arbitrary test to force evaluation of the result:
-    computeMinimumCoinForUTxO minimumUTxO maxLengthAddress m >= Coin 0
+    computeMinimumCoinForUTxO minimumUTxO AddressSpecDefault m >= Coin 0
 
 -- Check that 'computeMinimumCoinForUTxO' produces a result that is within
 -- bounds, as determined by the Cardano API function 'calculateMinimumUTxO'.
@@ -243,7 +245,7 @@ prop_computeMinimumCoinForUTxO_shelleyBasedEra_bounds
     --
     ourComputeMinCoin :: TokenMap -> Coin
     ourComputeMinCoin = computeMinimumCoinForUTxO
-        (minimumUTxOForShelleyBasedEra era pp) maxLengthAddress
+        (minimumUTxOForShelleyBasedEra era pp) AddressSpecDefault
 
 -- Compares the stability of:
 --
@@ -322,7 +324,7 @@ prop_computeMinimumCoinForUTxO_shelleyBasedEra_stability
     --
     ourComputeMinCoin :: TokenMap -> Coin
     ourComputeMinCoin = computeMinimumCoinForUTxO
-        (minimumUTxOForShelleyBasedEra era pp) maxLengthAddress
+        (minimumUTxOForShelleyBasedEra era pp) AddressSpecDefault
 
 --------------------------------------------------------------------------------
 -- Golden tests
@@ -333,21 +335,21 @@ goldenTests_computeMinimumCoinForUTxO
     -- ^ The era name.
     -> MinimumUTxO
     -- ^ The minimum UTxO function.
-    -> [(Address, TokenMap, Coin)]
+    -> [(AddressEra, TokenMap, Coin)]
     -- ^ Mappings from 'TokenMap' values to expected minimum 'Coin' values.
     -> Spec
 goldenTests_computeMinimumCoinForUTxO
     testName minimumUTxO expectedMinimumCoins =
         goldenTests title
-            (\(minUTxO, address, m) ->
-                computeMinimumCoinForUTxO minUTxO address m)
+            (\(minUTxO, addrSpec, m) ->
+                computeMinimumCoinForUTxO minUTxO addrSpec m)
             (mkTest <$> expectedMinimumCoins)
   where
     mkTest
-        :: (Address, TokenMap, Coin)
-        -> GoldenTestData (MinimumUTxO, Address, TokenMap) Coin
-    mkTest (address, tokenMap, coinExpected) = GoldenTestData
-        { params = (minimumUTxO, address, tokenMap)
+        :: (AddressEra, TokenMap, Coin)
+        -> GoldenTestData (MinimumUTxO, AddressSpec, TokenMap) Coin
+    mkTest (addrEra, tokenMap, coinExpected) = GoldenTestData
+        { params = (minimumUTxO, AddressSpecForEra addrEra, tokenMap)
         , resultExpected = coinExpected
         }
     title = unwords
@@ -386,98 +388,98 @@ goldenMinimumUTxO_BabbageEra =
 -- Golden minimum 'Coin' values: Byron-style addresses
 --------------------------------------------------------------------------------
 
-goldenMinimumCoins_ByronAddress_ShelleyEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_ShelleyEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ByronAddress_ShelleyEra =
-    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_000_000)
+    [ (AddressEraByron, goldenTokenMap_0, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_1, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_2, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_3, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_4, Coin 1_000_000)
     ]
 
-goldenMinimumCoins_ByronAddress_AllegraEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_AllegraEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ByronAddress_AllegraEra =
-    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_000_000)
+    [ (AddressEraByron, goldenTokenMap_0, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_1, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_2, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_3, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_4, Coin 1_000_000)
     ]
 
-goldenMinimumCoins_ByronAddress_MaryEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_MaryEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ByronAddress_MaryEra =
-    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_000_000)
-    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_444_443)
-    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_555_554)
-    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_740_739)
-    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_999_998)
+    [ (AddressEraByron, goldenTokenMap_0, Coin 1_000_000)
+    , (AddressEraByron, goldenTokenMap_1, Coin 1_444_443)
+    , (AddressEraByron, goldenTokenMap_2, Coin 1_555_554)
+    , (AddressEraByron, goldenTokenMap_3, Coin 1_740_739)
+    , (AddressEraByron, goldenTokenMap_4, Coin 1_999_998)
     ]
 
-goldenMinimumCoins_ByronAddress_AlonzoEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_AlonzoEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ByronAddress_AlonzoEra =
-    [ (maxLengthAddressByron, goldenTokenMap_0, Coin   999_978)
-    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_344_798)
-    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_448_244)
-    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_620_654)
-    , (maxLengthAddressByron, goldenTokenMap_4, Coin 1_862_028)
+    [ (AddressEraByron, goldenTokenMap_0, Coin   999_978)
+    , (AddressEraByron, goldenTokenMap_1, Coin 1_344_798)
+    , (AddressEraByron, goldenTokenMap_2, Coin 1_448_244)
+    , (AddressEraByron, goldenTokenMap_3, Coin 1_620_654)
+    , (AddressEraByron, goldenTokenMap_4, Coin 1_862_028)
     ]
 
-goldenMinimumCoins_ByronAddress_BabbageEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ByronAddress_BabbageEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ByronAddress_BabbageEra =
-    [ (maxLengthAddressByron, goldenTokenMap_0, Coin 1_107_670)
-    , (maxLengthAddressByron, goldenTokenMap_1, Coin 1_262_830)
-    , (maxLengthAddressByron, goldenTokenMap_2, Coin 1_435_230)
-    , (maxLengthAddressByron, goldenTokenMap_3, Coin 1_435_230)
-    , (maxLengthAddressByron, goldenTokenMap_4, Coin 2_124_830)
+    [ (AddressEraByron, goldenTokenMap_0, Coin 1_107_670)
+    , (AddressEraByron, goldenTokenMap_1, Coin 1_262_830)
+    , (AddressEraByron, goldenTokenMap_2, Coin 1_435_230)
+    , (AddressEraByron, goldenTokenMap_3, Coin 1_435_230)
+    , (AddressEraByron, goldenTokenMap_4, Coin 2_124_830)
     ]
 
 --------------------------------------------------------------------------------
 -- Golden minimum 'Coin' values: Shelley-style addresses
 --------------------------------------------------------------------------------
 
-goldenMinimumCoins_ShelleyAddress_ShelleyEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ShelleyAddress_ShelleyEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ShelleyAddress_ShelleyEra =
-    [ (maxLengthAddressShelley, goldenTokenMap_0, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_1, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_2, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_3, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_4, Coin 1_000_000)
+    [ (AddressEraShelley, goldenTokenMap_0, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_1, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_2, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_3, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_4, Coin 1_000_000)
     ]
 
-goldenMinimumCoins_ShelleyAddress_AllegraEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ShelleyAddress_AllegraEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ShelleyAddress_AllegraEra =
-    [ (maxLengthAddressShelley, goldenTokenMap_0, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_1, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_2, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_3, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_4, Coin 1_000_000)
+    [ (AddressEraShelley, goldenTokenMap_0, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_1, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_2, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_3, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_4, Coin 1_000_000)
     ]
 
-goldenMinimumCoins_ShelleyAddress_MaryEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ShelleyAddress_MaryEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ShelleyAddress_MaryEra =
-    [ (maxLengthAddressShelley, goldenTokenMap_0, Coin 1_000_000)
-    , (maxLengthAddressShelley, goldenTokenMap_1, Coin 1_444_443)
-    , (maxLengthAddressShelley, goldenTokenMap_2, Coin 1_555_554)
-    , (maxLengthAddressShelley, goldenTokenMap_3, Coin 1_740_739)
-    , (maxLengthAddressShelley, goldenTokenMap_4, Coin 1_999_998)
+    [ (AddressEraShelley, goldenTokenMap_0, Coin 1_000_000)
+    , (AddressEraShelley, goldenTokenMap_1, Coin 1_444_443)
+    , (AddressEraShelley, goldenTokenMap_2, Coin 1_555_554)
+    , (AddressEraShelley, goldenTokenMap_3, Coin 1_740_739)
+    , (AddressEraShelley, goldenTokenMap_4, Coin 1_999_998)
     ]
 
-goldenMinimumCoins_ShelleyAddress_AlonzoEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ShelleyAddress_AlonzoEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ShelleyAddress_AlonzoEra =
-    [ (maxLengthAddressShelley, goldenTokenMap_0, Coin   999_978)
-    , (maxLengthAddressShelley, goldenTokenMap_1, Coin 1_344_798)
-    , (maxLengthAddressShelley, goldenTokenMap_2, Coin 1_448_244)
-    , (maxLengthAddressShelley, goldenTokenMap_3, Coin 1_620_654)
-    , (maxLengthAddressShelley, goldenTokenMap_4, Coin 1_862_028)
+    [ (AddressEraShelley, goldenTokenMap_0, Coin   999_978)
+    , (AddressEraShelley, goldenTokenMap_1, Coin 1_344_798)
+    , (AddressEraShelley, goldenTokenMap_2, Coin 1_448_244)
+    , (AddressEraShelley, goldenTokenMap_3, Coin 1_620_654)
+    , (AddressEraShelley, goldenTokenMap_4, Coin 1_862_028)
     ]
 
-goldenMinimumCoins_ShelleyAddress_BabbageEra :: [(Address, TokenMap, Coin)]
+goldenMinimumCoins_ShelleyAddress_BabbageEra :: [(AddressEra, TokenMap, Coin)]
 goldenMinimumCoins_ShelleyAddress_BabbageEra =
-    [ (maxLengthAddressShelley, goldenTokenMap_0, Coin   995_610)
-    , (maxLengthAddressShelley, goldenTokenMap_1, Coin 1_150_770)
-    , (maxLengthAddressShelley, goldenTokenMap_2, Coin 1_323_170)
-    , (maxLengthAddressShelley, goldenTokenMap_3, Coin 1_323_170)
-    , (maxLengthAddressShelley, goldenTokenMap_4, Coin 2_012_770)
+    [ (AddressEraShelley, goldenTokenMap_0, Coin   995_610)
+    , (AddressEraShelley, goldenTokenMap_1, Coin 1_150_770)
+    , (AddressEraShelley, goldenTokenMap_2, Coin 1_323_170)
+    , (AddressEraShelley, goldenTokenMap_3, Coin 1_323_170)
+    , (AddressEraShelley, goldenTokenMap_4, Coin 2_012_770)
     ]
 
 --------------------------------------------------------------------------------

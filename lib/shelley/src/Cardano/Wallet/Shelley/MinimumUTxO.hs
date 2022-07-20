@@ -57,14 +57,14 @@ import qualified Cardano.Api.Shelley as Cardano
 computeMinimumCoinForUTxO
     :: HasCallStack
     => MinimumUTxO
-    -> Address
+    -> AddressSpec
     -> TokenMap
     -> Coin
 computeMinimumCoinForUTxO = \case
     MinimumUTxONone ->
-        \_address _tokenMap -> Coin 0
+        \_addrSpec _tokenMap -> Coin 0
     MinimumUTxOConstant c ->
-        \_address _tokenMap -> c
+        \_addrSpec _tokenMap -> c
     MinimumUTxOForShelleyBasedEraOf minUTxO ->
         computeMinimumCoinForShelleyBasedEra minUTxO
 
@@ -78,14 +78,14 @@ computeMinimumCoinForUTxO = \case
 computeMinimumCoinForShelleyBasedEra
     :: HasCallStack
     => MinimumUTxOForShelleyBasedEra
-    -> Address
+    -> AddressSpec
     -> TokenMap
     -> Coin
 computeMinimumCoinForShelleyBasedEra
-    (MinimumUTxOForShelleyBasedEra era pp) addr tokenMap =
+    (MinimumUTxOForShelleyBasedEra era pp) addrSpec tokenMap =
         extractResult $
         Cardano.calculateMinimumUTxO era
-            (embedTokenMapWithinPaddedTxOut era addr tokenMap)
+            (embedTokenMapWithinPaddedTxOut era addrSpec tokenMap)
             (Cardano.fromLedgerPParams era pp)
   where
     extractResult :: Either Cardano.MinimumUTxOError Cardano.Value -> Coin
@@ -141,11 +141,13 @@ computeMinimumCoinForShelleyBasedEra
 --
 embedTokenMapWithinPaddedTxOut
     :: Cardano.ShelleyBasedEra era
-    -> Address
+    -> AddressSpec
     -> TokenMap
     -> Cardano.TxOut Cardano.CtxTx era
-embedTokenMapWithinPaddedTxOut era addr m =
+embedTokenMapWithinPaddedTxOut era addrSpec m =
     toCardanoTxOut era $ TxOut addr $ TokenBundle maxLengthCoin m
+  where
+    addr = maxLengthAddressForSpec addrSpec
 
 -- | Produces an 'Address' value of maximal length for the given 'AddressEra'.
 --
