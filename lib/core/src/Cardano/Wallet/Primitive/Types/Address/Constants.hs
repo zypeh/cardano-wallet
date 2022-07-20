@@ -16,10 +16,10 @@ import Prelude
 
 import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..) )
-import Cardano.Wallet.Primitive.Types
-    ( ProtocolMagic (..) )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Cardano.Wallet.Primitive.Types.ProtocolMagic
+    ( ProtocolMagic (..) )
 import Data.Function
     ( on )
 
