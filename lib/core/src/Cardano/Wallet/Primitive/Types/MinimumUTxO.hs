@@ -60,15 +60,27 @@ data AddressEra
 
 -- | An address specification that can be used to calculate minimum UTxO values.
 --
+-- To construct an 'AddressSpec', please choose the constructor that is most
+-- appropriate for your use case:
+--
+--  - Use 'AddressSpecForAddress':
+--    in situations where an exact address is available.
+--
+--  - Use 'AddressSpecForEra':
+--    in situations where an exact address is not available, but where an
+--    address era is available.
+--
+--  - Use 'AddressSpecDefault':
+--    in situations where neither an exact address nor an address era are
+--    available.
+--
 data AddressSpec
     = AddressSpecDefault
-    -- ^ The default specification. This can be used in situations where there
-    -- is no address available, and no information available about the current
-    -- address era.
-    | AddressSpecExact Address
-    -- ^ An exact specification based on a specific address.
+    -- ^ A default specification.
+    | AddressSpecForAddress Address
+    -- ^ A specification based on an exact address.
     | AddressSpecForEra AddressEra
-    -- ^ An era-based address specification.
+    -- ^ A specification based on an address era.
 
 --------------------------------------------------------------------------------
 -- The 'MinimumUTxO' type

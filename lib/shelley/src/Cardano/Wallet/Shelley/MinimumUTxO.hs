@@ -178,7 +178,7 @@ maxLengthAddressForSpec :: AddressSpec -> Address
 maxLengthAddressForSpec = \case
     AddressSpecDefault ->
         maxLengthAddress
-    AddressSpecExact addr ->
+    AddressSpecForAddress addr ->
         addr
     AddressSpecForEra addrEra ->
         maxLengthAddressForEra addrEra
