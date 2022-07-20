@@ -128,8 +128,6 @@ import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
     ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( AddressSpec (AddressSpecDefault) )
 import Cardano.Wallet.Primitive.Types.Redeemer
     ( Redeemer, redeemerData )
 import Cardano.Wallet.Primitive.Types.TokenBundle
@@ -1501,7 +1499,6 @@ txConstraints era protocolParams witnessTag = TxConstraints
 
     txOutputMinimumAdaQuantity =
         computeMinimumCoinForUTxO (minimumUTxO protocolParams)
-            AddressSpecDefault
 
     txRewardWithdrawalCost c =
         marginalCostOf empty {txRewardWithdrawal = c}

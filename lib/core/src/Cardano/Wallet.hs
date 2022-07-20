@@ -412,6 +412,8 @@ import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
     ( Hash (..) )
+import Cardano.Wallet.Primitive.Types.MinimumUTxO
+    ( AddressSpec (AddressSpecDefault) )
 import Cardano.Wallet.Primitive.Types.Redeemer
     ( Redeemer (..) )
 import Cardano.Wallet.Primitive.Types.RewardAccount
@@ -938,6 +940,7 @@ getWalletUtxoSnapshot ctx wid = do
         computeMinAdaQuantity :: TokenMap -> Coin
         computeMinAdaQuantity =
             view #txOutputMinimumAdaQuantity (constraints tl era pp)
+                AddressSpecDefault
 
 -- | List the wallet's UTxO statistics.
 listUtxoStatistics
@@ -1953,7 +1956,8 @@ balanceTransactionWithSelectionStrategy
                 , certificateDepositAmount =
                     view #stakeKeyDeposit pp
                 , computeMinimumAdaQuantity =
-                    view #txOutputMinimumAdaQuantity $ constraints tl era pp
+                    view #txOutputMinimumAdaQuantity (constraints tl era pp)
+                        AddressSpecDefault
                 , computeMinimumCost = \skeleton -> mconcat
                     [ feePadding
                     , fromCardanoLovelace fee0
@@ -2155,6 +2159,7 @@ calcMinimumCoinValues ctx era outs = do
     pp <- currentProtocolParameters nl
     pure
         $ view #txOutputMinimumAdaQuantity (constraints tl era pp)
+            AddressSpecDefault
         . view (#tokens . #tokens) <$> outs
   where
     nl = ctx ^. networkLayer
@@ -2220,7 +2225,8 @@ selectAssets ctx era pp params transform = do
             , certificateDepositAmount =
                 view #stakeKeyDeposit pp
             , computeMinimumAdaQuantity =
-                view #txOutputMinimumAdaQuantity $ constraints tl era pp
+                view #txOutputMinimumAdaQuantity (constraints tl era pp)
+                    AddressSpecDefault
             , computeMinimumCost =
                 calcMinimumCost tl era pp $ params ^. #txContext
             , computeSelectionLimit =
