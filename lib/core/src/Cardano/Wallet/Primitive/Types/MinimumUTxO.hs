@@ -14,6 +14,10 @@ module Cardano.Wallet.Primitive.Types.MinimumUTxO
       AddressEra (..)
     , maxLengthAddressForEra
 
+    -- * The 'AddressSpec' type
+    , AddressSpec (..)
+    , maxLengthAddressForSpec
+
     -- * The 'MinimumUTxO' type
     , MinimumUTxO (..)
     , MinimumUTxOForShelleyBasedEra (..)
@@ -32,7 +36,7 @@ import Cardano.Ledger.Core
 import Cardano.Wallet.Primitive.Types.Address
     ( Address )
 import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddressByron, maxLengthAddressShelley )
+    ( maxLengthAddress, maxLengthAddressByron, maxLengthAddressShelley )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin )
 import Control.DeepSeq
@@ -71,6 +75,38 @@ maxLengthAddressForEra = \case
         maxLengthAddressByron
     AddressEraShelley ->
         maxLengthAddressShelley
+
+--------------------------------------------------------------------------------
+-- The 'AddressSpec' type
+--------------------------------------------------------------------------------
+
+-- | An address specification that can be used to calculate minimum UTxO values.
+--
+data AddressSpec
+    = AddressSpecDefault
+    -- ^ The default specification. This can be used in situations where there
+    -- is no address available, and no information available about the current
+    -- address era.
+    | AddressSpecExact Address
+    -- ^ An exact specification based on a specific address.
+    | AddressSpecForEra AddressEra
+    -- ^ An era-based address specification.
+
+-- | Produces an 'Address' value of maximal length for the given 'AddressSpec'.
+--
+-- Please note that the returned address should:
+--
+--  - never be used for anything besides its length and validity properties.
+--  - never be used as a payment target within a real transaction.
+--
+maxLengthAddressForSpec :: AddressSpec -> Address
+maxLengthAddressForSpec = \case
+    AddressSpecDefault ->
+        maxLengthAddress
+    AddressSpecExact address ->
+        address
+    AddressSpecForEra addressEra ->
+        maxLengthAddressForEra addressEra
 
 --------------------------------------------------------------------------------
 -- The 'MinimumUTxO' type
