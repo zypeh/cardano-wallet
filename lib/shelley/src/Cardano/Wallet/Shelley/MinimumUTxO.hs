@@ -9,6 +9,8 @@
 --
 module Cardano.Wallet.Shelley.MinimumUTxO
     ( computeMinimumCoinForUTxO
+    , maxLengthAddressForEra
+    , maxLengthAddressForSpec
     , maxLengthCoin
     , unsafeLovelaceToWalletCoin
     , unsafeValueToLovelace
@@ -18,10 +20,16 @@ import Prelude
 
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Address.Constants
+    ( maxLengthAddress, maxLengthAddressByron, maxLengthAddressShelley )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( MinimumUTxO (..), MinimumUTxOForShelleyBasedEra (..) )
+    ( AddressEra (..)
+    , AddressSpec (..)
+    , MinimumUTxO (..)
+    , MinimumUTxOForShelleyBasedEra (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle
     ( TokenBundle (..) )
 import Cardano.Wallet.Primitive.Types.TokenMap
@@ -138,6 +146,40 @@ embedTokenMapWithinPaddedTxOut
     -> Cardano.TxOut Cardano.CtxTx era
 embedTokenMapWithinPaddedTxOut era addr m =
     toCardanoTxOut era $ TxOut addr $ TokenBundle maxLengthCoin m
+
+-- | Produces an 'Address' value of maximal length for the given 'AddressEra'.
+--
+-- This function returns a valid 'Address' with a length that is greater than
+-- or equal to any 'Address' that the wallet is capable of generating for the
+-- given 'AddressEra'.
+--
+-- Please note that the returned address should:
+--
+--  - never be used for anything besides its length and validity properties.
+--  - never be used as a payment target within a real transaction.
+--
+maxLengthAddressForEra :: AddressEra -> Address
+maxLengthAddressForEra = \case
+    AddressEraByron ->
+        maxLengthAddressByron
+    AddressEraShelley ->
+        maxLengthAddressShelley
+
+-- | Produces an 'Address' value of maximal length for the given 'AddressSpec'.
+--
+-- Please note that the returned address should:
+--
+--  - never be used for anything besides its length and validity properties.
+--  - never be used as a payment target within a real transaction.
+--
+maxLengthAddressForSpec :: AddressSpec -> Address
+maxLengthAddressForSpec = \case
+    AddressSpecDefault ->
+        maxLengthAddress
+    AddressSpecExact addr ->
+        addr
+    AddressSpecForEra addrEra ->
+        maxLengthAddressForEra addrEra
 
 -- | A 'Coin' value that is maximal in length when serialized to bytes.
 --

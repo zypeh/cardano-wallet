@@ -12,11 +12,9 @@ module Cardano.Wallet.Primitive.Types.MinimumUTxO
     (
     -- * The 'AddressEra' type
       AddressEra (..)
-    , maxLengthAddressForEra
 
     -- * The 'AddressSpec' type
     , AddressSpec (..)
-    , maxLengthAddressForSpec
 
     -- * The 'MinimumUTxO' type
     , MinimumUTxO (..)
@@ -35,8 +33,6 @@ import Cardano.Ledger.Core
     ( PParams )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address )
-import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddress, maxLengthAddressByron, maxLengthAddressShelley )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin )
 import Control.DeepSeq
@@ -58,24 +54,6 @@ data AddressEra
     | AddressEraShelley
     -- ^ Represents the Shelley address era.
 
--- | Produces an 'Address' value of maximal length for the given 'AddressEra'.
---
--- This function returns a valid 'Address' with a length that is greater than
--- or equal to any 'Address' that the wallet is capable of generating for the
--- given 'AddressEra'.
---
--- Please note that the returned address should:
---
---  - never be used for anything besides its length and validity properties.
---  - never be used as a payment target within a real transaction.
---
-maxLengthAddressForEra :: AddressEra -> Address
-maxLengthAddressForEra = \case
-    AddressEraByron ->
-        maxLengthAddressByron
-    AddressEraShelley ->
-        maxLengthAddressShelley
-
 --------------------------------------------------------------------------------
 -- The 'AddressSpec' type
 --------------------------------------------------------------------------------
@@ -91,22 +69,6 @@ data AddressSpec
     -- ^ An exact specification based on a specific address.
     | AddressSpecForEra AddressEra
     -- ^ An era-based address specification.
-
--- | Produces an 'Address' value of maximal length for the given 'AddressSpec'.
---
--- Please note that the returned address should:
---
---  - never be used for anything besides its length and validity properties.
---  - never be used as a payment target within a real transaction.
---
-maxLengthAddressForSpec :: AddressSpec -> Address
-maxLengthAddressForSpec = \case
-    AddressSpecDefault ->
-        maxLengthAddress
-    AddressSpecExact address ->
-        address
-    AddressSpecForEra addressEra ->
-        maxLengthAddressForEra addressEra
 
 --------------------------------------------------------------------------------
 -- The 'MinimumUTxO' type
