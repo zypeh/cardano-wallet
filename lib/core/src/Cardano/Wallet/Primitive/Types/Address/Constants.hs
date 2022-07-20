@@ -32,6 +32,11 @@ import qualified Data.List as L
 
 -- | The longest 'Address' that the wallet can generate.
 --
+-- Please note that this address should:
+--
+--  - never be used for anything besides its length and validity properties.
+--  - never be used as a payment target within a real transaction.
+--
 maxLengthAddress :: Address
 maxLengthAddress = L.maximumBy (compare `on` (BS.length . unAddress))
     [ maxLengthAddressByron
@@ -39,6 +44,11 @@ maxLengthAddress = L.maximumBy (compare `on` (BS.length . unAddress))
     ]
 
 -- | The longest Byron-style 'Address' that the wallet can generate.
+--
+-- Please note that this address should:
+--
+--  - never be used for anything besides its length and validity properties.
+--  - never be used as a payment target within a real transaction.
 --
 maxLengthAddressByron :: Address
 maxLengthAddressByron = Address
@@ -60,6 +70,11 @@ maxLengthAddressByron = Address
 -- | The longest Shelley-style 'Address' that the wallet can generate.
 --
 -- See: https://cips.cardano.org/cips/cip19/#binaryformat
+--
+-- Please note that this address should:
+--
+--  - never be used for anything besides its length and validity properties.
+--  - never be used as a payment target within a real transaction.
 --
 maxLengthAddressShelley :: Address
 maxLengthAddressShelley = Address $ BS.replicate 57 0
