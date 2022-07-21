@@ -413,7 +413,7 @@ import Cardano.Wallet.Primitive.Types.Coin
 import Cardano.Wallet.Primitive.Types.Hash
     ( Hash (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( AddressSpec (AddressSpecDefault) )
+    ( AddressSpec (AddressSpecDefault, AddressSpecForAddress) )
 import Cardano.Wallet.Primitive.Types.Redeemer
     ( Redeemer (..) )
 import Cardano.Wallet.Primitive.Types.RewardAccount
@@ -1956,8 +1956,8 @@ balanceTransactionWithSelectionStrategy
                 , certificateDepositAmount =
                     view #stakeKeyDeposit pp
                 , computeMinimumAdaQuantity =
-                    view #txOutputMinimumAdaQuantity (constraints tl era pp)
-                        AddressSpecDefault
+                    view #txOutputMinimumAdaQuantity (constraints tl era pp) .
+                        AddressSpecForAddress
                 , computeMinimumCost = \skeleton -> mconcat
                     [ feePadding
                     , fromCardanoLovelace fee0
@@ -2225,8 +2225,8 @@ selectAssets ctx era pp params transform = do
             , certificateDepositAmount =
                 view #stakeKeyDeposit pp
             , computeMinimumAdaQuantity =
-                view #txOutputMinimumAdaQuantity (constraints tl era pp)
-                    AddressSpecDefault
+                view #txOutputMinimumAdaQuantity (constraints tl era pp) .
+                    AddressSpecForAddress
             , computeMinimumCost =
                 calcMinimumCost tl era pp $ params ^. #txContext
             , computeSelectionLimit =

@@ -219,7 +219,7 @@ data SelectionConstraints ctx = SelectionConstraints
         -- the 'TokenBundleSizeAssessor' type to learn about the expected
         -- properties of this field.
     , computeMinimumAdaQuantity
-        :: TokenMap -> Coin
+        :: Address ctx -> TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.
     , computeMinimumCost
         :: SelectionSkeleton ctx -> Coin
@@ -869,7 +869,9 @@ performSelectionEmpty performSelectionFn constraints params =
     minCoin :: Coin
     minCoin = max
         (Coin 1)
-        (view #computeMinimumAdaQuantity constraints TokenMap.empty)
+        (view #computeMinimumAdaQuantity constraints
+            (dummyAddress constraints) TokenMap.empty
+        )
 
 performSelectionNonEmpty
     :: forall m ctx. (HasCallStack, MonadRandom m, SelectionContext ctx)
@@ -912,6 +914,7 @@ performSelectionNonEmpty constraints params
         , computeMinimumAdaQuantity
         , computeMinimumCost
         , computeSelectionLimit
+        , dummyAddress
         , maximumOutputAdaQuantity
         , maximumOutputTokenQuantity
         } = constraints
@@ -953,17 +956,17 @@ performSelectionNonEmpty constraints params
         mkInsufficientMinCoinValueError
             :: (Address ctx, TokenBundle)
             -> Maybe (InsufficientMinCoinValueError ctx)
-        mkInsufficientMinCoinValueError o
-            | view #coin (snd o) >= expectedMinCoinValue =
+        mkInsufficientMinCoinValueError (addr, bundle)
+            | view #coin bundle >= expectedMinCoinValue =
                 Nothing
             | otherwise =
                 Just $ InsufficientMinCoinValueError
                     { expectedMinCoinValue
-                    , outputWithInsufficientAda = o
+                    , outputWithInsufficientAda = (addr, bundle)
                     }
           where
-            expectedMinCoinValue = computeMinimumAdaQuantity
-                (view #tokens $ snd o)
+            expectedMinCoinValue = computeMinimumAdaQuantity addr
+                (view #tokens bundle)
 
     -- Given a UTxO index that corresponds to a valid selection covering
     -- 'outputsToCover', 'predictChange' yields a non-empty list of assets
@@ -1081,7 +1084,7 @@ performSelectionNonEmpty constraints params
       where
         mChangeGenerated :: Either UnableToConstructChangeError [TokenBundle]
         mChangeGenerated = makeChange MakeChangeCriteria
-            { minCoinFor = computeMinimumAdaQuantity
+            { minCoinFor = computeMinimumAdaQuantity dummyAddress
             , bundleSizeAssessor = TokenBundleSizeAssessor assessTokenBundleSize
             , requiredCost
             , extraCoinSource

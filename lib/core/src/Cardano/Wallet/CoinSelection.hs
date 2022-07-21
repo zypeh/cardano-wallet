@@ -222,7 +222,7 @@ data SelectionConstraints = SelectionConstraints
         -- ^ Amount that should be taken from/returned back to the wallet for
         -- each stake key registration/de-registration in the transaction.
     , computeMinimumAdaQuantity
-        :: TokenMap -> Coin
+        :: Address -> TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.
     , computeMinimumCost
         :: SelectionSkeleton -> Coin
