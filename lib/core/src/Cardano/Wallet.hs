@@ -1955,6 +1955,8 @@ balanceTransactionWithSelectionStrategy
                     pp ^. (#txParameters . #getTokenBundleMaxSize)
                 , certificateDepositAmount =
                     view #stakeKeyDeposit pp
+                , changeAddressSpec =
+                    AddressSpecDefault
                 , computeMinimumAdaQuantity =
                     view #txOutputMinimumAdaQuantity (constraints tl era pp) .
                         AddressSpecForAddress
@@ -2224,6 +2226,8 @@ selectAssets ctx era pp params transform = do
                 pp ^. (#txParameters . #getTokenBundleMaxSize)
             , certificateDepositAmount =
                 view #stakeKeyDeposit pp
+            , changeAddressSpec =
+                AddressSpecDefault
             , computeMinimumAdaQuantity =
                 view #txOutputMinimumAdaQuantity (constraints tl era pp) .
                     AddressSpecForAddress
