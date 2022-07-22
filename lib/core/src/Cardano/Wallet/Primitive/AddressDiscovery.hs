@@ -50,7 +50,7 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..) )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
-import Cardano.Wallet.Primitive.Types.MinimumUTxO
+import Cardano.Wallet.Primitive.Types.AddressContext
     ( AddressEra )
 import Data.Kind
     ( Type )

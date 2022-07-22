@@ -21,12 +21,12 @@ import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
 import Cardano.Wallet.Primitive.Types.Address.Constants
     ( maxLengthAddress )
+import Cardano.Wallet.Primitive.Types.AddressContext
+    ( AddressEra (..), AddressContext (..) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( AddressEra (..)
-    , AddressSpec (..)
-    , MinimumUTxO
+    ( MinimumUTxO
     , MinimumUTxOForShelleyBasedEra (..)
     , minimumUTxOForShelleyBasedEra
     )
@@ -178,7 +178,7 @@ prop_computeMinimumCoinForUTxO_evaluation
     :: MinimumUTxO -> TokenMap -> Property
 prop_computeMinimumCoinForUTxO_evaluation minimumUTxO m = property $
     -- Use an arbitrary test to force evaluation of the result:
-    computeMinimumCoinForUTxO minimumUTxO AddressSpecDefault m >= Coin 0
+    computeMinimumCoinForUTxO minimumUTxO AddressContextDefault m >= Coin 0
 
 -- Check that 'computeMinimumCoinForUTxO' produces a result that is within
 -- bounds, as determined by the Cardano API function 'calculateMinimumUTxO'.
@@ -245,7 +245,7 @@ prop_computeMinimumCoinForUTxO_shelleyBasedEra_bounds
     --
     ourComputeMinCoin :: TokenMap -> Coin
     ourComputeMinCoin = computeMinimumCoinForUTxO
-        (minimumUTxOForShelleyBasedEra era pp) AddressSpecDefault
+        (minimumUTxOForShelleyBasedEra era pp) AddressContextDefault
 
 -- Compares the stability of:
 --
@@ -324,7 +324,7 @@ prop_computeMinimumCoinForUTxO_shelleyBasedEra_stability
     --
     ourComputeMinCoin :: TokenMap -> Coin
     ourComputeMinCoin = computeMinimumCoinForUTxO
-        (minimumUTxOForShelleyBasedEra era pp) AddressSpecDefault
+        (minimumUTxOForShelleyBasedEra era pp) AddressContextDefault
 
 --------------------------------------------------------------------------------
 -- Golden tests
@@ -347,9 +347,9 @@ goldenTests_computeMinimumCoinForUTxO
   where
     mkTest
         :: (AddressEra, TokenMap, Coin)
-        -> GoldenTestData (MinimumUTxO, AddressSpec, TokenMap) Coin
+        -> GoldenTestData (MinimumUTxO, AddressContext, TokenMap) Coin
     mkTest (addrEra, tokenMap, coinExpected) = GoldenTestData
-        { params = (minimumUTxO, AddressSpecForEra addrEra, tokenMap)
+        { params = (minimumUTxO, AddressContextForEra addrEra, tokenMap)
         , resultExpected = coinExpected
         }
     title = unwords

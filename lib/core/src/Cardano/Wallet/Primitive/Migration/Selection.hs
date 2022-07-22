@@ -56,10 +56,10 @@ module Cardano.Wallet.Primitive.Migration.Selection
 
 import Prelude
 
+import Cardano.Wallet.Primitive.Types.AddressContext
+    ( AddressContext (AddressContextDefault) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
-import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( AddressSpec (AddressSpecDefault) )
 import Cardano.Wallet.Primitive.Types.TokenBundle
     ( TokenBundle (..) )
 import Cardano.Wallet.Primitive.Types.TokenMap
@@ -276,7 +276,7 @@ assignMinimumAdaQuantity :: TxConstraints -> TokenMap -> TokenBundle
 assignMinimumAdaQuantity constraints m =
     TokenBundle c m
   where
-    c = txOutputMinimumAdaQuantity constraints AddressSpecDefault m
+    c = txOutputMinimumAdaQuantity constraints AddressContextDefault m
 
 --------------------------------------------------------------------------------
 -- Adding value to outputs
@@ -838,7 +838,7 @@ checkOutputMinimumAdaQuantities constraints selection =
                 }
       where
         expectedMinimumAdaQuantity = txOutputMinimumAdaQuantity constraints
-            AddressSpecDefault (view #tokens outputBundle)
+            AddressContextDefault (view #tokens outputBundle)
 
 --------------------------------------------------------------------------------
 -- Selection correctness: output sizes

@@ -408,12 +408,12 @@ import Cardano.Wallet.Primitive.Types
     )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
+import Cardano.Wallet.Primitive.Types.AddressContext
+    ( AddressContext (AddressContextDefault, AddressContextForAddress) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
     ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( AddressSpec (AddressSpecDefault, AddressSpecForAddress) )
 import Cardano.Wallet.Primitive.Types.Redeemer
     ( Redeemer (..) )
 import Cardano.Wallet.Primitive.Types.RewardAccount
@@ -940,7 +940,7 @@ getWalletUtxoSnapshot ctx wid = do
         computeMinAdaQuantity :: TokenMap -> Coin
         computeMinAdaQuantity =
             view #txOutputMinimumAdaQuantity (constraints tl era pp)
-                AddressSpecDefault
+                AddressContextDefault
 
 -- | List the wallet's UTxO statistics.
 listUtxoStatistics
@@ -1955,11 +1955,11 @@ balanceTransactionWithSelectionStrategy
                     pp ^. (#txParameters . #getTokenBundleMaxSize)
                 , certificateDepositAmount =
                     view #stakeKeyDeposit pp
-                , changeAddressSpec =
-                    AddressSpecDefault
+                , changeAddressContext =
+                    AddressContextDefault
                 , computeMinimumAdaQuantity =
                     view #txOutputMinimumAdaQuantity (constraints tl era pp) .
-                        AddressSpecForAddress
+                        AddressContextForAddress
                 , computeMinimumCost = \skeleton -> mconcat
                     [ feePadding
                     , fromCardanoLovelace fee0
@@ -2161,7 +2161,7 @@ calcMinimumCoinValues ctx era outs = do
     pp <- currentProtocolParameters nl
     pure
         $ view #txOutputMinimumAdaQuantity (constraints tl era pp)
-            AddressSpecDefault
+            AddressContextDefault
         . view (#tokens . #tokens) <$> outs
   where
     nl = ctx ^. networkLayer
@@ -2226,11 +2226,11 @@ selectAssets ctx era pp params transform = do
                 pp ^. (#txParameters . #getTokenBundleMaxSize)
             , certificateDepositAmount =
                 view #stakeKeyDeposit pp
-            , changeAddressSpec =
-                AddressSpecDefault
+            , changeAddressContext =
+                AddressContextDefault
             , computeMinimumAdaQuantity =
                 view #txOutputMinimumAdaQuantity (constraints tl era pp) .
-                    AddressSpecForAddress
+                    AddressContextForAddress
             , computeMinimumCost =
                 calcMinimumCost tl era pp $ params ^. #txContext
             , computeSelectionLimit =

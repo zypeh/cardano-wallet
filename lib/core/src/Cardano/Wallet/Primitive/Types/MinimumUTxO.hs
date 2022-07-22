@@ -10,14 +10,8 @@
 --
 module Cardano.Wallet.Primitive.Types.MinimumUTxO
     (
-    -- * The 'AddressEra' type
-      AddressEra (..)
-
-    -- * The 'AddressSpec' type
-    , AddressSpec (..)
-
     -- * The 'MinimumUTxO' type
-    , MinimumUTxO (..)
+      MinimumUTxO (..)
     , MinimumUTxOForShelleyBasedEra (..)
     , minimumUTxONone
     , minimumUTxOConstant
@@ -31,8 +25,6 @@ import Cardano.Api.Shelley
     ( ShelleyBasedEra, ShelleyLedgerEra, fromLedgerPParams )
 import Cardano.Ledger.Core
     ( PParams )
-import Cardano.Wallet.Primitive.Types.Address
-    ( Address )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin )
 import Control.DeepSeq
@@ -41,46 +33,6 @@ import Data.Function
     ( on )
 import Fmt
     ( Buildable (..), blockListF )
-
---------------------------------------------------------------------------------
--- The 'AddressEra' type
---------------------------------------------------------------------------------
-
--- | Represents an era for 'Address' values.
---
-data AddressEra
-    = AddressEraByron
-    -- ^ Represents the Byron address era.
-    | AddressEraShelley
-    -- ^ Represents the Shelley address era.
-
---------------------------------------------------------------------------------
--- The 'AddressSpec' type
---------------------------------------------------------------------------------
-
--- | An address specification that can be used to calculate minimum UTxO values.
---
--- To construct an 'AddressSpec', please choose the constructor that is most
--- appropriate for your use case:
---
---  - Use 'AddressSpecForAddress':
---    in situations where an exact address is available.
---
---  - Use 'AddressSpecForEra':
---    in situations where an exact address is not available, but where an
---    address era is available.
---
---  - Use 'AddressSpecDefault':
---    in situations where neither an exact address nor an address era are
---    available.
---
-data AddressSpec
-    = AddressSpecDefault
-    -- ^ A default specification.
-    | AddressSpecForAddress Address
-    -- ^ A specification based on an exact address.
-    | AddressSpecForEra AddressEra
-    -- ^ A specification based on an address era.
 
 --------------------------------------------------------------------------------
 -- The 'MinimumUTxO' type

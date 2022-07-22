@@ -26,12 +26,12 @@ import Cardano.Wallet.Primitive.Migration.Selection
     , minimizeFee
     , minimizeFeeStep
     )
+import Cardano.Wallet.Primitive.Types.AddressContext
+    ( AddressContext (AddressContextDefault) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
     ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( AddressSpec (AddressSpecDefault) )
 import Cardano.Wallet.Primitive.Types.TokenBundle
     ( Flat (..), TokenBundle (..) )
 import Cardano.Wallet.Primitive.Types.TokenMap
@@ -855,7 +855,7 @@ data MockTxOutputMinimumAdaQuantity = MockTxOutputMinimumAdaQuantity
 
 unMockTxOutputMinimumAdaQuantity
     :: MockTxOutputMinimumAdaQuantity
-    -> (AddressSpec -> TokenMap -> Coin)
+    -> (AddressContext -> TokenMap -> Coin)
 unMockTxOutputMinimumAdaQuantity mock _addrSpec m =
     let assetCount = TokenMap.size m in
     perOutput mock
@@ -963,7 +963,7 @@ genTokenBundleMixed mockConstraints =
 genTokenBundleWithMinimumAdaQuantity :: MockTxConstraints -> Gen TokenBundle
 genTokenBundleWithMinimumAdaQuantity mockConstraints = do
     m <- genTokenMap mockConstraints
-    let minAda = txOutputMinimumAdaQuantity constraints AddressSpecDefault m
+    let minAda = txOutputMinimumAdaQuantity constraints AddressContextDefault m
     pure $ TokenBundle minAda m
   where
     constraints = unMockTxConstraints mockConstraints
@@ -971,7 +971,7 @@ genTokenBundleWithMinimumAdaQuantity mockConstraints = do
 genTokenBundleAboveMinimumAdaQuantity :: MockTxConstraints -> Gen TokenBundle
 genTokenBundleAboveMinimumAdaQuantity mockConstraints = do
     m <- genTokenMap mockConstraints
-    let minAda = txOutputMinimumAdaQuantity constraints AddressSpecDefault m
+    let minAda = txOutputMinimumAdaQuantity constraints AddressContextDefault m
     c <- genCoinRange (minAda <> Coin 1) (minAda `scaleCoin` 1000)
     pure $ TokenBundle c m
   where
