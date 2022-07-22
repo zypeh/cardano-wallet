@@ -765,7 +765,7 @@ discoverSeqWithRewards query s@SeqState{internalPool,externalPool,rewardAccountK
     -- Every 'Address' is composed of a payment part and a staking part.
     -- Ideally, we would want 'query' to give us all transactions
     -- belonging to a given payment part, regardless of the staking parts
-    -- that are paired with that payment part. 
+    -- that are paired with that payment part.
     -- Unfortunately, this is not possible at the moment.
     -- However, fortunately, the staking part is always the same,
     -- so we supply it here in order to obtain an 'Address' that we can query.
