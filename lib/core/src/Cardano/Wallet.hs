@@ -545,7 +545,7 @@ import Data.Map.Strict
 import Data.Maybe
     ( fromMaybe, isJust, mapMaybe )
 import Data.Proxy
-    ( Proxy )
+    ( Proxy (..) )
 import Data.Quantity
     ( Quantity (..) )
 import Data.Set
@@ -1955,8 +1955,8 @@ balanceTransactionWithSelectionStrategy
                     pp ^. (#txParameters . #getTokenBundleMaxSize)
                 , certificateDepositAmount =
                     view #stakeKeyDeposit pp
-                , changeAddressContext =
-                    AddressContextDefault
+                , changeAddressEra =
+                    genChangeAddressEra (Proxy @s)
                 , computeMinimumAdaQuantity =
                     view #txOutputMinimumAdaQuantity (constraints tl era pp) .
                         AddressContextForAddress
@@ -2203,7 +2203,8 @@ data SelectAssetsParams s result = SelectAssetsParams
 --
 selectAssets
     :: forall ctx m s k result.
-        ( HasTransactionLayer k ctx
+        ( GenChange s
+        , HasTransactionLayer k ctx
         , HasLogger m WalletWorkerLog ctx
         , MonadRandom m
         )
@@ -2226,8 +2227,8 @@ selectAssets ctx era pp params transform = do
                 pp ^. (#txParameters . #getTokenBundleMaxSize)
             , certificateDepositAmount =
                 view #stakeKeyDeposit pp
-            , changeAddressContext =
-                AddressContextDefault
+            , changeAddressEra =
+                genChangeAddressEra (Proxy @s)
             , computeMinimumAdaQuantity =
                 view #txOutputMinimumAdaQuantity (constraints tl era pp) .
                     AddressContextForAddress

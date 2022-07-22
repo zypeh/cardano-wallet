@@ -56,6 +56,8 @@ import Data.Kind
     ( Type )
 import Data.List.NonEmpty
     ( NonEmpty )
+import Data.Proxy
+    ( Proxy )
 
 -- | Checks whether or not a given entity belongs to us.
 --
@@ -115,7 +117,7 @@ class GenChange s where
         -- ^ Generate a new change address for the given scheme. The rules for
         -- generating a new change address depends on the underlying scheme.
     genChangeAddressEra
-        :: ArgGenChange s
+        :: Proxy s
         -> AddressEra
 
 -- | Ordering addresses by discovery date.

@@ -97,7 +97,7 @@ import Cardano.Wallet.Primitive.Collateral
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
 import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressContext )
+    ( AddressEra )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.TokenBundle
@@ -223,8 +223,8 @@ data SelectionConstraints = SelectionConstraints
         :: Coin
         -- ^ Amount that should be taken from/returned back to the wallet for
         -- each stake key registration/de-registration in the transaction.
-    , changeAddressContext
-        :: AddressContext
+    , changeAddressEra
+        :: AddressEra
     , computeMinimumAdaQuantity
         :: Address -> TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.

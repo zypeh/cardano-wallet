@@ -262,7 +262,7 @@ server byron icarus shelley multisig spl ntp =
         :<|> (fmap fst <$> listWallets shelley mkShelleyWallet)
         :<|> postWallet shelley Shelley.generateKeyFromSeed ShelleyKey
         :<|> putWallet shelley mkShelleyWallet
-        :<|> putWalletPassphrase 
+        :<|> putWalletPassphrase
                 shelley Shelley.generateKeyFromSeed Shelley.getKey
         :<|> getWalletUtxoSnapshot shelley
         :<|> getUTxOsStatistics shelley
