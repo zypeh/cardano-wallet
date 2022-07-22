@@ -1860,9 +1860,9 @@ mkBoundaryTestExpectation (BoundaryTestData params expectedResult) = do
         , assessTokenBundleSize = unMockAssessTokenBundleSize $
             boundaryTestBundleSizeAssessor params
         , computeSelectionLimit = const NoLimit
-        , dummyAddress = TestAddress 0x0
         , maximumOutputAdaQuantity = testMaximumOutputAdaQuantity
         , maximumOutputTokenQuantity = testMaximumOutputTokenQuantity
+        , placeholderAddress = TestAddress 0x0
         }
 
 encodeBoundaryTestCriteria
@@ -1871,7 +1871,7 @@ encodeBoundaryTestCriteria
 encodeBoundaryTestCriteria c = SelectionParams
     { outputsToCover =
         zip
-            dummyAddresses
+            placeholderAddresses
             (uncurry TokenBundle.fromFlatList <$> boundaryTestOutputs c)
     , utxoAvailable =
         UTxOSelection.fromIndex
@@ -1893,8 +1893,8 @@ encodeBoundaryTestCriteria c = SelectionParams
     dummyTestUTxOs :: [TestUTxO]
     dummyTestUTxOs = TestUTxO . fromIntegral @Natural <$> [0 ..]
 
-    dummyAddresses :: [TestAddress]
-    dummyAddresses = TestAddress . fromIntegral @Natural <$> [0 ..]
+    placeholderAddresses :: [TestAddress]
+    placeholderAddresses = TestAddress . fromIntegral @Natural <$> [0 ..]
 
 decodeBoundaryTestResult
     :: SelectionResult TestSelectionContext -> BoundaryTestResult
@@ -2491,12 +2491,12 @@ unMockSelectionConstraints m = SelectionConstraints
         unMockComputeMinimumCost $ view #computeMinimumCost m
     , computeSelectionLimit =
         unMockComputeSelectionLimit $ view #computeSelectionLimit m
-    , dummyAddress =
-        TestAddress 0x0
     , maximumOutputAdaQuantity =
         testMaximumOutputAdaQuantity
     , maximumOutputTokenQuantity =
         testMaximumOutputTokenQuantity
+    , placeholderAddress =
+        TestAddress 0x0
     }
 
 -- | Specifies the largest ada quantity that can appear in the token bundle

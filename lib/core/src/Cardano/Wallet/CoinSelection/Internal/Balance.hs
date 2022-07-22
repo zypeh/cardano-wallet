@@ -228,8 +228,6 @@ data SelectionConstraints ctx = SelectionConstraints
         :: [(Address ctx, TokenBundle)] -> SelectionLimit
         -- ^ Computes an upper bound for the number of ordinary inputs to
         -- select, given a current set of outputs.
-    , dummyAddress
-        :: Address ctx
     , maximumOutputAdaQuantity
         :: Coin
         -- ^ Specifies the largest ada quantity that can appear in the token
@@ -238,6 +236,8 @@ data SelectionConstraints ctx = SelectionConstraints
         :: TokenQuantity
         -- ^ Specifies the largest non-ada quantity that can appear in the
         -- token bundle of an output.
+    , placeholderAddress
+        :: Address ctx
     }
     deriving Generic
 
@@ -852,7 +852,7 @@ performSelectionEmpty performSelectionFn constraints params =
     transform x y = maybe x y $ NE.nonEmpty $ view #outputsToCover params
 
     dummyOutput :: (Address ctx, TokenBundle)
-    dummyOutput = (dummyAddress constraints, TokenBundle.fromCoin minCoin)
+    dummyOutput = (placeholderAddress constraints, TokenBundle.fromCoin minCoin)
 
     -- The 'performSelectionNonEmpty' function imposes a precondition that all
     -- outputs must have at least the minimum ada quantity. Therefore, the
@@ -870,7 +870,7 @@ performSelectionEmpty performSelectionFn constraints params =
     minCoin = max
         (Coin 1)
         (view #computeMinimumAdaQuantity constraints
-            (dummyAddress constraints) TokenMap.empty
+            (placeholderAddress constraints) TokenMap.empty
         )
 
 performSelectionNonEmpty
@@ -914,9 +914,9 @@ performSelectionNonEmpty constraints params
         , computeMinimumAdaQuantity
         , computeMinimumCost
         , computeSelectionLimit
-        , dummyAddress
         , maximumOutputAdaQuantity
         , maximumOutputTokenQuantity
+        , placeholderAddress
         } = constraints
     SelectionParams
         { outputsToCover
@@ -1084,7 +1084,7 @@ performSelectionNonEmpty constraints params
       where
         mChangeGenerated :: Either UnableToConstructChangeError [TokenBundle]
         mChangeGenerated = makeChange MakeChangeCriteria
-            { minCoinFor = computeMinimumAdaQuantity dummyAddress
+            { minCoinFor = computeMinimumAdaQuantity placeholderAddress
             , bundleSizeAssessor = TokenBundleSizeAssessor assessTokenBundleSize
             , requiredCost
             , extraCoinSource
