@@ -50,6 +50,8 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..) )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
+import Cardano.Wallet.Primitive.Types.MinimumUTxO
+    ( AddressEra )
 import Data.Kind
     ( Type )
 import Data.List.NonEmpty
@@ -112,6 +114,9 @@ class GenChange s where
         -> (Address, s)
         -- ^ Generate a new change address for the given scheme. The rules for
         -- generating a new change address depends on the underlying scheme.
+    genChangeAddressEra
+        :: ArgGenChange s
+        -> AddressEra
 
 -- | Ordering addresses by discovery date.
 --

@@ -121,6 +121,8 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
+import Cardano.Wallet.Primitive.Types.MinimumUTxO
+    ( AddressEra (AddressEraShelley) )
 import Cardano.Wallet.Primitive.Types.RewardAccount
     ( RewardAccount )
 import Cardano.Wallet.Util
@@ -644,6 +646,7 @@ instance
         (ix, pending') = nextChangeIndex (internalPool st) (pendingChangeIxs st)
         addressXPub = deriveAddressPublicKey (accountXPub st) UtxoInternal ix
         addr = mkAddress addressXPub (rewardAccountKey st)
+    genChangeAddressEra _ = AddressEraShelley
 
 instance
     ( IsOurs (SeqState n k) Address
@@ -863,6 +866,7 @@ instance
 instance SoftDerivation k => GenChange (SeqAnyState n k p) where
     type ArgGenChange (SeqAnyState n k p) = ArgGenChange (SeqState n k)
     genChange a (SeqAnyState s) = SeqAnyState <$> genChange a s
+    genChangeAddressEra _ = AddressEraShelley
 
 instance SupportsDiscovery n k => CompareDiscovery (SeqAnyState n k p) where
     compareDiscovery (SeqAnyState s) = compareDiscovery s
