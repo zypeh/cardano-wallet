@@ -184,7 +184,7 @@ data SelectionConstraints ctx = SelectionConstraints
         :: TokenQuantity
         -- ^ Specifies the largest non-ada quantity that can appear in the
         -- token bundle of an output.
-    , placeholderAddress
+    , longestChangeAddress
         :: Address ctx
     }
     deriving Generic
@@ -390,7 +390,7 @@ selectionAllOutputs
     -> [(Address ctx, TokenBundle)]
 selectionAllOutputs constraints selection = (<>)
     (selection ^. #outputs)
-    (selection ^. #change <&> (placeholderAddress constraints, ))
+    (selection ^. #change <&> (longestChangeAddress constraints, ))
 
 -- | Creates constraints and parameters for 'Balance.performSelection'.
 --
@@ -416,8 +416,8 @@ toBalanceConstraintsParams (constraints, params) =
             view #maximumOutputAdaQuantity constraints
         , maximumOutputTokenQuantity =
             view #maximumOutputTokenQuantity constraints
-        , placeholderAddress =
-            view #placeholderAddress constraints
+        , longestChangeAddress =
+            view #longestChangeAddress constraints
         }
       where
         adjustComputeMinimumCost

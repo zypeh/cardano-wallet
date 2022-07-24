@@ -236,7 +236,7 @@ data SelectionConstraints ctx = SelectionConstraints
         :: TokenQuantity
         -- ^ Specifies the largest non-ada quantity that can appear in the
         -- token bundle of an output.
-    , placeholderAddress
+    , longestChangeAddress
         :: Address ctx
     }
     deriving Generic
@@ -851,8 +851,12 @@ performSelectionEmpty performSelectionFn constraints params =
     transform :: a -> (NonEmpty (Address ctx, TokenBundle) -> a) -> a
     transform x y = maybe x y $ NE.nonEmpty $ view #outputsToCover params
 
+
+    -- FIXME: How does the choice of address matter here?
+    dummyAddress = longestChangeAddress constraints
+
     dummyOutput :: (Address ctx, TokenBundle)
-    dummyOutput = (placeholderAddress constraints, TokenBundle.fromCoin minCoin)
+    dummyOutput = (dummyAddress, TokenBundle.fromCoin minCoin)
 
     -- The 'performSelectionNonEmpty' function imposes a precondition that all
     -- outputs must have at least the minimum ada quantity. Therefore, the
@@ -869,8 +873,7 @@ performSelectionEmpty performSelectionFn constraints params =
     minCoin :: Coin
     minCoin = max
         (Coin 1)
-        (view #computeMinimumAdaQuantity constraints
-            (placeholderAddress constraints) TokenMap.empty
+        (view #computeMinimumAdaQuantity constraints dummyAddress TokenMap.empty
         )
 
 performSelectionNonEmpty
@@ -916,7 +919,7 @@ performSelectionNonEmpty constraints params
         , computeSelectionLimit
         , maximumOutputAdaQuantity
         , maximumOutputTokenQuantity
-        , placeholderAddress
+        , longestChangeAddress
         } = constraints
     SelectionParams
         { outputsToCover
@@ -1084,7 +1087,7 @@ performSelectionNonEmpty constraints params
       where
         mChangeGenerated :: Either UnableToConstructChangeError [TokenBundle]
         mChangeGenerated = makeChange MakeChangeCriteria
-            { minCoinFor = computeMinimumAdaQuantity placeholderAddress
+            { minCoinFor = computeMinimumAdaQuantity longestChangeAddress
             , bundleSizeAssessor = TokenBundleSizeAssessor assessTokenBundleSize
             , requiredCost
             , extraCoinSource

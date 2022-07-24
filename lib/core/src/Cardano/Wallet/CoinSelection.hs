@@ -259,7 +259,7 @@ toInternalSelectionConstraints SelectionConstraints {..} =
             txOutMaxCoin
         , maximumOutputTokenQuantity =
             txOutMaxTokenQuantity
-        , placeholderAddress = maxLengthChangeAddress
+        , longestChangeAddress = maxLengthChangeAddress
         , ..
         }
 
