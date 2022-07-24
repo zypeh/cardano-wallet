@@ -70,6 +70,7 @@ module Cardano.Wallet.Primitive.AddressDerivation
     , MkKeyFingerprint(..)
     , ErrMkKeyFingerprint(..)
     , KeyFingerprint(..)
+    , KnownMaxLengthAddress(..)
     ) where
 
 import Prelude
@@ -575,6 +576,17 @@ class WalletKey (key :: Depth -> Type -> Type) where
     liftRawKey
         :: raw
         -> key depth raw
+
+-- | Needed for coin-selection's change generation.
+--
+-- NOTE: If we were able to ensure change addresses are taken from a known
+-- '[Address]', we could use the longest 'Address' in that list as
+-- overestimation, and remove the need for this type class. This seems to
+-- require rethinking the 'GenChange' abstraction.
+class KnownMaxLengthAddress key where
+    maxLengthAddress
+        :: Proxy key
+        -> Address
 
 -- | Encoding of addresses for certain key types and backend targets.
 class MkKeyFingerprint key Address

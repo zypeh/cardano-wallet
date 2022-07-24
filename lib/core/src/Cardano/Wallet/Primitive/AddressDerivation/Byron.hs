@@ -64,6 +64,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , ErrMkKeyFingerprint (..)
     , Index (..)
     , KeyFingerprint (..)
+    , KnownMaxLengthAddress (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -81,7 +82,7 @@ import Cardano.Wallet.Primitive.Passphrase
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
 import Cardano.Wallet.Primitive.Types.ProtocolMagic
-    ( testnetMagic )
+    ( ProtocolMagic (..), testnetMagic )
 import Cardano.Wallet.Util
     ( invariant )
 import Control.DeepSeq
@@ -107,11 +108,13 @@ import GHC.TypeLits
 
 
 import qualified Cardano.Byron.Codec.Cbor as CBOR
+import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Wallet.Primitive.AddressDerivation as W
 import qualified Codec.CBOR.Encoding as CBOR
 import qualified Codec.CBOR.Write as CBOR
 import qualified Crypto.KDF.PBKDF2 as PBKDF2
 import qualified Data.ByteArray as BA
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 
 {-------------------------------------------------------------------------------
@@ -184,6 +187,25 @@ instance MkKeyFingerprint ByronKey Address where
         case CBOR.deserialiseCbor CBOR.decodeAddressPayload bytes of
             Just _  -> Right $ KeyFingerprint bytes
             Nothing -> Left $ ErrInvalidAddress addr (Proxy @ByronKey)
+
+
+instance KnownMaxLengthAddress ByronKey where
+    -- Matching 'paymentAddress' above.
+    maxLengthAddress _ = Address
+        $ CBOR.toStrictByteString
+        $ CBOR.encodeAddress xpub
+            [ CBOR.encodeDerivationPathAttr passphrase maxBound maxBound
+            , CBOR.encodeProtocolMagicAttr (ProtocolMagic maxBound)
+            ]
+      where
+        -- Must apparently always be 32 bytes:
+        passphrase :: Passphrase "addr-derivation-payload"
+        passphrase = Passphrase $ BA.convert $ BS.replicate 32 0
+
+        xpub :: CC.XPub
+        xpub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
+          where
+            xprvPass = mempty :: BS.ByteString
 
 {-------------------------------------------------------------------------------
                                  Key generation

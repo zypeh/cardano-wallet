@@ -54,6 +54,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , HardDerivation (..)
     , Index (..)
     , KeyFingerprint (..)
+    , KnownMaxLengthAddress (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -73,6 +74,8 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..), PassphraseHash (..), changePassphraseXPrv )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Cardano.Wallet.Primitive.Types.ProtocolMagic
+    ( ProtocolMagic (..) )
 import Cardano.Wallet.Primitive.Types.ProtocolMagic
     ( testnetMagic )
 import Cardano.Wallet.Util
@@ -111,6 +114,7 @@ import GHC.TypeLits
     ( KnownNat )
 
 import qualified Cardano.Byron.Codec.Cbor as CBOR
+import qualified Cardano.Crypto.Wallet as CC
 import qualified Codec.CBOR.Write as CBOR
 import qualified Crypto.ECC.Edwards25519 as Ed25519
 import qualified Crypto.KDF.PBKDF2 as PBKDF2
@@ -403,6 +407,19 @@ instance IsOurs (SeqState n IcarusKey) RewardAccount where
 
 instance PaymentAddress n IcarusKey => MaybeLight (SeqState n IcarusKey) where
     maybeDiscover = Just $ DiscoverTxs discoverSeq
+
+instance KnownMaxLengthAddress IcarusKey where
+    -- Matching 'paymentAddress' above.
+    maxLengthAddress _ = Address
+        $ CBOR.toStrictByteString
+        $ CBOR.encodeAddress xpub
+            [ CBOR.encodeProtocolMagicAttr (ProtocolMagic maxBound)
+            ]
+      where
+        xpub :: CC.XPub
+        xpub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
+          where
+            xprvPass = mempty :: BS.ByteString
 
 {-------------------------------------------------------------------------------
                           Storing and retrieving keys

@@ -294,6 +294,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , DerivationType (..)
     , HardDerivation (..)
     , Index (..)
+    , KnownMaxLengthAddress (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -1557,6 +1558,7 @@ balanceTransaction
         , MonadRandom m
         , HasLogger m WalletWorkerLog ctx
         , Cardano.IsShelleyBasedEra era
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ArgGenChange s
@@ -1583,6 +1585,7 @@ balanceTransactionWithSelectionStrategy
         , MonadRandom m
         , HasLogger m WalletWorkerLog ctx
         , Cardano.IsShelleyBasedEra era
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ArgGenChange s
@@ -1955,8 +1958,8 @@ balanceTransactionWithSelectionStrategy
                     pp ^. (#txParameters . #getTokenBundleMaxSize)
                 , certificateDepositAmount =
                     view #stakeKeyDeposit pp
-                , changeAddressEra =
-                    genChangeAddressEra (Proxy @s)
+                , maxLengthChangeAddress =
+                    maxLengthAddress (Proxy @k)
                 , computeMinimumAdaQuantity =
                     view #txOutputMinimumAdaQuantity (constraints tl era pp) .
                         AddressContextForAddress
@@ -2203,7 +2206,7 @@ data SelectAssetsParams s result = SelectAssetsParams
 --
 selectAssets
     :: forall ctx m s k result.
-        ( GenChange s
+        ( KnownMaxLengthAddress k
         , HasTransactionLayer k ctx
         , HasLogger m WalletWorkerLog ctx
         , MonadRandom m
@@ -2227,8 +2230,8 @@ selectAssets ctx era pp params transform = do
                 pp ^. (#txParameters . #getTokenBundleMaxSize)
             , certificateDepositAmount =
                 view #stakeKeyDeposit pp
-            , changeAddressEra =
-                genChangeAddressEra (Proxy @s)
+            , maxLengthChangeAddress =
+                maxLengthAddress (Proxy @k)
             , computeMinimumAdaQuantity =
                 view #txOutputMinimumAdaQuantity (constraints tl era pp) .
                     AddressContextForAddress

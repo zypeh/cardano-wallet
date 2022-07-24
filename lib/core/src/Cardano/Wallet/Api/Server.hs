@@ -364,6 +364,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , DerivationType (..)
     , HardDerivation (..)
     , Index (..)
+    , KnownMaxLengthAddress
     , MkKeyFingerprint
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -1670,6 +1671,7 @@ selectCoins
         , Typeable n
         , Typeable s
         , WalletKey k
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ArgGenChange s
@@ -1721,6 +1723,8 @@ selectCoinsForJoin
         , SoftDerivation k
         , Typeable n
         , Typeable s
+        , WalletKey k
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> IO (Set PoolId)
@@ -1781,6 +1785,7 @@ selectCoinsForQuit
         , Typeable n
         , Typeable s
         , WalletKey k
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ApiT WalletId
@@ -2041,6 +2046,7 @@ postTransactionOld
         , Typeable s
         , WalletKey k
         , AddressBookIso s
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ArgGenChange s
@@ -2228,6 +2234,7 @@ postTransactionFeeOld
         , Typeable n
         , Typeable s
         , WalletKey k
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ApiT WalletId
@@ -2279,6 +2286,7 @@ constructTransaction
         , Typeable n
         , Typeable s
         , WalletKey k
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ArgGenChange s
@@ -2600,6 +2608,7 @@ balanceTransaction
         ( ctx ~ ApiLayer s k
         , HasNetworkLayer IO ctx
         , GenChange s
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ArgGenChange s
@@ -2973,6 +2982,7 @@ joinStakePool
         , Typeable s
         , WalletKey k
         , AddressBookIso s
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> IO (Set PoolId)
@@ -3066,6 +3076,8 @@ delegationFee
     :: forall ctx s n k.
         ( s ~ SeqState n k
         , ctx ~ ApiLayer s k
+        , WalletKey k
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ApiT WalletId
@@ -3112,6 +3124,7 @@ quitStakePool
         , Typeable s
         , WalletKey k
         , AddressBookIso s
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ApiT WalletId

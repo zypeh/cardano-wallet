@@ -62,6 +62,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , HardDerivation (..)
     , Index (..)
     , KeyFingerprint (..)
+    , KnownMaxLengthAddress (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -91,6 +92,8 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..), PassphraseHash (..), changePassphraseXPrv )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Address.Constants
+    ( maxLengthAddressShelley )
 import Cardano.Wallet.Util
     ( invariant )
 import Control.DeepSeq
@@ -267,6 +270,7 @@ instance WalletKey ShelleyKey where
     keyTypeDescriptor _ =
         "she"
 
+
 {-------------------------------------------------------------------------------
                          Relationship Key / Address
 -------------------------------------------------------------------------------}
@@ -290,6 +294,9 @@ instance PaymentAddress 'Mainnet ShelleyKey where
       where
         enterprise = 96
         networkId = 1
+
+instance KnownMaxLengthAddress ShelleyKey where
+    maxLengthAddress _ = maxLengthAddressShelley
 
 instance PaymentAddress ('Testnet pm) ShelleyKey where
     paymentAddress paymentK =

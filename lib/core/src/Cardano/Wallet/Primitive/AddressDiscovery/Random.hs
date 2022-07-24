@@ -280,7 +280,6 @@ instance PaymentAddress n ByronKey => GenChange (RndState n) where
             { pendingAddresses = Map.insert path address (pendingAddresses st)
             , gen = gen'
             }
-    genChangeAddressEra _ = AddressEraByron
 
 -- | Randomly generates an address derivation path for a given account. If the
 -- path is already in the "blacklist", it will try generating another.
@@ -449,7 +448,6 @@ instance KnownNat p => IsOwned (RndAnyState n p) ByronKey where
 instance PaymentAddress n ByronKey => GenChange (RndAnyState n p) where
     type ArgGenChange (RndAnyState n p) = ArgGenChange (RndState n)
     genChange a (RndAnyState s) = RndAnyState <$> genChange a s
-    genChangeAddressEra _ = AddressEraByron
 
 instance CompareDiscovery (RndAnyState n p) where
     compareDiscovery (RndAnyState s) = compareDiscovery s

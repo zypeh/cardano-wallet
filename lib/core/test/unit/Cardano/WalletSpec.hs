@@ -1488,7 +1488,6 @@ instance IsOwned DummyState ShelleyKey where
 instance GenChange DummyState where
     type ArgGenChange DummyState = ()
     genChange _ s = (Address "dummy", s)
-    genChangeAddressEra = error "dummy change address era"
 
 instance CompareDiscovery DummyState where
     compareDiscovery _ _ _ = EQ

@@ -223,8 +223,8 @@ data SelectionConstraints = SelectionConstraints
         :: Coin
         -- ^ Amount that should be taken from/returned back to the wallet for
         -- each stake key registration/de-registration in the transaction.
-    , changeAddressEra
-        :: AddressEra
+    , maxLengthChangeAddress
+        :: Address
     , computeMinimumAdaQuantity
         :: Address -> TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.
@@ -259,8 +259,7 @@ toInternalSelectionConstraints SelectionConstraints {..} =
             txOutMaxCoin
         , maximumOutputTokenQuantity =
             txOutMaxTokenQuantity
-        , placeholderAddress =
-            Address ""
+        , placeholderAddress = maxLengthChangeAddress
         , ..
         }
 
