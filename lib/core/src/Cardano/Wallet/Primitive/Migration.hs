@@ -24,6 +24,8 @@ import Prelude
 
 import Cardano.Wallet.Primitive.Migration.Selection
     ( RewardWithdrawal (..), Selection (..) )
+import Cardano.Wallet.Primitive.Types.Address
+    ( Address )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin )
 import Cardano.Wallet.Primitive.Types.Tx

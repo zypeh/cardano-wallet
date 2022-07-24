@@ -328,8 +328,6 @@ import Cardano.Wallet.Primitive.Types
     )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
-import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressContext (AddressContextDefault) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
@@ -1132,7 +1130,7 @@ toApiNetworkParameters (NetworkParameters gp sp pp) txConstraints toEpochInfo = 
         , desiredPoolNumber = view #desiredNumberOfStakePools pp
         , minimumUtxoValue = toApiCoin $
             txOutputMinimumAdaQuantity txConstraints
-                AddressContextDefault TokenMap.empty
+                (error "todo: maxlengthAddress?") TokenMap.empty
         , eras = apiEras
         , maximumCollateralInputCount =
             view #maximumCollateralInputCount pp

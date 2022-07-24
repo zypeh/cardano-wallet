@@ -409,8 +409,6 @@ import Cardano.Wallet.Primitive.Types
     )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
-import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressContext (AddressContextDefault, AddressContextForAddress) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
@@ -473,7 +471,7 @@ import Cardano.Wallet.Transaction
 import Control.Applicative
     ( (<|>) )
 import Control.Arrow
-    ( left )
+    ( first, left )
 import Control.DeepSeq
     ( NFData )
 import Control.Monad
@@ -921,27 +919,28 @@ getWalletUtxoSnapshot ctx wid = do
     (wallet, _, pending) <- withExceptT id (readWallet @ctx @s @k ctx wid)
     pp <- liftIO $ currentProtocolParameters nl
     era <- liftIO $ currentNodeEra nl
-    let bundles = availableUTxO @s pending wallet
+    let outs = availableUTxO @s pending wallet
             & unUTxO
             & F.toList
-            & fmap (view #tokens)
-    pure $ pairBundleWithMinAdaQuantity era pp <$> bundles
+    pure $ first (view #tokens) . pairOutWithMinAdaQuantity era pp <$> outs
   where
     nl = ctx ^. networkLayer
     tl = ctx ^. transactionLayer @k
 
-    pairBundleWithMinAdaQuantity
+    pairOutWithMinAdaQuantity
         :: Cardano.AnyCardanoEra
         -> ProtocolParameters
-        -> TokenBundle
-        -> (TokenBundle, Coin)
-    pairBundleWithMinAdaQuantity era pp bundle =
-        (bundle, computeMinAdaQuantity $ view #tokens bundle)
+        -> TxOut
+        -> (TxOut, Coin)
+    pairOutWithMinAdaQuantity era pp out =
+        (out, computeMinAdaQuantity out)
       where
-        computeMinAdaQuantity :: TokenMap -> Coin
-        computeMinAdaQuantity =
-            view #txOutputMinimumAdaQuantity (constraints tl era pp)
-                AddressContextDefault
+        computeMinAdaQuantity :: TxOut -> Coin
+        computeMinAdaQuantity (TxOut addr bundle) =
+            view #txOutputMinimumAdaQuantity
+                (constraints tl era pp)
+                addr
+                (view #tokens bundle)
 
 -- | List the wallet's UTxO statistics.
 listUtxoStatistics
@@ -1959,10 +1958,9 @@ balanceTransactionWithSelectionStrategy
                 , certificateDepositAmount =
                     view #stakeKeyDeposit pp
                 , maxLengthChangeAddress =
-                    maxLengthAddress (Proxy @k)
+                    maxLengthAddress $ Proxy @k
                 , computeMinimumAdaQuantity =
-                    view #txOutputMinimumAdaQuantity (constraints tl era pp) .
-                        AddressContextForAddress
+                    view #txOutputMinimumAdaQuantity (constraints tl era pp)
                 , computeMinimumCost = \skeleton -> mconcat
                     [ feePadding
                     , fromCardanoLovelace fee0
@@ -2163,9 +2161,8 @@ calcMinimumCoinValues
 calcMinimumCoinValues ctx era outs = do
     pp <- currentProtocolParameters nl
     pure
-        $ view #txOutputMinimumAdaQuantity (constraints tl era pp)
-            AddressContextDefault
-        . view (#tokens . #tokens) <$> outs
+        $ uncurry (view #txOutputMinimumAdaQuantity (constraints tl era pp))
+        . (\o -> (view #address o, view (#tokens . #tokens) o)) <$> outs
   where
     nl = ctx ^. networkLayer
     tl = ctx ^. transactionLayer @k
@@ -2231,10 +2228,9 @@ selectAssets ctx era pp params transform = do
             , certificateDepositAmount =
                 view #stakeKeyDeposit pp
             , maxLengthChangeAddress =
-                maxLengthAddress (Proxy @k)
+                maxLengthAddress $ Proxy @k
             , computeMinimumAdaQuantity =
-                view #txOutputMinimumAdaQuantity (constraints tl era pp) .
-                    AddressContextForAddress
+                view #txOutputMinimumAdaQuantity (constraints tl era pp)
             , computeMinimumCost =
                 calcMinimumCost tl era pp $ params ^. #txContext
             , computeSelectionLimit =

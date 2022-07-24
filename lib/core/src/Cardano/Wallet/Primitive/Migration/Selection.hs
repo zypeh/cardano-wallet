@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Copyright: © 2021 IOHK
@@ -56,8 +57,14 @@ module Cardano.Wallet.Primitive.Migration.Selection
 
 import Prelude
 
-import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressContext (AddressContextDefault) )
+import Cardano.Wallet.Primitive.AddressDerivation.Byron
+    ( ByronKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Icarus
+    ( IcarusKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Shelley
+    ( ShelleyKey )
+import Cardano.Wallet.Primitive.Types.Address
+    ( Address (..) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.TokenBundle
@@ -86,13 +93,20 @@ import Data.List.NonEmpty
     ( NonEmpty (..) )
 import Data.Maybe
     ( catMaybes, listToMaybe )
+import Data.Proxy
+    ( Proxy (..) )
 import GHC.Generics
     ( Generic )
 
+import Cardano.Wallet.Primitive.AddressDerivation
+    ( KnownMaxLengthAddress (maxLengthAddress) )
 import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
 import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
 import qualified Cardano.Wallet.Primitive.Types.TokenMap as TokenMap
+import qualified Data.ByteString as BS
 import qualified Data.Foldable as F
+import Data.Function
+    ( on )
 import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as Set
@@ -276,7 +290,23 @@ assignMinimumAdaQuantity :: TxConstraints -> TokenMap -> TokenBundle
 assignMinimumAdaQuantity constraints m =
     TokenBundle c m
   where
-    c = txOutputMinimumAdaQuantity constraints AddressContextDefault m
+    c = txOutputMinimumAdaQuantity constraints longestAddress m
+
+-- We cannot use 'view #longestChangeAddress constraints' here, as the
+-- outputs the migration creates use user-defined addresses. Something we
+-- /could/ do, would be to pass in the actual user-defined to here - they
+-- are availible in the 'createMigrationPlan' server handler.
+--
+-- NOTE: We expect this to be removed long before the imlementation would be
+-- invalid, so it doesn't need a /too/ proper place to live.
+longestAddress :: Address
+longestAddress = L.maximumBy @[] (compare `on` (BS.length . unAddress))
+    [ maxLengthAddress $ Proxy @ByronKey
+    , maxLengthAddress $ Proxy @IcarusKey
+    , maxLengthAddress $ Proxy @ShelleyKey
+    ]
+
+
 
 --------------------------------------------------------------------------------
 -- Adding value to outputs
@@ -838,7 +868,7 @@ checkOutputMinimumAdaQuantities constraints selection =
                 }
       where
         expectedMinimumAdaQuantity = txOutputMinimumAdaQuantity constraints
-            AddressContextDefault (view #tokens outputBundle)
+            longestAddress (view #tokens outputBundle)
 
 --------------------------------------------------------------------------------
 -- Selection correctness: output sizes

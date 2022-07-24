@@ -82,7 +82,6 @@ module Cardano.Wallet.Primitive.Types.Tx
     , TxConstraints (..)
     , txOutputCoinCost
     , txOutputCoinSize
-    , txOutputCoinMinimum
     , txOutputHasValidSize
     , txOutputHasValidTokenQuantities
     , TxSize (..)
@@ -128,8 +127,6 @@ import Cardano.Wallet.Orphans
     ()
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
-import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressContext (AddressContextDefault) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.Hash
@@ -951,7 +948,7 @@ data TxConstraints = TxConstraints
       -- ^ The maximum size of a transaction output.
     , txOutputMaximumTokenQuantity :: TokenQuantity
       -- ^ The maximum token quantity that can appear in a transaction output.
-    , txOutputMinimumAdaQuantity :: AddressContext -> TokenMap -> Coin
+    , txOutputMinimumAdaQuantity :: Address -> TokenMap -> Coin
       -- ^ The variable minimum ada quantity of a transaction output.
     , txRewardWithdrawalCost :: Coin -> Coin
       -- ^ The variable cost of a reward withdrawal.
@@ -967,10 +964,6 @@ txOutputCoinCost constraints = txOutputCost constraints . TokenBundle.fromCoin
 
 txOutputCoinSize :: TxConstraints -> Coin -> TxSize
 txOutputCoinSize constraints = txOutputSize constraints . TokenBundle.fromCoin
-
-txOutputCoinMinimum :: TxConstraints -> Coin
-txOutputCoinMinimum constraints =
-    txOutputMinimumAdaQuantity constraints AddressContextDefault mempty
 
 txOutputHasValidSize :: TxConstraints -> TokenBundle -> Bool
 txOutputHasValidSize constraints b =

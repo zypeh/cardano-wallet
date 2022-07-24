@@ -9,8 +9,6 @@
 --
 module Cardano.Wallet.Shelley.MinimumUTxO
     ( computeMinimumCoinForUTxO
-    , maxLengthAddressForEra
-    , maxLengthAddressForContext
     , maxLengthCoin
     , unsafeLovelaceToWalletCoin
     , unsafeValueToLovelace
@@ -20,10 +18,6 @@ import Prelude
 
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
-import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddress, maxLengthAddressByron, maxLengthAddressShelley )
-import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressEra (..), AddressContext (..) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
@@ -55,14 +49,14 @@ import qualified Cardano.Api.Shelley as Cardano
 computeMinimumCoinForUTxO
     :: HasCallStack
     => MinimumUTxO
-    -> AddressContext
+    -> Address
     -> TokenMap
     -> Coin
 computeMinimumCoinForUTxO = \case
     MinimumUTxONone ->
-        \_addrSpec _tokenMap -> Coin 0
+        \_addr _tokenMap -> Coin 0
     MinimumUTxOConstant c ->
-        \_addrSpec _tokenMap -> c
+        \_addr _tokenMap -> c
     MinimumUTxOForShelleyBasedEraOf minUTxO ->
         computeMinimumCoinForShelleyBasedEra minUTxO
 
@@ -76,7 +70,7 @@ computeMinimumCoinForUTxO = \case
 computeMinimumCoinForShelleyBasedEra
     :: HasCallStack
     => MinimumUTxOForShelleyBasedEra
-    -> AddressContext
+    -> Address
     -> TokenMap
     -> Coin
 computeMinimumCoinForShelleyBasedEra
@@ -139,47 +133,11 @@ computeMinimumCoinForShelleyBasedEra
 --
 embedTokenMapWithinPaddedTxOut
     :: Cardano.ShelleyBasedEra era
-    -> AddressContext
+    -> Address
     -> TokenMap
     -> Cardano.TxOut Cardano.CtxTx era
-embedTokenMapWithinPaddedTxOut era addrSpec m =
+embedTokenMapWithinPaddedTxOut era addr m =
     toCardanoTxOut era $ TxOut addr $ TokenBundle maxLengthCoin m
-  where
-    addr = maxLengthAddressForContext addrSpec
-
--- | Produces an 'Address' value of maximal length for the given 'AddressEra'.
---
--- This function returns a valid 'Address' with a length that is greater than
--- or equal to any 'Address' that the wallet is capable of generating for the
--- given 'AddressEra'.
---
--- Please note that the returned address should:
---
---  - never be used for anything besides its length and validity properties.
---  - never be used as a payment target within a real transaction.
---
-maxLengthAddressForEra :: AddressEra -> Address
-maxLengthAddressForEra = \case
-    AddressEraByron ->
-        maxLengthAddressByron
-    AddressEraShelley ->
-        maxLengthAddressShelley
-
--- | Produces an 'Address' value of maximal length for the given context.
---
--- Please note that the returned address should:
---
---  - never be used for anything besides its length and validity properties.
---  - never be used as a payment target within a real transaction.
---
-maxLengthAddressForContext :: AddressContext -> Address
-maxLengthAddressForContext = \case
-    AddressContextDefault ->
-        maxLengthAddress
-    AddressContextForAddress addr ->
-        addr
-    AddressContextForEra addrEra ->
-        maxLengthAddressForEra addrEra
 
 -- | A 'Coin' value that is maximal in length when serialized to bytes.
 --

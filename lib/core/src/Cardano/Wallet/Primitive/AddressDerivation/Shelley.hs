@@ -92,8 +92,6 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..), PassphraseHash (..), changePassphraseXPrv )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
-import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddressShelley )
 import Cardano.Wallet.Util
     ( invariant )
 import Control.DeepSeq
@@ -296,7 +294,7 @@ instance PaymentAddress 'Mainnet ShelleyKey where
         networkId = 1
 
 instance KnownMaxLengthAddress ShelleyKey where
-    maxLengthAddress _ = maxLengthAddressShelley
+    maxLengthAddress _ = Address $ BS.replicate 57 0
 
 instance PaymentAddress ('Testnet pm) ShelleyKey where
     paymentAddress paymentK =
