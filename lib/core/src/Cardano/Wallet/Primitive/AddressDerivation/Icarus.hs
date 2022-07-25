@@ -54,6 +54,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , HardDerivation (..)
     , Index (..)
     , KeyFingerprint (..)
+    , KnownMaxLengthAddress (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -74,7 +75,7 @@ import Cardano.Wallet.Primitive.Passphrase
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
 import Cardano.Wallet.Primitive.Types.ProtocolMagic
-    ( testnetMagic )
+    ( ProtocolMagic (..), testnetMagic )
 import Cardano.Wallet.Util
     ( invariant )
 import Control.Arrow
@@ -111,6 +112,7 @@ import GHC.TypeLits
     ( KnownNat )
 
 import qualified Cardano.Byron.Codec.Cbor as CBOR
+import qualified Cardano.Crypto.Wallet as CC
 import qualified Codec.CBOR.Write as CBOR
 import qualified Crypto.ECC.Edwards25519 as Ed25519
 import qualified Crypto.KDF.PBKDF2 as PBKDF2
@@ -371,6 +373,19 @@ instance PaymentAddress 'Mainnet IcarusKey where
         $ CBOR.encodeAddress (getKey k) []
     liftPaymentAddress (KeyFingerprint bytes) =
         Address bytes
+
+instance KnownMaxLengthAddress IcarusKey where
+    -- Matching 'paymentAddress' above.
+    maxLengthAddress _ = Address
+        $ CBOR.toStrictByteString
+        $ CBOR.encodeAddress xpub
+            [ CBOR.encodeProtocolMagicAttr (ProtocolMagic maxBound)
+            ]
+      where
+        xpub :: CC.XPub
+        xpub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
+          where
+            xprvPass = mempty :: BS.ByteString
 
 instance KnownNat pm => PaymentAddress ('Testnet pm) IcarusKey where
     paymentAddress k = Address

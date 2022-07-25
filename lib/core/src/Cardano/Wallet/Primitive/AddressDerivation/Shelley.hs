@@ -54,6 +54,8 @@ import Cardano.Crypto.Wallet
     )
 import Cardano.Mnemonic
     ( SomeMnemonic (..), entropyToBytes, mnemonicToEntropy )
+import Cardano.Wallet.Primitive.Types.Address.Constants
+    ( maxLengthAddressShelley )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( DelegationAddress (..)
     , Depth (..)
@@ -62,6 +64,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , HardDerivation (..)
     , Index (..)
     , KeyFingerprint (..)
+    , KnownMaxLengthAddress (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -307,6 +310,9 @@ instance PaymentAddress ('Testnet pm) ShelleyKey where
       where
         enterprise = 96
         networkId = 0
+
+instance KnownMaxLengthAddress ShelleyKey where
+    maxLengthAddress _ = maxLengthAddressShelley
 
 instance DelegationAddress 'Mainnet ShelleyKey where
     delegationAddress paymentK stakingK =

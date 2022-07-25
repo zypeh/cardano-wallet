@@ -65,6 +65,7 @@ module Cardano.Wallet.Primitive.AddressDerivation
     , PaymentAddress(..)
     , DelegationAddress(..)
     , WalletKey(..)
+    , KnownMaxLengthAddress (..)
     , PersistPrivateKey(..)
     , PersistPublicKey(..)
     , MkKeyFingerprint(..)
@@ -575,6 +576,11 @@ class WalletKey (key :: Depth -> Type -> Type) where
     liftRawKey
         :: raw
         -> key depth raw
+
+class KnownMaxLengthAddress key where
+    maxLengthAddress
+        :: Proxy key
+        -> Address
 
 -- | Encoding of addresses for certain key types and backend targets.
 class MkKeyFingerprint key Address
