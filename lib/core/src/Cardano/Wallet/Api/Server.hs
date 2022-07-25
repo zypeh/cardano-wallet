@@ -363,8 +363,8 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , DerivationIndex (..)
     , DerivationType (..)
     , HardDerivation (..)
-    , KnownMaxLengthAddress (..)
     , Index (..)
+    , KnownMaxLengthAddress (..)
     , MkKeyFingerprint
     , NetworkDiscriminant (..)
     , PaymentAddress (..)

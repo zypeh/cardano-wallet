@@ -378,12 +378,12 @@ instance KnownMaxLengthAddress IcarusKey where
     -- Matching 'paymentAddress' above.
     maxLengthAddress _ = Address
         $ CBOR.toStrictByteString
-        $ CBOR.encodeAddress xpub
+        $ CBOR.encodeAddress addressXPub
             [ CBOR.encodeProtocolMagicAttr (ProtocolMagic maxBound)
             ]
       where
-        xpub :: CC.XPub
-        xpub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
+        addressXPub :: CC.XPub
+        addressXPub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
           where
             xprvPass = mempty :: BS.ByteString
 

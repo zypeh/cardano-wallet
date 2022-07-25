@@ -54,8 +54,6 @@ import Cardano.Crypto.Wallet
     )
 import Cardano.Mnemonic
     ( SomeMnemonic (..), entropyToBytes, mnemonicToEntropy )
-import Cardano.Wallet.Primitive.Types.Address.Constants
-    ( maxLengthAddressShelley )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( DelegationAddress (..)
     , Depth (..)
@@ -94,6 +92,8 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..), PassphraseHash (..), changePassphraseXPrv )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Address.Constants
+    ( maxLengthAddressShelley )
 import Cardano.Wallet.Util
     ( invariant )
 import Control.DeepSeq

@@ -73,8 +73,6 @@ import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..) )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
-import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressEra (AddressEraByron) )
 import Cardano.Wallet.Primitive.Types.RewardAccount
     ( RewardAccount )
 import Control.Arrow

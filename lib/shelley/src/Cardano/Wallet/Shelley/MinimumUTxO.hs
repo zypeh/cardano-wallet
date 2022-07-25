@@ -23,7 +23,7 @@ import Cardano.Wallet.Primitive.Types.Address
 import Cardano.Wallet.Primitive.Types.Address.Constants
     ( maxLengthAddress, maxLengthAddressByron, maxLengthAddressShelley )
 import Cardano.Wallet.Primitive.Types.AddressContext
-    ( AddressEra (..), AddressContext (..) )
+    ( AddressContext (..), AddressEra (..) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
