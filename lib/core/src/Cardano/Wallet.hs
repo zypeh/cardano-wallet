@@ -546,7 +546,7 @@ import Data.Map.Strict
 import Data.Maybe
     ( fromMaybe, isJust, mapMaybe )
 import Data.Proxy
-    ( Proxy )
+    ( Proxy (..) )
 import Data.Quantity
     ( Quantity (..) )
 import Data.Set
@@ -1977,6 +1977,7 @@ balanceTransactionWithSelectionStrategy
                     intCast @Word16 @Int $ view #maximumCollateralInputCount pp
                 , minimumCollateralPercentage =
                     view #minimumCollateralPercentage pp
+                , placeholderAddress = maxLengthAddress (Proxy @k)
                 }
 
             selectionParams = SelectionParams
@@ -2244,6 +2245,7 @@ selectAssets ctx era pp params transform = do
                 intCast @Word16 @Int $ view #maximumCollateralInputCount pp
             , minimumCollateralPercentage =
                 view #minimumCollateralPercentage pp
+            , placeholderAddress = maxLengthAddress (Proxy @k)
             }
     let selectionParams = SelectionParams
             { assetsToMint =

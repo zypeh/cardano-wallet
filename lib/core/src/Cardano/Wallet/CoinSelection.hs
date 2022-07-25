@@ -243,6 +243,8 @@ data SelectionConstraints = SelectionConstraints
         :: Natural
         -- ^ Specifies the minimum required amount of collateral as a
         -- percentage of the total transaction fee.
+    , placeholderAddress
+        :: Address
     }
     deriving Generic
 
@@ -259,8 +261,6 @@ toInternalSelectionConstraints SelectionConstraints {..} =
             txOutMaxCoin
         , maximumOutputTokenQuantity =
             txOutMaxTokenQuantity
-        , placeholderAddress =
-            Address ""
         , ..
         }
 
