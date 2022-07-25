@@ -114,9 +114,6 @@ class GenChange s where
         -> (Address, s)
         -- ^ Generate a new change address for the given scheme. The rules for
         -- generating a new change address depends on the underlying scheme.
-    genChangeAddressEra
-        :: ArgGenChange s
-        -> AddressEra
 
 -- | Ordering addresses by discovery date.
 --
