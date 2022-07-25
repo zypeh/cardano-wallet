@@ -292,6 +292,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , DerivationIndex (..)
     , DerivationPrefix (..)
     , DerivationType (..)
+    , KnownMaxLengthAddress (..)
     , HardDerivation (..)
     , Index (..)
     , MkKeyFingerprint (..)
@@ -1555,6 +1556,7 @@ balanceTransaction
         ( HasTransactionLayer k ctx
         , GenChange s
         , MonadRandom m
+        , KnownMaxLengthAddress k
         , HasLogger m WalletWorkerLog ctx
         , Cardano.IsShelleyBasedEra era
         )
@@ -1583,6 +1585,7 @@ balanceTransactionWithSelectionStrategy
         , MonadRandom m
         , HasLogger m WalletWorkerLog ctx
         , Cardano.IsShelleyBasedEra era
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ArgGenChange s
@@ -2205,6 +2208,7 @@ selectAssets
     :: forall ctx m s k result.
         ( HasTransactionLayer k ctx
         , HasLogger m WalletWorkerLog ctx
+        , KnownMaxLengthAddress k
         , MonadRandom m
         )
     => ctx

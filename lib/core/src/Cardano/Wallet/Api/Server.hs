@@ -363,6 +363,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , DerivationIndex (..)
     , DerivationType (..)
     , HardDerivation (..)
+    , KnownMaxLengthAddress (..)
     , Index (..)
     , MkKeyFingerprint
     , NetworkDiscriminant (..)
@@ -1665,6 +1666,7 @@ selectCoins
         ( ctx ~ ApiLayer s k
         , SoftDerivation k
         , IsOurs s Address
+        , KnownMaxLengthAddress k
         , GenChange s
         , Bounded (Index (AddressIndexDerivationType k) 'AddressK)
         , Typeable n
@@ -1717,6 +1719,7 @@ selectCoinsForJoin
         ( s ~ SeqState n k
         , ctx ~ ApiLayer s k
         , DelegationAddress n k
+        , KnownMaxLengthAddress k
         , MkKeyFingerprint k (Proxy n, k 'AddressK XPub)
         , SoftDerivation k
         , Typeable n
@@ -1777,6 +1780,7 @@ selectCoinsForQuit
         , DelegationAddress n k
         , MkKeyFingerprint k (Proxy n, k 'AddressK XPub)
         , Bounded (Index (AddressIndexDerivationType k) 'AddressK)
+        , KnownMaxLengthAddress k
         , SoftDerivation k
         , Typeable n
         , Typeable s
@@ -2037,6 +2041,7 @@ postTransactionOld
         , HardDerivation k
         , HasNetworkLayer IO ctx
         , IsOwned s k
+        , KnownMaxLengthAddress k
         , Typeable n
         , Typeable s
         , WalletKey k
@@ -2225,6 +2230,7 @@ postTransactionFeeOld
         ( ctx ~ ApiLayer s k
         , Bounded (Index (AddressIndexDerivationType k) 'AddressK)
         , HardDerivation k
+        , KnownMaxLengthAddress k
         , Typeable n
         , Typeable s
         , WalletKey k
@@ -2276,6 +2282,7 @@ constructTransaction
         , HardDerivation k
         , HasNetworkLayer IO ctx
         , IsOurs s Address
+        , KnownMaxLengthAddress k
         , Typeable n
         , Typeable s
         , WalletKey k
@@ -2599,6 +2606,7 @@ balanceTransaction
     :: forall ctx s k (n :: NetworkDiscriminant).
         ( ctx ~ ApiLayer s k
         , HasNetworkLayer IO ctx
+        , KnownMaxLengthAddress k
         , GenChange s
         )
     => ctx
@@ -2968,6 +2976,7 @@ joinStakePool
         , DelegationAddress n k
         , GenChange s
         , IsOwned s k
+        , KnownMaxLengthAddress k
         , SoftDerivation k
         , Typeable n
         , Typeable s
@@ -3066,6 +3075,7 @@ delegationFee
     :: forall ctx s n k.
         ( s ~ SeqState n k
         , ctx ~ ApiLayer s k
+        , KnownMaxLengthAddress k
         )
     => ctx
     -> ApiT WalletId
@@ -3105,6 +3115,7 @@ quitStakePool
         , AddressIndexDerivationType k ~ 'Soft
         , DelegationAddress n k
         , GenChange s
+        , KnownMaxLengthAddress k
         , HasNetworkLayer IO ctx
         , IsOwned s k
         , SoftDerivation k
