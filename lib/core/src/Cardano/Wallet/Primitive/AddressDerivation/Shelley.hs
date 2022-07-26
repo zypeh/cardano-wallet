@@ -62,6 +62,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , HardDerivation (..)
     , Index (..)
     , KeyFingerprint (..)
+    , KnownLongestAddress (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
     , PaymentAddress (..)
@@ -353,6 +354,9 @@ instance MkKeyFingerprint ShelleyKey Address where
 instance MkKeyFingerprint ShelleyKey (Proxy (n :: NetworkDiscriminant), ShelleyKey 'AddressK XPub) where
     paymentKeyFingerprint (_, paymentK) =
         Right $ KeyFingerprint $ blake2b224 $ xpubPublicKey $ getKey paymentK
+
+instance KnownLongestAddress ShelleyKey where
+    longestAddressFor _ = Address $ BS.replicate 57 0
 
 {-------------------------------------------------------------------------------
                           Dealing with Rewards
