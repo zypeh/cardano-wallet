@@ -58,7 +58,9 @@ import Cardano.Wallet.Logging
 import Cardano.Wallet.Primitive.AddressDerivation
     ( NetworkDiscriminant (..) )
 import Cardano.Wallet.Primitive.Types
-    ( Block (..), NetworkParameters (..), ProtocolMagic (..) )
+    ( Block (..), NetworkParameters (..) )
+import Cardano.Wallet.Primitive.Types.ProtocolMagic
+    ( ProtocolMagic (..) )
 import Cardano.Wallet.Shelley
     ( SomeNetworkDiscriminant (..) )
 import Control.Monad.IO.Unlift
@@ -96,7 +98,7 @@ import UnliftIO.Temporary
     ( withTempDirectory )
 
 import qualified Cardano.Wallet.Byron.Compatibility as Byron
-import qualified Cardano.Wallet.Primitive.Types as W
+import qualified Cardano.Wallet.Primitive.Types.ProtocolMagic as W
 import qualified Cardano.Wallet.Shelley.Launch.Blockfrost as Blockfrost
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import qualified Data.Text as T
