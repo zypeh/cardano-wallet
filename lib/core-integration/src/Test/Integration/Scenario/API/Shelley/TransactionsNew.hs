@@ -8,6 +8,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -138,7 +139,7 @@ import Data.Function
 import Data.Generics.Internal.VL.Lens
     ( view, (^.) )
 import Data.Maybe
-    ( fromJust, isJust )
+    ( fromJust, fromMaybe, isJust )
 import Data.Proxy
     ( Proxy (..) )
 import Data.Quantity
@@ -151,6 +152,8 @@ import Data.Text.Class
     ( toText )
 import Numeric.Natural
     ( Natural )
+import System.FilePath
+    ( (</>) )
 import Test.Hspec
     ( SpecWith, describe, pendingWith, shouldContain, shouldNotContain )
 import Test.Hspec.Expectations.Lifted
@@ -218,6 +221,8 @@ import Test.Integration.Framework.TestData
     , errMsg404NoSuchPool
     , errMsg404NoWallet
     )
+import Test.Utils.Paths
+    ( getTestData )
 import UnliftIO.Exception
     ( fromEither )
 
@@ -1718,6 +1723,49 @@ spec = describe "NEW_SHELLEY_TRANSACTIONS" $ do
             [ expectSuccess
             , expectResponseCode HTTP.status202
             ]
+
+    it "TRANS_NEW_BALANCE_05 - ref scripts" $ \ctx -> runResourceT $ do
+        let payOutput = error "todo"
+
+        let minAdaVal = Cardano.lovelaceToValue $ Cardano.Lovelace 1_000_000
+        let someAdaVal = Cardano.lovelaceToValue $ Cardano.Lovelace 1_000_000_000
+
+        let txOutVal = Cardano.TxOutValue Cardano.MultiAssetInBabbageEra
+
+        let hashScriptInAnyLang :: Cardano.ScriptInAnyLang -> Cardano.ScriptHash
+            hashScriptInAnyLang (Cardano.ScriptInAnyLang _ script) = Cardano.hashScript script
+
+        -- https://github.com/input-output-hk/cardano-node/blob/be290c5197fe7ffe2b5f58021b384ea0927ac51d/scripts/plutus/example-babbage-script-usage.sh
+
+        let filepath = $(getTestData) </> "plutus" </> "required-redeemer.plutus"
+        (script :: Cardano.ScriptInAnyLang)
+            <- fromMaybe (error $ "couldn't read and parse" <> filepath)
+                <$> liftIO (Aeson.decodeFileStrict filepath)
+
+        let refScript = Cardano.ReferenceScript Cardano.ReferenceTxInsScriptsInlineDatumsInBabbageEra script
+        let addr =  Cardano.AddressInEra
+                (Cardano.ShelleyAddressInEra Cardano.ShelleyBasedEraBabbage)
+                $ Cardano.makeShelleyAddress
+                    Cardano.Mainnet
+                    (Cardano.PaymentCredentialByScript
+                        (hashScriptInAnyLang script))
+                    Cardano.NoStakeAddress
+
+        refScriptUTxO <- payOutput $
+            Cardano.TxOut
+                addr
+                (txOutVal minAdaVal)
+                Cardano.TxOutDatumNone
+                refScript
+
+        lockedFunds <- payOutput $
+            Cardano.TxOut
+                addr
+                (txOutVal someAdaVal)
+                Cardano.TxOutDatumNone
+                Cardano.ReferenceScriptNone
+
+        return ()
 
     it "TRANS_NEW_BALANCE_02a - Cannot balance on empty wallet" $
         \ctx -> runResourceT $ do
