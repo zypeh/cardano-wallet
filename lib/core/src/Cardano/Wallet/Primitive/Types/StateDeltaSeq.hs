@@ -32,9 +32,9 @@ module Cardano.Wallet.Primitive.Types.StateDeltaSeq
     , dropEmptyTransitionWhere
     , dropEmptyTransitionsWhere
     , dropHead
-    , dropHeads
+    , suffixes
     , dropLast
-    , dropLasts
+    , prefixes
 
     -- * Transformations
     , mapDeltas
@@ -223,16 +223,16 @@ dropHead StateDeltaSeq {tail} = case tail of
     Empty -> Nothing
     (_, head) :<| xs -> Just StateDeltaSeq {head, tail = xs}
 
-dropHeads :: StateDeltaSeq s d -> [StateDeltaSeq s d]
-dropHeads = iterateMaybe dropHead
-
 dropLast :: StateDeltaSeq s d -> Maybe (StateDeltaSeq s d)
 dropLast StateDeltaSeq {head, tail} = case tail of
     Empty -> Nothing
     xs :|> _ -> Just StateDeltaSeq {head, tail = xs}
 
-dropLasts :: StateDeltaSeq s d -> [StateDeltaSeq s d]
-dropLasts = iterateMaybe dropLast
+prefixes :: StateDeltaSeq s d -> [StateDeltaSeq s d]
+prefixes = iterateMaybe dropLast
+
+suffixes :: StateDeltaSeq s d -> [StateDeltaSeq s d]
+suffixes = iterateMaybe dropHead
 
 --------------------------------------------------------------------------------
 -- Transformations

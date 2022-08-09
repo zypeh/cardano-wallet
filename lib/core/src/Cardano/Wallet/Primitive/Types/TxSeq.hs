@@ -169,13 +169,13 @@ dropHeadTx :: TxSeq -> Maybe TxSeq
 dropHeadTx = fmap TxSeq . Seq.dropHead . unTxSeq
 
 dropHeadTxs :: TxSeq -> [TxSeq]
-dropHeadTxs = fmap TxSeq . Seq.dropHeads . unTxSeq
+dropHeadTxs = fmap TxSeq . Seq.suffixes . unTxSeq
 
 dropLastTx :: TxSeq -> Maybe TxSeq
 dropLastTx = fmap TxSeq . Seq.dropLast . unTxSeq
 
 dropLastTxs :: TxSeq -> [TxSeq]
-dropLastTxs = fmap TxSeq . Seq.dropLasts . unTxSeq
+dropLastTxs = fmap TxSeq . Seq.prefixes . unTxSeq
 
 isValid :: TxSeq -> Bool
 isValid = (Just True ==) . Seq.isValidM safeAppendTxM . unTxSeq

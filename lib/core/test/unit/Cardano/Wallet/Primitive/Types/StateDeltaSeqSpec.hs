@@ -105,38 +105,38 @@ spec = do
             prop_dropEmptyTransitionsWhere_length
                 & property
 
-    describe "dropHeads" $ do
-        it "prop_dropHeads_head" $
-            prop_dropHeads_head
+    describe "suffixes" $ do
+        it "prop_suffixes_head" $
+            prop_suffixes_head
                 & property
-        it "prop_dropHeads_last" $
-            prop_dropHeads_last
+        it "prop_suffixes_last" $
+            prop_suffixes_last
                 & property
-        it "prop_dropHeads_length" $
-            prop_dropHeads_length
+        it "prop_suffixes_length" $
+            prop_suffixes_length
                 & property
-        it "prop_dropHeads_isSuffixOf" $
-            prop_dropHeads_isSuffixOf
+        it "prop_suffixes_isSuffixOf" $
+            prop_suffixes_isSuffixOf
                 & property
-        it "prop_dropHeads_isValid" $
-            prop_dropHeads_isValid
+        it "prop_suffixes_isValid" $
+            prop_suffixes_isValid
                 & property
 
-    describe "dropLasts" $ do
-        it "prop_dropLasts_head" $
-            prop_dropLasts_head
+    describe "prefixes" $ do
+        it "prop_prefixes_head" $
+            prop_prefixes_head
                 & property
-        it "prop_dropLasts_last" $
-            prop_dropLasts_last
+        it "prop_prefixes_last" $
+            prop_prefixes_last
                 & property
-        it "prop_dropLasts_length" $
-            prop_dropLasts_length
+        it "prop_prefixes_length" $
+            prop_prefixes_length
                 & property
-        it "prop_dropLasts_isPrefixOf" $
-            prop_dropLasts_isPrefixOf
+        it "prop_prefixes_isPrefixOf" $
+            prop_prefixes_isPrefixOf
                 & property
-        it "prop_dropLasts_isValid" $
-            prop_dropLasts_isValid
+        it "prop_prefixes_isValid" $
+            prop_prefixes_isValid
                 & property
 
     describe "fromState" $ do
@@ -298,89 +298,89 @@ prop_dropEmptyTransitionsWhere_length
         === length seq
 
 --------------------------------------------------------------------------------
--- dropHeads
+-- suffixes
 --------------------------------------------------------------------------------
 
-prop_dropHeads_head
+prop_suffixes_head
     :: TestStateDeltaSeq -> Property
-prop_dropHeads_head (TestStateDeltaSeq seq) =
-    case NE.nonEmpty (Seq.dropHeads seq) of
+prop_suffixes_head (TestStateDeltaSeq seq) =
+    case NE.nonEmpty (Seq.suffixes seq) of
         Nothing ->
             length seq === 0
         Just ss ->
             NE.head ss === Seq.fromState (Seq.lastState seq)
 
-prop_dropHeads_last
+prop_suffixes_last
     :: TestStateDeltaSeq -> Property
-prop_dropHeads_last (TestStateDeltaSeq seq) =
-    case NE.nonEmpty (Seq.dropHeads seq) of
+prop_suffixes_last (TestStateDeltaSeq seq) =
+    case NE.nonEmpty (Seq.suffixes seq) of
         Nothing ->
             length seq === 0
         Just ss ->
             Just (NE.last ss) === Seq.dropHead seq
 
-prop_dropHeads_length
+prop_suffixes_length
     :: TestStateDeltaSeq -> Property
-prop_dropHeads_length (TestStateDeltaSeq seq) =
-    case NE.nonEmpty (Seq.dropHeads seq) of
+prop_suffixes_length (TestStateDeltaSeq seq) =
+    case NE.nonEmpty (Seq.suffixes seq) of
         Nothing ->
             length seq === 0
         Just ss ->
             NE.length ss === length seq
 
-prop_dropHeads_isSuffixOf
+prop_suffixes_isSuffixOf
     :: TestStateDeltaSeq -> Property
-prop_dropHeads_isSuffixOf (TestStateDeltaSeq seq) =
-    all (uncurry Seq.isSuffixOf) (consecutivePairs (Seq.dropHeads seq))
+prop_suffixes_isSuffixOf (TestStateDeltaSeq seq) =
+    all (uncurry Seq.isSuffixOf) (consecutivePairs (Seq.suffixes seq))
         === True
 
-prop_dropHeads_isValid
+prop_suffixes_isValid
     :: TestStateDeltaSeq -> Property
-prop_dropHeads_isValid (TestStateDeltaSeq seq) =
-    all (Seq.isValid applyTestDelta) (Seq.dropHeads seq)
+prop_suffixes_isValid (TestStateDeltaSeq seq) =
+    all (Seq.isValid applyTestDelta) (Seq.suffixes seq)
         === True
 
 --------------------------------------------------------------------------------
--- dropLasts
+-- prefixes
 --------------------------------------------------------------------------------
 
-prop_dropLasts_head
+prop_prefixes_head
     :: TestStateDeltaSeq -> Property
-prop_dropLasts_head (TestStateDeltaSeq seq) =
-    case NE.nonEmpty (Seq.dropLasts seq) of
+prop_prefixes_head (TestStateDeltaSeq seq) =
+    case NE.nonEmpty (Seq.prefixes seq) of
         Nothing ->
             length seq === 0
         Just ss ->
             NE.head ss === Seq.fromState (Seq.headState seq)
 
-prop_dropLasts_last
+prop_prefixes_last
     :: TestStateDeltaSeq -> Property
-prop_dropLasts_last (TestStateDeltaSeq seq) =
-    case NE.nonEmpty (Seq.dropLasts seq) of
+prop_prefixes_last (TestStateDeltaSeq seq) =
+    case NE.nonEmpty (Seq.prefixes seq) of
         Nothing ->
             length seq === 0
         Just ss ->
             Just (NE.last ss) === Seq.dropLast seq
 
-prop_dropLasts_length
+prop_prefixes_length
     :: TestStateDeltaSeq -> Property
-prop_dropLasts_length (TestStateDeltaSeq seq) =
-    case NE.nonEmpty (Seq.dropLasts seq) of
+prop_prefixes_length (TestStateDeltaSeq seq) =
+    case NE.nonEmpty (Seq.prefixes seq) of
         Nothing ->
             length seq === 0
         Just ss ->
             NE.length ss === length seq
 
-prop_dropLasts_isPrefixOf
+prop_prefixes_isPrefixOf
     :: TestStateDeltaSeq -> Property
-prop_dropLasts_isPrefixOf (TestStateDeltaSeq seq) =
-    all (uncurry Seq.isPrefixOf) (consecutivePairs (Seq.dropLasts seq))
+prop_prefixes_isPrefixOf (TestStateDeltaSeq seq) =
+    all (uncurry Seq.isPrefixOf) (consecutivePairs (Seq.prefixes seq))
         === True
 
-prop_dropLasts_isValid
+prop_prefixes_isValid
     :: TestStateDeltaSeq -> Property
-prop_dropLasts_isValid (TestStateDeltaSeq seq) =
-    all (Seq.isValid applyTestDelta) (Seq.dropLasts seq)
+prop_prefixes_isValid (TestStateDeltaSeq seq) =
+    all (Seq.isValid applyTestDelta) (Seq.prefixes seq)
         === True
 
 --------------------------------------------------------------------------------
