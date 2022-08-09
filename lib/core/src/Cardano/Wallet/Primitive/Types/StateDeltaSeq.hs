@@ -4,23 +4,38 @@
 
 module Cardano.Wallet.Primitive.Types.StateDeltaSeq
     (
-    -- * Type
+    -- * Types
       StateDeltaSeq
 
     -- * Constructors
     , fromState
     , fromStateDeltas
 
-    -- * Views
-    , headState
-    , lastState
-    , toDeltaList
-    , toStateList
-    , transitions
+    -- * Measurements
     , countEmptyTransitions
     , countEmptyTransitionsWhere
 
-    -- * Expansions
+    -- * Indicators
+    , isPrefixOf
+    , isSuffixOf
+    , isValid
+    , isValidM
+
+    -- * Conversions
+    , toDeltaList
+    , toStateList
+    , toTransitionList
+
+    -- * Views
+    , headState
+    , lastState
+
+    -- * Maps
+    , mapDeltas
+    , mapStates
+    , mapStatesDeltas
+
+    -- * Extensions
     , applyDelta
     , applyDeltas
     , applyDeltaM
@@ -32,20 +47,9 @@ module Cardano.Wallet.Primitive.Types.StateDeltaSeq
     , dropEmptyTransitionWhere
     , dropEmptyTransitionsWhere
     , dropHead
-    , suffixes
     , dropLast
     , prefixes
-
-    -- * Transformations
-    , mapDeltas
-    , mapStates
-    , mapStatesDeltas
-
-    -- * Queries
-    , isPrefixOf
-    , isSuffixOf
-    , isValid
-    , isValidM
+    , suffixes
 
     ) where
 
@@ -126,16 +130,34 @@ fromStateDeltas :: (s -> d -> s) -> s -> [d] -> StateDeltaSeq s d
 fromStateDeltas next s ds = applyDeltas next ds (fromState s)
 
 --------------------------------------------------------------------------------
--- Views
+-- Measurements
 --------------------------------------------------------------------------------
 
-headState :: StateDeltaSeq s d -> s
-headState StateDeltaSeq {head} = head
+countEmptyTransitions :: Eq s => StateDeltaSeq s d -> Int
+countEmptyTransitions = countEmptyTransitionsWhere (const True)
 
-lastState :: StateDeltaSeq s d -> s
-lastState StateDeltaSeq {head, tail} = case tail of
-    Empty -> head
-    _ :|> (_, s) -> s
+countEmptyTransitionsWhere :: Eq s => (d -> Bool) -> StateDeltaSeq s d -> Int
+countEmptyTransitionsWhere f s = length $ emptyTransitionsWhere f s
+
+--------------------------------------------------------------------------------
+-- Indicators
+--------------------------------------------------------------------------------
+
+isPrefixOf :: (Eq s, Eq d) => StateDeltaSeq s d -> StateDeltaSeq s d -> Bool
+isPrefixOf = L.isPrefixOf `on` toTransitionList
+
+isSuffixOf :: (Eq s, Eq d) => StateDeltaSeq s d -> StateDeltaSeq s d -> Bool
+isSuffixOf = L.isSuffixOf `on` toTransitionList
+
+isValid :: (Eq s) => (s -> d -> s) -> StateDeltaSeq s d -> Bool
+isValid next = runIdentity . isValidM (coerce next)
+
+isValidM :: (Monad m, Eq s) => (s -> d -> m s) -> StateDeltaSeq s d -> m Bool
+isValidM next = allM (\(si, d, sj) -> (==) sj <$> next si d) . toTransitionList
+
+--------------------------------------------------------------------------------
+-- Conversions
+--------------------------------------------------------------------------------
 
 toDeltaList :: StateDeltaSeq s d -> [d]
 toDeltaList = fmap fst . F.toList . tail
@@ -148,8 +170,8 @@ toStateDeltaList s = NE.fromList $ interleave
     (State <$> F.toList (toStateList s))
     (Delta <$> F.toList (toDeltaList s))
 
-transitions :: StateDeltaSeq s d -> [(s, d, s)]
-transitions s = getZipList $ (,,)
+toTransitionList :: StateDeltaSeq s d -> [(s, d, s)]
+toTransitionList s = getZipList $ (,,)
     <$> ZipList states
     <*> ZipList deltas
     <*> ZipList (drop 1 states)
@@ -157,14 +179,37 @@ transitions s = getZipList $ (,,)
     deltas = F.toList $ toDeltaList s
     states = F.toList $ toStateList s
 
-countEmptyTransitions :: Eq s => StateDeltaSeq s d -> Int
-countEmptyTransitions = countEmptyTransitionsWhere (const True)
+--------------------------------------------------------------------------------
+-- Views
+--------------------------------------------------------------------------------
 
-countEmptyTransitionsWhere :: Eq s => (d -> Bool) -> StateDeltaSeq s d -> Int
-countEmptyTransitionsWhere f s = length $ emptyTransitionsWhere f s
+headState :: StateDeltaSeq s d -> s
+headState StateDeltaSeq {head} = head
+
+lastState :: StateDeltaSeq s d -> s
+lastState StateDeltaSeq {head, tail} = case tail of
+    Empty -> head
+    _ :|> (_, s) -> s
 
 --------------------------------------------------------------------------------
--- Expansions
+-- Maps
+--------------------------------------------------------------------------------
+
+mapDeltas :: (d1 -> d2) -> StateDeltaSeq s d1 -> StateDeltaSeq s d2
+mapDeltas f StateDeltaSeq {head, tail} = StateDeltaSeq
+    {head, tail = first f <$> tail}
+
+mapStates :: (s1 -> s2) -> StateDeltaSeq s1 d -> StateDeltaSeq s2 d
+mapStates f StateDeltaSeq {head, tail} = StateDeltaSeq
+    {head = f head, tail = second f <$> tail}
+
+mapStatesDeltas
+    :: (s1 -> s2) -> (d1 -> d2) -> StateDeltaSeq s1 d1 -> StateDeltaSeq s2 d2
+mapStatesDeltas f g StateDeltaSeq {head, tail} = StateDeltaSeq
+    {head = f head, tail = bimap g f <$> tail}
+
+--------------------------------------------------------------------------------
+-- Extensions
 --------------------------------------------------------------------------------
 
 applyDelta :: (s -> d -> s) -> d -> StateDeltaSeq s d -> StateDeltaSeq s d
@@ -235,45 +280,15 @@ suffixes :: StateDeltaSeq s d -> [StateDeltaSeq s d]
 suffixes = iterateMaybe dropHead
 
 --------------------------------------------------------------------------------
--- Transformations
---------------------------------------------------------------------------------
-
-mapDeltas :: (d1 -> d2) -> StateDeltaSeq s d1 -> StateDeltaSeq s d2
-mapDeltas f StateDeltaSeq {head, tail} = StateDeltaSeq
-    {head, tail = first f <$> tail}
-
-mapStates :: (s1 -> s2) -> StateDeltaSeq s1 d -> StateDeltaSeq s2 d
-mapStates f StateDeltaSeq {head, tail} = StateDeltaSeq
-    {head = f head, tail = second f <$> tail}
-
-mapStatesDeltas
-    :: (s1 -> s2) -> (d1 -> d2) -> StateDeltaSeq s1 d1 -> StateDeltaSeq s2 d2
-mapStatesDeltas f g StateDeltaSeq {head, tail} = StateDeltaSeq
-    {head = f head, tail = bimap g f <$> tail}
-
---------------------------------------------------------------------------------
--- Queries
---------------------------------------------------------------------------------
-
-isPrefixOf :: (Eq s, Eq d) => StateDeltaSeq s d -> StateDeltaSeq s d -> Bool
-isPrefixOf = L.isPrefixOf `on` transitions
-
-isSuffixOf :: (Eq s, Eq d) => StateDeltaSeq s d -> StateDeltaSeq s d -> Bool
-isSuffixOf = L.isSuffixOf `on` transitions
-
-isValid :: (Eq s) => (s -> d -> s) -> StateDeltaSeq s d -> Bool
-isValid next = runIdentity . isValidM (coerce next)
-
-isValidM :: (Monad m, Eq s) => (s -> d -> m s) -> StateDeltaSeq s d -> m Bool
-isValidM next = allM (\(si, d, sj) -> (==) sj <$> next si d) . transitions
-
---------------------------------------------------------------------------------
 -- Internal functions
 --------------------------------------------------------------------------------
 
 emptyTransitionsWhere :: Eq s => (d -> Bool) -> StateDeltaSeq s d -> [Int]
-emptyTransitionsWhere f s =
-    fst <$> filter (isEmptyTransitionWhere f . snd) (zip [0 ..] (transitions s))
+emptyTransitionsWhere f s = fst <$>
+    filter
+        (isEmptyTransitionWhere f . snd)
+        (zip [0 ..]
+        (toTransitionList s))
 
 isEmptyTransitionWhere :: Eq s => (d -> Bool) -> (s, d, s) -> Bool
 isEmptyTransitionWhere f (si, d, sj) = si == sj && f d

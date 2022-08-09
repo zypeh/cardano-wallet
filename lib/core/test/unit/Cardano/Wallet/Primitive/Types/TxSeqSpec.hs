@@ -84,10 +84,10 @@ spec = do
     describe "genTxSeq" $ do
         it "prop_genTxSeq_isValid" $
             prop_genTxSeq_isValid & property
-        it "prop_genTxSeq_toTxGroups_length" $
-            prop_genTxSeq_toTxGroups_length & property
-        it "prop_genTxSeq_toTxGroups_lengths" $
-            prop_genTxSeq_toTxGroups_lengths & property
+        it "prop_genTxSeq_toTxGroupList_length" $
+            prop_genTxSeq_toTxGroupList_length & property
+        it "prop_genTxSeq_toTxGroupList_lengths" $
+            prop_genTxSeq_toTxGroupList_lengths & property
 
     describe "mapAssetIds" $ do
         it "prop_mapAssetIds_composition" $
@@ -138,10 +138,10 @@ spec = do
             prop_toTxs_txCount & property
 
     describe "toTxGroups" $ do
-        it "prop_toTxGroups_txGroupCount" $
-            prop_toTxGroups_txGroupCount & property
-        it "prop_toTxGroups_toTxs" $
-            prop_toTxGroups_toTxs & property
+        it "prop_toTxGroupList_txGroupCount" $
+            prop_toTxGroupList_txGroupCount & property
+        it "prop_toTxGroupList_toTxs" $
+            prop_toTxGroupList_toTxs & property
 
 --------------------------------------------------------------------------------
 -- dropGroupBoundary
@@ -153,7 +153,9 @@ prop_dropGroupBoundary_isValid (getTxSeq -> txSeq) =
 
 prop_dropGroupBoundary_toTxs :: ShrinkableTxSeq -> Property
 prop_dropGroupBoundary_toTxs (getTxSeq -> txSeq) =
-    all (== TxSeq.toTxs txSeq) (TxSeq.toTxs <$> TxSeq.dropGroupBoundary txSeq)
+    all
+        (== TxSeq.toTxList txSeq)
+        (TxSeq.toTxList <$> TxSeq.dropGroupBoundary txSeq)
     === True
 
 prop_dropGroupBoundary_txGroupCount_length
@@ -199,10 +201,10 @@ prop_genTxSeq_isValid =
     forAll (genTxSeq genUTxO genAddress) $ \(getTxSeq -> txs) ->
         TxSeq.isValid txs
 
-prop_genTxSeq_toTxGroups_length :: Property
-prop_genTxSeq_toTxGroups_length =
+prop_genTxSeq_toTxGroupList_length :: Property
+prop_genTxSeq_toTxGroupList_length =
     forAll (genTxSeq genUTxO genAddress) $ \(getTxSeq -> txSeq) ->
-        let txGroups = TxSeq.toTxGroups txSeq in
+        let txGroups = TxSeq.toTxGroupList txSeq in
         checkCoverage
             $ cover 1 (length txGroups == 1)
                 "number of groups = 1"
@@ -210,10 +212,10 @@ prop_genTxSeq_toTxGroups_length =
                 "number of groups > 1"
             $ property True
 
-prop_genTxSeq_toTxGroups_lengths :: Property
-prop_genTxSeq_toTxGroups_lengths =
+prop_genTxSeq_toTxGroupList_lengths :: Property
+prop_genTxSeq_toTxGroupList_lengths =
     forAll (genTxSeq genUTxO genAddress) $ \(getTxSeq -> txSeq) ->
-        let txGroups = TxSeq.toTxGroups txSeq in
+        let txGroups = TxSeq.toTxGroupList txSeq in
         checkCoverage
             $ cover 5 (null (NE.head txGroups))
                 "number of elements in head group = 0"
@@ -377,19 +379,19 @@ prop_shrinkTxSeq_minimum_length =
 
 prop_toTxs_txCount :: ShrinkableTxSeq -> Property
 prop_toTxs_txCount (getTxSeq -> txSeq) =
-    length (TxSeq.toTxs txSeq) === TxSeq.txCount txSeq
+    length (TxSeq.toTxList txSeq) === TxSeq.txCount txSeq
 
 --------------------------------------------------------------------------------
 -- toTxGroups
 --------------------------------------------------------------------------------
 
-prop_toTxGroups_txGroupCount :: ShrinkableTxSeq -> Property
-prop_toTxGroups_txGroupCount (getTxSeq -> txSeq) =
-    length (TxSeq.toTxGroups txSeq) === TxSeq.txGroupCount txSeq
+prop_toTxGroupList_txGroupCount :: ShrinkableTxSeq -> Property
+prop_toTxGroupList_txGroupCount (getTxSeq -> txSeq) =
+    length (TxSeq.toTxGroupList txSeq) === TxSeq.txGroupCount txSeq
 
-prop_toTxGroups_toTxs :: ShrinkableTxSeq -> Property
-prop_toTxGroups_toTxs (getTxSeq -> txSeq) =
-    F.fold (TxSeq.toTxGroups txSeq) === TxSeq.toTxs txSeq
+prop_toTxGroupList_toTxs :: ShrinkableTxSeq -> Property
+prop_toTxGroupList_toTxs (getTxSeq -> txSeq) =
+    F.fold (TxSeq.toTxGroupList txSeq) === TxSeq.toTxList txSeq
 
 --------------------------------------------------------------------------------
 -- Arbitrary instances

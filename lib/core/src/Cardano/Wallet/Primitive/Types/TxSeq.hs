@@ -2,40 +2,60 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.Wallet.Primitive.Types.TxSeq
-    ( TxSeq (..)
+    (
+    -- * Types
+      TxSeq (..)
+
+    -- * Constructors
+    , empty
+    , fromUTxO
+
+    -- * Measurements
+    , length
+    , txCount
+    , txGroupCount
+    , txGroupBoundaryCount
+
+    -- * Indicators
+    , isValid
+
+    -- * Conversions
+    , toTxGroupList
+    , toTxList
+    , toTransitionList
+
+    -- * Views
+    , assetIds
+    , headUTxO
+    , lastUTxO
+    , txIds
+
+    -- * Maps
+    , mapAssetIds
+    , mapTxs
+    , mapTxIds
+    , mapUTxOs
+
+    -- * Traversals
+    , foldUTxO
+
+    -- * Extensions
     , appendTx
     , appendTxGroupBoundary
-    , assetIds
+
+    -- * Reductions
     , dropHeadTx
     , dropHeadTxs
     , dropLastTx
     , dropLastTxs
-    , empty
-    , foldUTxO
-    , fromUTxO
-    , headUTxO
-    , isValid
-    , lastUTxO
-    , length
-    , mapAssetIds
-    , mapTxIds
-    , mapTxs
-    , mapUTxOs
-    , removeAssetId
-    , removeAssets
     , dropNullTx
     , dropNullTxs
     , dropGroupBoundary
     , dropGroupBoundaries
+    , removeAssetId
+    , removeAssets
     , shrinkAssetIds
     , shrinkTxIds
-    , toTxGroups
-    , toTxs
-    , transitions
-    , txCount
-    , txGroupCount
-    , txGroupBoundaryCount
-    , txIds
     ) where
 
 import Prelude hiding
@@ -86,6 +106,14 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 
+--------------------------------------------------------------------------------
+-- Public interface
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- Types
+--------------------------------------------------------------------------------
+
 newtype TxSeq = TxSeq
     {unTxSeq :: StateDeltaSeq UTxO (Either TxSeqGroupBoundary Tx)}
     deriving (Eq, Show)
@@ -94,7 +122,109 @@ data TxSeqGroupBoundary = TxSeqGroupBoundary
     deriving (Eq, Show)
 
 --------------------------------------------------------------------------------
--- Public interface
+-- Constructors
+--------------------------------------------------------------------------------
+
+empty :: TxSeq
+empty = fromUTxO mempty
+
+fromUTxO :: UTxO -> TxSeq
+fromUTxO = TxSeq . Seq.fromState
+
+--------------------------------------------------------------------------------
+-- Measurements
+--------------------------------------------------------------------------------
+
+length :: TxSeq -> Int
+length = F.length . unTxSeq
+
+txCount :: TxSeq -> Int
+txCount = F.length . toTxList
+
+txGroupCount :: TxSeq -> Int
+txGroupCount = succ . txGroupBoundaryCount
+
+txGroupBoundaryCount :: TxSeq -> Int
+txGroupBoundaryCount = F.length . lefts . Seq.toDeltaList . unTxSeq
+
+--------------------------------------------------------------------------------
+-- Indicators
+--------------------------------------------------------------------------------
+
+isValid :: TxSeq -> Bool
+isValid = (Just True ==) . Seq.isValidM safeAppendTxM . unTxSeq
+
+--------------------------------------------------------------------------------
+-- Conversions
+--------------------------------------------------------------------------------
+
+toTxList :: TxSeq -> [Tx]
+toTxList = rights . Seq.toDeltaList . unTxSeq
+
+toTxGroupList :: TxSeq -> NonEmpty [Tx]
+toTxGroupList = F.foldr acc (pure []) . unTxSeq
+  where
+    acc :: Either TxSeqGroupBoundary Tx -> NonEmpty [Tx] -> NonEmpty [Tx]
+    acc delta groups@(h :| t) = case delta of
+        Left TxSeqGroupBoundary ->
+            [] `NE.cons` groups
+        Right tx ->
+            (tx : h) :| t
+
+toTransitionList :: TxSeq -> [(UTxO, Tx, UTxO)]
+toTransitionList (TxSeq s) =
+    mapMaybe maybeTxTransition (Seq.toTransitionList s)
+  where
+    maybeTxTransition :: (u, Either a Tx, u) -> Maybe (u, Tx, u)
+    maybeTxTransition (u0, e, u1) = e & either
+        (const Nothing)
+        (\tx -> Just (u0, tx, u1))
+
+--------------------------------------------------------------------------------
+-- Views
+--------------------------------------------------------------------------------
+
+assetIds :: TxSeq -> Set AssetId
+assetIds = bifoldMap UTxO.assetIds (either (const mempty) txAssetIds) . unTxSeq
+
+headUTxO :: TxSeq -> UTxO
+headUTxO = Seq.headState . unTxSeq
+
+lastUTxO :: TxSeq -> UTxO
+lastUTxO = Seq.lastState . unTxSeq
+
+txIds :: TxSeq -> Set (Hash "Tx")
+txIds
+    = bifoldMap UTxO.txIds (either (const mempty) (Set.singleton . txId))
+    . unTxSeq
+
+--------------------------------------------------------------------------------
+-- Maps
+--------------------------------------------------------------------------------
+
+mapAssetIds :: (AssetId -> AssetId) -> TxSeq -> TxSeq
+mapAssetIds f =
+    TxSeq . bimap (UTxO.mapAssetIds f) (fmap (txMapAssetIds f)) . unTxSeq
+
+mapTxs :: (Tx -> Tx) -> TxSeq -> TxSeq
+mapTxs f = TxSeq . second (mapRight f) . unTxSeq
+
+mapTxIds :: (Hash "Tx" -> Hash "Tx") -> TxSeq -> TxSeq
+mapTxIds f =
+    TxSeq . bimap (UTxO.mapTxIds f) (fmap (txMapTxIds f)) . unTxSeq
+
+mapUTxOs :: (UTxO -> UTxO) -> TxSeq -> TxSeq
+mapUTxOs f = TxSeq . first f . unTxSeq
+
+--------------------------------------------------------------------------------
+-- Traversals
+--------------------------------------------------------------------------------
+
+foldUTxO :: TxSeq -> UTxO
+foldUTxO = bifoldMap id (const mempty) . unTxSeq
+
+--------------------------------------------------------------------------------
+-- Extensions
 --------------------------------------------------------------------------------
 
 appendTx :: Tx -> TxSeq -> Maybe TxSeq
@@ -105,65 +235,9 @@ appendTxGroupBoundary :: TxSeq -> TxSeq
 appendTxGroupBoundary =
     TxSeq . Seq.applyDelta const (Left TxSeqGroupBoundary) . unTxSeq
 
-empty :: TxSeq
-empty = fromUTxO mempty
-
-fromUTxO :: UTxO -> TxSeq
-fromUTxO = TxSeq . Seq.fromState
-
-headUTxO :: TxSeq -> UTxO
-headUTxO = Seq.headState . unTxSeq
-
-lastUTxO :: TxSeq -> UTxO
-lastUTxO = Seq.lastState . unTxSeq
-
-foldUTxO :: TxSeq -> UTxO
-foldUTxO = bifoldMap id (const mempty) . unTxSeq
-
-transitions :: TxSeq -> [(UTxO, Tx, UTxO)]
-transitions (TxSeq s) = mapMaybe maybeTxTransition (Seq.transitions s)
-  where
-    maybeTxTransition :: (u, Either a Tx, u) -> Maybe (u, Tx, u)
-    maybeTxTransition (u0, e, u1) = e & either
-        (const Nothing)
-        (\tx -> Just (u0, tx, u1))
-
-toTxs :: TxSeq -> [Tx]
-toTxs = rights . Seq.toDeltaList . unTxSeq
-
-toTxGroups :: TxSeq -> NonEmpty [Tx]
-toTxGroups = F.foldr acc (pure []) . unTxSeq
-  where
-    acc :: Either TxSeqGroupBoundary Tx -> NonEmpty [Tx] -> NonEmpty [Tx]
-    acc delta groups@(h :| t) = case delta of
-        Left TxSeqGroupBoundary ->
-            [] `NE.cons` groups
-        Right tx ->
-            (tx : h) :| t
-
-txCount :: TxSeq -> Int
-txCount = F.length . toTxs
-
-length :: TxSeq -> Int
-length = F.length . unTxSeq
-
-txGroupCount :: TxSeq -> Int
-txGroupCount = succ . txGroupBoundaryCount
-
-txGroupBoundaryCount :: TxSeq -> Int
-txGroupBoundaryCount = F.length . lefts . Seq.toDeltaList . unTxSeq
-
-dropGroupBoundary :: TxSeq -> [TxSeq]
-dropGroupBoundary (TxSeq s) = TxSeq <$> Seq.dropEmptyTransitionWhere isLeft s
-
-dropGroupBoundaries :: TxSeq -> TxSeq
-dropGroupBoundaries (TxSeq s) = TxSeq $ Seq.dropEmptyTransitionsWhere isLeft s
-
-dropNullTx :: TxSeq -> [TxSeq]
-dropNullTx (TxSeq s) = TxSeq <$> Seq.dropEmptyTransitionWhere isRight s
-
-dropNullTxs :: TxSeq -> TxSeq
-dropNullTxs (TxSeq s) = TxSeq $ Seq.dropEmptyTransitionsWhere isRight s
+--------------------------------------------------------------------------------
+-- Reductions
+--------------------------------------------------------------------------------
 
 dropHeadTx :: TxSeq -> Maybe TxSeq
 dropHeadTx = fmap TxSeq . Seq.dropHead . unTxSeq
@@ -177,30 +251,17 @@ dropLastTx = fmap TxSeq . Seq.dropLast . unTxSeq
 dropLastTxs :: TxSeq -> [TxSeq]
 dropLastTxs = fmap TxSeq . Seq.prefixes . unTxSeq
 
-isValid :: TxSeq -> Bool
-isValid = (Just True ==) . Seq.isValidM safeAppendTxM . unTxSeq
+dropGroupBoundary :: TxSeq -> [TxSeq]
+dropGroupBoundary (TxSeq s) = TxSeq <$> Seq.dropEmptyTransitionWhere isLeft s
 
-assetIds :: TxSeq -> Set AssetId
-assetIds = bifoldMap UTxO.assetIds (either (const mempty) txAssetIds) . unTxSeq
+dropGroupBoundaries :: TxSeq -> TxSeq
+dropGroupBoundaries (TxSeq s) = TxSeq $ Seq.dropEmptyTransitionsWhere isLeft s
 
-txIds :: TxSeq -> Set (Hash "Tx")
-txIds
-    = bifoldMap UTxO.txIds (either (const mempty) (Set.singleton . txId))
-    . unTxSeq
+dropNullTx :: TxSeq -> [TxSeq]
+dropNullTx (TxSeq s) = TxSeq <$> Seq.dropEmptyTransitionWhere isRight s
 
-mapAssetIds :: (AssetId -> AssetId) -> TxSeq -> TxSeq
-mapAssetIds f =
-    TxSeq . bimap (UTxO.mapAssetIds f) (fmap (txMapAssetIds f)) . unTxSeq
-
-mapTxIds :: (Hash "Tx" -> Hash "Tx") -> TxSeq -> TxSeq
-mapTxIds f =
-    TxSeq . bimap (UTxO.mapTxIds f) (fmap (txMapTxIds f)) . unTxSeq
-
-mapUTxOs :: (UTxO -> UTxO) -> TxSeq -> TxSeq
-mapUTxOs f = TxSeq . first f . unTxSeq
-
-mapTxs :: (Tx -> Tx) -> TxSeq -> TxSeq
-mapTxs f = TxSeq . second (mapRight f) . unTxSeq
+dropNullTxs :: TxSeq -> TxSeq
+dropNullTxs (TxSeq s) = TxSeq $ Seq.dropEmptyTransitionsWhere isRight s
 
 removeAssetId :: TxSeq -> AssetId -> TxSeq
 removeAssetId (TxSeq s) a = TxSeq $
@@ -224,6 +285,10 @@ shrinkTxIds s = mapTxIds toSimpleTxId s
     toSimpleTxId = mapToFunction
         (head simpleTxIds)
         (Map.fromList $ F.toList (txIds s) `zip` simpleTxIds)
+
+--------------------------------------------------------------------------------
+-- Internal interface
+--------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 -- Domain-specific constants

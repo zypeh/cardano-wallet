@@ -151,23 +151,23 @@ spec = do
                 & property
 
     describe "transitions" $ do
-        it "prop_transitions_consecutivePairs" $
-            prop_transitions_consecutivePairs
+        it "prop_toTransitionList_consecutivePairs" $
+            prop_toTransitionList_consecutivePairs
                 & property
-        it "prop_transitions_length" $
-            prop_transitions_length
+        it "prop_toTransitionList_length" $
+            prop_toTransitionList_length
                 & property
-        it "prop_transitions_nextState" $
-            prop_transitions_nextState
+        it "prop_toTransitionList_nextState" $
+            prop_toTransitionList_nextState
                 & property
-        it "prop_transitions_toDeltaList" $
-            prop_transitions_toDeltaList
+        it "prop_toTransitionList_toDeltaList" $
+            prop_toTransitionList_toDeltaList
                 & property
-        it "prop_transitions_toStateList_initials" $
-            prop_transitions_toStateList_initials
+        it "prop_toTransitionList_toStateList_initials" $
+            prop_toTransitionList_toStateList_initials
                 & property
-        it "prop_transitions_toStateList_finals" $
-            prop_transitions_toStateList_finals
+        it "prop_toTransitionList_toStateList_finals" $
+            prop_toTransitionList_toStateList_finals
                 & property
 
 --------------------------------------------------------------------------------
@@ -406,41 +406,41 @@ prop_fromState_length state =
 -- transitions
 --------------------------------------------------------------------------------
 
-prop_transitions_consecutivePairs
+prop_toTransitionList_consecutivePairs
     :: TestStateDeltaSeq -> Property
-prop_transitions_consecutivePairs (TestStateDeltaSeq seq) =
+prop_toTransitionList_consecutivePairs (TestStateDeltaSeq seq) =
     all (\((_, _, sf), (si, _, _)) -> sf == si)
-        (consecutivePairs (Seq.transitions seq))
+        (consecutivePairs (Seq.toTransitionList seq))
         === True
 
-prop_transitions_length
+prop_toTransitionList_length
     :: TestStateDeltaSeq -> Property
-prop_transitions_length (TestStateDeltaSeq seq) =
-    length (Seq.transitions seq)
+prop_toTransitionList_length (TestStateDeltaSeq seq) =
+    length (Seq.toTransitionList seq)
         === length seq
 
-prop_transitions_nextState
+prop_toTransitionList_nextState
     :: TestStateDeltaSeq -> Property
-prop_transitions_nextState (TestStateDeltaSeq seq) =
-    all (\(si, d, sf) -> applyTestDelta si d == sf) (Seq.transitions seq)
+prop_toTransitionList_nextState (TestStateDeltaSeq seq) =
+    all (\(si, d, sf) -> applyTestDelta si d == sf) (Seq.toTransitionList seq)
         === True
 
-prop_transitions_toDeltaList
+prop_toTransitionList_toDeltaList
     :: TestStateDeltaSeq -> Property
-prop_transitions_toDeltaList (TestStateDeltaSeq seq) =
-    fmap (\(_, d, _) -> d) (Seq.transitions seq)
+prop_toTransitionList_toDeltaList (TestStateDeltaSeq seq) =
+    fmap (\(_, d, _) -> d) (Seq.toTransitionList seq)
         === Seq.toDeltaList seq
 
-prop_transitions_toStateList_initials
+prop_toTransitionList_toStateList_initials
     :: TestStateDeltaSeq -> Property
-prop_transitions_toStateList_initials (TestStateDeltaSeq seq) =
-    fmap (\(si, _, _) -> si) (Seq.transitions seq)
+prop_toTransitionList_toStateList_initials (TestStateDeltaSeq seq) =
+    fmap (\(si, _, _) -> si) (Seq.toTransitionList seq)
         === NE.take (length seq) (Seq.toStateList seq)
 
-prop_transitions_toStateList_finals
+prop_toTransitionList_toStateList_finals
     :: TestStateDeltaSeq -> Property
-prop_transitions_toStateList_finals (TestStateDeltaSeq seq) =
-    fmap (\(_, _, sf) -> sf) (Seq.transitions seq)
+prop_toTransitionList_toStateList_finals (TestStateDeltaSeq seq) =
+    fmap (\(_, _, sf) -> sf) (Seq.toTransitionList seq)
         === NE.drop 1 (Seq.toStateList seq)
 
 --------------------------------------------------------------------------------

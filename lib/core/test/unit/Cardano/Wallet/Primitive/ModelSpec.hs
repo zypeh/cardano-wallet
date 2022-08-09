@@ -2458,7 +2458,7 @@ blockSeqOurTxs
     -> [Tx]
 blockSeqOurTxs s0 blockSeq = blockSeq
     & blockSeqToTxSeq
-    & TxSeq.transitions
+    & TxSeq.toTransitionList
     & filterM isOurTransitionM
     & flip evalState s0
     & fmap (\(_, tx, _) -> tx)
@@ -2478,7 +2478,7 @@ blockSeqToBlockData = List . blockSeqToBlockList
         NE.fromList $ getZipList $ makeBlock
             <$> ZipList (enumFrom $ blockSeq & initialBlockHeight)
             <*> ZipList (enumFrom $ blockSeq & initialSlotNo)
-            <*> ZipList (NE.toList $ TxSeq.toTxGroups txSeq)
+            <*> ZipList (NE.toList $ TxSeq.toTxGroupList txSeq)
       where
         txSeq :: TxSeq
         txSeq = blockSeqToTxSeq blockSeq
