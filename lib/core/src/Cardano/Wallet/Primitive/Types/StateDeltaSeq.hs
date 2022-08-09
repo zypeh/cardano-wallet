@@ -11,10 +11,6 @@ module Cardano.Wallet.Primitive.Types.StateDeltaSeq
     , fromState
     , fromStateDeltas
 
-    -- * Measurements
-    , countEmptyTransitions
-    , countEmptyTransitionsWhere
-
     -- * Indicators
     , isPrefixOf
     , isSuffixOf
@@ -34,6 +30,12 @@ module Cardano.Wallet.Primitive.Types.StateDeltaSeq
     , mapDeltas
     , mapStates
     , mapStatesDeltas
+
+    -- * Measurements
+    , countTransitions
+    , countTransitionsWhere
+    , countEmptyTransitions
+    , countEmptyTransitionsWhere
 
     -- * Extensions
     , applyDelta
@@ -132,6 +134,12 @@ fromStateDeltas next s ds = applyDeltas next ds (fromState s)
 --------------------------------------------------------------------------------
 -- Measurements
 --------------------------------------------------------------------------------
+
+countTransitions :: StateDeltaSeq s d -> Int
+countTransitions = countTransitionsWhere (const True)
+
+countTransitionsWhere :: ((s, d, s) -> Bool) -> StateDeltaSeq s d -> Int
+countTransitionsWhere f s = length $ findTransitionsWhere f s
 
 countEmptyTransitions :: Eq s => StateDeltaSeq s d -> Int
 countEmptyTransitions = countEmptyTransitionsWhere (const True)
@@ -284,14 +292,14 @@ suffixes = iterateMaybe dropHead
 --------------------------------------------------------------------------------
 
 emptyTransitionsWhere :: Eq s => (d -> Bool) -> StateDeltaSeq s d -> [Int]
-emptyTransitionsWhere f s = fst <$>
-    filter
-        (isEmptyTransitionWhere f . snd)
-        (zip [0 ..]
-        (toTransitionList s))
+emptyTransitionsWhere f =
+    findTransitionsWhere $ \(si, d, sj) -> si == sj && f d
 
-isEmptyTransitionWhere :: Eq s => (d -> Bool) -> (s, d, s) -> Bool
-isEmptyTransitionWhere f (si, d, sj) = si == sj && f d
+findTransitionsWhere :: ((s, d, s) -> Bool) -> StateDeltaSeq s d -> [Int]
+findTransitionsWhere f s = fst <$>
+    filter
+        (f . snd)
+        (zip [0 ..] (toTransitionList s))
 
 interleave :: [a] -> [a] -> [a]
 interleave (a1 : a1s) (a2 : a2s) = a1 : a2 : interleave a1s a2s
