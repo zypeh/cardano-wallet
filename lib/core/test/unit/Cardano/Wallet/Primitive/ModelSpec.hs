@@ -2511,8 +2511,7 @@ utxoToWallet s u = unsafeInitWallet u currentTip s
 applyBlocksFilteredTxs
     :: NonEmpty ([FilteredBlock], (DeltaWallet s, Wallet s)) -> [Tx]
 applyBlocksFilteredTxs = mconcat . mconcat . NE.toList
-    -- Note that transactions within filtered blocks appear in reverse order:
-    . fmap (fmap (reverse . fmap fst . view #transactions) . fst)
+    . fmap (fmap (fmap fst . view #transactions) . fst)
 
 applyBlocksLastUTxO
     :: NonEmpty ([FilteredBlock], (DeltaWallet s, Wallet s)) -> UTxO
