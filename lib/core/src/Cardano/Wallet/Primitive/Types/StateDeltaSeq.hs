@@ -10,6 +10,7 @@ module Cardano.Wallet.Primitive.Types.StateDeltaSeq
     -- * Constructors
     , fromState
     , fromStateDeltas
+    , fromStateDeltasUnchecked
 
     -- * Indicators
     , isPrefixOf
@@ -31,7 +32,7 @@ module Cardano.Wallet.Primitive.Types.StateDeltaSeq
     , mapStates
     , mapStatesDeltas
 
-    -- * Measurements
+    -- * Counts
     , countTransitions
     , countTransitionsWhere
     , countEmptyTransitions
@@ -118,6 +119,9 @@ instance Bifunctor StateDeltaSeq where
 instance Foldable (StateDeltaSeq state) where
     foldMap f s = F.foldMap f (toDeltaList s)
 
+instance Functor (StateDeltaSeq state) where
+    fmap = mapDeltas
+
 instance (Show state, Show delta) => Show (StateDeltaSeq state delta) where
     show = show . NE.toList . toStateDeltaList
 
@@ -131,8 +135,12 @@ fromState state = StateDeltaSeq state Seq.empty
 fromStateDeltas :: (s -> d -> s) -> s -> [d] -> StateDeltaSeq s d
 fromStateDeltas next s ds = applyDeltas next ds (fromState s)
 
+fromStateDeltasUnchecked :: s -> [(d, s)] -> StateDeltaSeq s d
+fromStateDeltasUnchecked head deltaStates =
+    StateDeltaSeq head (Seq.fromList deltaStates)
+
 --------------------------------------------------------------------------------
--- Measurements
+-- Counts
 --------------------------------------------------------------------------------
 
 countTransitions :: StateDeltaSeq s d -> Int
