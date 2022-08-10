@@ -41,13 +41,18 @@ import Test.QuickCheck
     , cover
     , genericShrink
     , listOf
-    , oneof
     , property
     , shrinkMapBy
     , (===)
     )
 import Test.QuickCheck.Classes
-    ( bifoldableLaws, bifunctorLaws, eqLaws, foldableLaws, functorLaws, showLaws )
+    ( bifoldableLaws
+    , bifunctorLaws
+    , eqLaws
+    , foldableLaws
+    , functorLaws
+    , showLaws
+    )
 import Test.Utils.Laws
     ( testLawsMany )
 
@@ -527,7 +532,7 @@ newtype TestState = TestState {unTestState :: Int}
     deriving (Eq, Generic, Show)
 
 genTestState :: Gen TestState
-genTestState = TestState <$> oneof [pure 0, choose (1, 4)]
+genTestState = TestState <$> choose (0, 3)
 
 shrinkTestState :: TestState -> [TestState]
 shrinkTestState = shrinkMapBy TestState unTestState shrink
@@ -542,17 +547,17 @@ data TestDeltaFn
     | Mul
     deriving (Bounded, Enum, Eq, Generic, Show)
 
-genTestDeltaFn :: Gen TestDeltaFn
-genTestDeltaFn = arbitraryBoundedEnum
-
-shrinkTestDeltaFn :: TestDeltaFn -> [TestDeltaFn]
-shrinkTestDeltaFn = genericShrink
-
 applyTestDeltaFn :: TestDeltaFn -> (Int -> Int -> Int)
 applyTestDeltaFn = \case
     Add -> (+)
     Sub -> (-)
     Mul -> (*)
+
+genTestDeltaFn :: Gen TestDeltaFn
+genTestDeltaFn = arbitraryBoundedEnum
+
+shrinkTestDeltaFn :: TestDeltaFn -> [TestDeltaFn]
+shrinkTestDeltaFn = genericShrink
 
 --------------------------------------------------------------------------------
 -- Test deltas
@@ -561,17 +566,17 @@ applyTestDeltaFn = \case
 data TestDelta = TestDelta TestDeltaFn Int
     deriving (Eq, Generic, Show)
 
-genTestDelta :: Gen TestDelta
-genTestDelta = TestDelta
-    <$> genTestDeltaFn
-    <*> oneof [pure 0, choose (1, 4)]
-
-shrinkTestDelta :: TestDelta -> [TestDelta]
-shrinkTestDelta = genericShrink
-
 applyTestDelta :: TestState -> TestDelta -> TestState
 applyTestDelta (TestState i) (TestDelta fn j) =
     TestState $ applyTestDeltaFn fn i j
+
+genTestDelta :: Gen TestDelta
+genTestDelta = TestDelta
+    <$> genTestDeltaFn
+    <*> choose (0, 3)
+
+shrinkTestDelta :: TestDelta -> [TestDelta]
+shrinkTestDelta = genericShrink
 
 --------------------------------------------------------------------------------
 -- Test state delta sequences
