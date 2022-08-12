@@ -2415,9 +2415,42 @@ outputsCreatedByTx tx
         outputs tx
 
 --------------------------------------------------------------------------------
--- Arbitrary sequences of blocks and transactions
+-- Generating and shrinking arbitrary sequences of blocks
 --------------------------------------------------------------------------------
 
+-- | A sequence of blocks that starts at a given block height and slot number.
+--
+-- Values of this type model a sequence of state transitions affecting the
+-- global UTxO set:
+--
+-- @
+--    global_utxo_0 -> block_0_1 ->
+--    global_utxo_1 -> block_1_2 ->
+--    ...
+--    global_utxo_i -> block_i_j ->
+--    global_utxo_j
+-- @
+--
+-- In turn, each block contains a series of transactions that each affect the
+-- global UTxO set. The effect of applying a single block to the global UTxO
+-- set is equivalent to applying all of the contained transactions in order
+-- to the global UTxO set.
+--
+-- In general, only a subset of transactions within a block sequence will be
+-- relevant to a particular wallet, and only a subset of entries within each
+-- successive iteration of the global UTxO set will be relevant to that wallet.
+--
+-- Values of 'BlockSeq' are more convenient to generate and shrink than values
+-- of 'BlockData', but can easily be transformed into values of 'BlockData' in
+-- order to test properties of the 'applyBlocks' function.
+--
+-- Usage:
+--
+--  1. Use function 'genBlockSeq' to generate a 'BlockSeq' value.
+--  2. Use function 'blockSeqToBlockData' to convert a 'BlockSeq' value to a
+--     value of 'BlockData' suitable for use with the 'applyBlocks' function.
+--  3. Use function 'shrinkBlockSeq' to shrink to a minimal counterexample.
+--
 data BlockSeq = BlockSeq
     { initialBlockHeight
         :: Quantity "block" Word32
@@ -2445,12 +2478,61 @@ shrinkBlockSeq = genericRoundRobinShrink
     <:> shrinkTxSeq
     <:> Nil
 
+-- | Converts a 'BlockSeq' to a value of 'BlockData' that is suitable for use
+--   with the 'applyBlocks' function.
+--
+-- This function fills every slot with exactly one block, leaving no gaps.
+--
+blockSeqToBlockData :: BlockSeq -> BlockData m addr tx state
+blockSeqToBlockData = List . blockSeqToBlockList
+  where
+    blockSeqToBlockList :: BlockSeq -> NonEmpty Block
+    blockSeqToBlockList blockSeq =
+        NE.fromList $ getZipList $ makeBlock
+            <$> ZipList (enumFrom $ blockSeq & initialBlockHeight)
+            <*> ZipList (enumFrom $ blockSeq & initialSlotNo)
+            <*> ZipList (NE.toList $ TxSeq.toTxGroupList txSeq)
+      where
+        txSeq :: TxSeq
+        txSeq = blockSeqToTxSeq blockSeq
+
+        -- Makes a block using dummy values for fields that are not relevant
+        -- to our expectations of 'applyBlocks'.
+        --
+        makeBlock :: Quantity "block" Word32 -> SlotNo -> [Tx] -> Block
+        makeBlock blockHeight slotNo transactions = Block
+            { header = BlockHeader
+                { blockHeight
+                , slotNo
+                , headerHash = Hash ""
+                , parentHeaderHash = Nothing
+                }
+            , transactions
+            , delegations = []
+            }
+
+-- | Retrieves the head UTxO of a block sequence.
+--
+-- The head UTxO represents the initial state of the /global/ UTxO set before
+-- any of the blocks in the given block sequence are applied.
+--
 blockSeqHeadUTxO :: BlockSeq -> UTxO
 blockSeqHeadUTxO = TxSeq.headUTxO . blockSeqToTxSeq
 
+-- | Retrieves the last UTxO of a block sequence.
+--
+-- The last UTxO represents the final state of the /global/ UTxO set after
+-- all of the blocks in the given block sequence have been applied.
+--
 blockSeqLastUTxO :: BlockSeq -> UTxO
 blockSeqLastUTxO = TxSeq.lastUTxO . blockSeqToTxSeq
 
+-- | Retrieves, from a block sequence, the complete list of transactions that
+--   are expected to be relevant to a particular wallet.
+--
+-- The returned transactions are listed in the same order that they appear
+-- within the block sequence.
+--
 blockSeqOurTxs
     :: forall s. (IsOurs s Address, IsOurs s RewardAccount)
     => s
@@ -2468,39 +2550,29 @@ blockSeqOurTxs s0 blockSeq = blockSeq
 
     isOurTransitionM :: (UTxO, Tx, UTxO) -> State s Bool
     isOurTransitionM (u, tx, _) =
+        -- Here we use the test function 'isOurTx', which is not used by the
+        -- implementation of 'applyBlocks'.
         isOurTx tx =<< UTxO.filterByAddressM isOurAddressM u
 
-blockSeqToBlockData :: BlockSeq -> BlockData m addr tx state
-blockSeqToBlockData = List . blockSeqToBlockList
-  where
-    blockSeqToBlockList :: BlockSeq -> NonEmpty Block
-    blockSeqToBlockList blockSeq =
-        NE.fromList $ getZipList $ makeBlock
-            <$> ZipList (enumFrom $ blockSeq & initialBlockHeight)
-            <*> ZipList (enumFrom $ blockSeq & initialSlotNo)
-            <*> ZipList (NE.toList $ TxSeq.toTxGroupList txSeq)
-      where
-        txSeq :: TxSeq
-        txSeq = blockSeqToTxSeq blockSeq
-
-        makeBlock :: Quantity "block" Word32 -> SlotNo -> [Tx] -> Block
-        makeBlock blockHeight slotNo transactions = Block
-            { header = BlockHeader
-                { blockHeight
-                , slotNo
-                , headerHash = Hash ""
-                , parentHeaderHash = Nothing
-                }
-            , transactions
-            , delegations = []
-            }
-
+-- | Extracts a 'TxSeq' from a 'BlockSeq'.
+--
+-- The resulting 'TxSeq' does retain knowledge of block boundaries, but does
+-- not have any knowledge of block heights or slot numbers.
+--
 blockSeqToTxSeq :: BlockSeq -> TxSeq
 blockSeqToTxSeq BlockSeq {shrinkableTxSeq} = getTxSeq shrinkableTxSeq
 
+--------------------------------------------------------------------------------
+-- Convenience functions for calling 'applyBlocks' and processing the result.
+--------------------------------------------------------------------------------
+
+-- | Embeds a 'UTxO' set within a 'Wallet' suitable for use with 'applyBlocks'.
+--
 utxoToWallet :: s -> UTxO -> Wallet s
 utxoToWallet s u = unsafeInitWallet u currentTip s
   where
+    -- The 'currentTip' field is not currently used by 'applyBlocks'.
+    --
     currentTip :: BlockHeader
     currentTip = shouldNotEvaluate "currentTip"
 
@@ -2508,18 +2580,40 @@ utxoToWallet s u = unsafeInitWallet u currentTip s
     shouldNotEvaluate name = error $ unwords
         [name, "was unexpectedly evaluated"]
 
+-- | Extracts a list of filtered transactions from the result of 'applyBlocks'.
+--
+-- The returned transactions are listed in the same order that they appear
+-- within the filtered blocks.
+--
 applyBlocksFilteredTxs
     :: NonEmpty ([FilteredBlock], (DeltaWallet s, Wallet s)) -> [Tx]
 applyBlocksFilteredTxs = mconcat . mconcat . NE.toList
     . fmap (fmap (fmap fst . view #transactions) . fst)
 
+-- | Extracts out the last UTxO set returned by 'applyBlocks'.
+--
+-- This UTxO set represents the final state of the wallet after applying
+-- just those transactions that are relevant to the wallet.
+--
 applyBlocksLastUTxO
     :: NonEmpty ([FilteredBlock], (DeltaWallet s, Wallet s)) -> UTxO
 applyBlocksLastUTxO = utxo . snd . snd . NE.last
 
+-- | Removes a fee from a transaction.
+--
+-- Useful in situations where we want to compare transactions without comparing
+-- their fees.
+--
 nullifyFee :: Tx -> Tx
 nullifyFee = set #fee Nothing
 
+--------------------------------------------------------------------------------
+-- Convenience functions for manipulating UTxO sets
+--------------------------------------------------------------------------------
+
+-- | Filters a UTxO set for entries that are expected to be relevant to a
+--   particular wallet.
+--
 ourUTxO :: forall s. (IsOurs s Address) => s -> UTxO -> UTxO
 ourUTxO s u = evalState (UTxO.filterByAddressM isOurAddressM u) s
   where
@@ -2537,7 +2631,8 @@ ourUTxO s u = evalState (UTxO.filterByAddressM isOurAddressM u) s
 -- - returns transactions in the same order that they appear on the blockchain.
 --------------------------------------------------------------------------------
 
--- Scenario: /all/ transactions within blocks are relevant to the wallet.
+-- Scenario: all transactions within the block sequence are expected to be
+-- relevant to the wallet.
 --
 prop_applyBlocks_filteredTxs_allOurs :: Pretty BlockSeq -> Property
 prop_applyBlocks_filteredTxs_allOurs (Pretty blockSeq) =
@@ -2549,7 +2644,8 @@ prop_applyBlocks_filteredTxs_allOurs (Pretty blockSeq) =
         (utxoToWallet AllOurs utxoHeadProvided)
     utxoHeadProvided = blockSeqHeadUTxO blockSeq
 
--- Scenario: /no/ transactions within blocks are relevant to the wallet.
+-- Scenario: no transactions within the block sequence are expected to be
+-- relevant to the wallet.
 --
 prop_applyBlocks_filteredTxs_noneOurs :: Pretty BlockSeq -> Property
 prop_applyBlocks_filteredTxs_noneOurs (Pretty blockSeq) =
@@ -2561,7 +2657,8 @@ prop_applyBlocks_filteredTxs_noneOurs (Pretty blockSeq) =
         (utxoToWallet NoneOurs utxoHeadProvided)
     utxoHeadProvided = UTxO.empty
 
--- Scenario: /some/ transactions within blocks are relevant to the wallet.
+-- Scenario: some transactions within the block sequence are expected to be
+-- relevant to the wallet.
 --
 prop_applyBlocks_filteredTxs_someOurs
     :: Pretty (IsOursIf2 Address RewardAccount)
@@ -2584,12 +2681,13 @@ prop_applyBlocks_filteredTxs_someOurs (Pretty someOurs) (Pretty blockSeq) =
 -- The following properties verify the correctness of the /last/ UTxO set
 -- returned by 'applyBlocks'.
 --
--- The /last/ UTxO set has special significance, as it represents the /final/
--- state of the wallet after executing all /relevant/ transactions within the
--- blocks that are applied.
+-- The last UTxO set has special significance, as it represents the final
+-- state of the wallet after executing all /relevant/ transactions within
+-- the given block sequence.
 --------------------------------------------------------------------------------
 
--- Scenario: /all/ transactions within blocks are relevant to the wallet.
+-- Scenario: all transactions within the block sequence are expected to be
+-- relevant to the wallet.
 --
 prop_applyBlocks_lastUTxO_allOurs :: Pretty BlockSeq -> Property
 prop_applyBlocks_lastUTxO_allOurs (Pretty blockSeq) =
@@ -2601,7 +2699,8 @@ prop_applyBlocks_lastUTxO_allOurs (Pretty blockSeq) =
         (blockSeqToBlockData blockSeq)
         (utxoToWallet AllOurs utxoHeadProvided)
 
--- Scenario: /no/ transactions within blocks are relevant to the wallet.
+-- Scenario: no transactions within the block sequence are expected to be
+-- relevant to the wallet.
 --
 prop_applyBlocks_lastUTxO_noneOurs :: Pretty BlockSeq -> Property
 prop_applyBlocks_lastUTxO_noneOurs (Pretty blockSeq) =
@@ -2613,7 +2712,8 @@ prop_applyBlocks_lastUTxO_noneOurs (Pretty blockSeq) =
         (blockSeqToBlockData blockSeq)
         (utxoToWallet NoneOurs utxoHeadProvided)
 
--- Scenario: /some/ transactions within blocks are relevant to the wallet.
+-- Scenario: some transactions within the block sequence are expected to be
+-- relevant to the wallet.
 --
 prop_applyBlocks_lastUTxO_someOurs
     :: Pretty (IsOursIf2 Address RewardAccount)
