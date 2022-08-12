@@ -173,6 +173,31 @@ executable cardano-wallet
   main-is:
     cardano-wallet.hs
 
+executable cardano-wallet-lace-desktop
+  default-language:
+      Haskell2010
+  default-extensions:
+      NoImplicitPrelude
+      OverloadedStrings
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+  if (flag(release))
+    ghc-options: -O2 -Werror
+  build-depends:
+      base
+    , cardano-wallet-core
+    , cardano-wallet-launcher
+    , cardano-wallet
+    , int-cast
+    , network
+    , optparse-applicative
+    , pinch
+  hs-source-dirs:
+    exe
+  main-is:
+    cardano-wallet-lace-desktop.hs
+
 executable local-cluster
   default-language:
       Haskell2010

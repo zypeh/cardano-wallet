@@ -32,6 +32,7 @@ mkShell rec {
     gnutar
     autoconf
     secp256k1
+    thrift
   ]
   ++ lib.optional (!stdenv.isDarwin) git
   ++ (with haskellProject.hsPkgs; [

@@ -1,0 +1,4 @@
+#!/bin/sh
+
+mkdir -p src/ts
+thrift -strict -recurse -verbose -out src/ts --gen js:node,ts wallet.thrift
