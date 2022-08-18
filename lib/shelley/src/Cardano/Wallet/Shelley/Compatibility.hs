@@ -281,6 +281,8 @@ import Data.ByteString.Short
     ( fromShort, toShort )
 import Data.Coerce
     ( coerce )
+import Data.Default
+    ( Default (..) )
 import Data.Foldable
     ( toList )
 import Data.Function
@@ -917,7 +919,15 @@ fromBabbagePParams eraInfo currentNodeProtocolParameters pp =
         , desiredNumberOfStakePools =
             desiredNumberOfStakePoolsFromPParams pp
         , minimumUTxO =
-            minimumUTxOForShelleyBasedEra ShelleyBasedEraBabbage pp
+            -- Temporary hack to test the following hypothesis:
+            --
+            -- The minimum UTxO calculation for Babbage is somehow slower than
+            -- the minimum UTxO calculation for Alonzo.
+            --
+            minimumUTxOForShelleyBasedEra ShelleyBasedEraAlonzo $ def
+                { Alonzo._coinsPerUTxOWord =
+                    multiplyCoinBy 8 (Babbage._coinsPerUTxOByte pp)
+                }
         , stakeKeyDeposit = stakeKeyDepositFromPParams pp
         , eras = fromBoundToEpochNo <$> eraInfo
         , maximumCollateralInputCount = unsafeIntToWord $
@@ -928,6 +938,8 @@ fromBabbagePParams eraInfo currentNodeProtocolParameters pp =
             Just $ executionUnitPricesFromPParams pp
         , currentNodeProtocolParameters
         }
+  where
+     multiplyCoinBy a (SL.Coin c) = SL.Coin (a * c)
 
 -- | Extract the current network decentralization level from the given set of
 -- protocol parameters.
