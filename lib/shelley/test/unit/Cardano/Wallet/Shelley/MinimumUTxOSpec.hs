@@ -124,8 +124,8 @@ spec = do
 
         describe "Properties" $ do
 
-            it "prop_computeMinimumUTxOCoin_oracle" $
-                prop_computeMinimumUTxOCoin_oracle
+            it "prop_computeMinimumCoinForUTxO_ledger_cardanoApi" $
+                prop_computeMinimumCoinForUTxO_ledger_cardanoApi
                     & property
             it "prop_computeMinimumCoinForUTxO_evaluation" $
                 prop_computeMinimumCoinForUTxO_evaluation
@@ -188,13 +188,13 @@ spec = do
                     goldenMinimumUTxO_BabbageEra
                     goldenMinimumCoins_ShelleyAddress_BabbageEra
 
-prop_computeMinimumUTxOCoin_oracle
+prop_computeMinimumCoinForUTxO_ledger_cardanoApi
     :: MinimumUTxOForShelleyBasedEra -> Address -> Coin -> TokenMap -> Property
-prop_computeMinimumUTxOCoin_oracle minimumUTxO address coin m =
-    Internal.computeMinimumUTxOCoin
+prop_computeMinimumCoinForUTxO_ledger_cardanoApi minimumUTxO address coin m =
+    Internal.computeMinimumUTxOLedger
         minimumUTxO txOut
     ===
-    Internal.computeMinimumUTxOCoinOracle
+    Internal.computeMinimumUTxOCardanoApi
         minimumUTxO txOut
   where
     txOut = TxOut address (TokenBundle coin m)

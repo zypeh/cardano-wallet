@@ -8,8 +8,8 @@
 -- Computing minimum UTxO values: internal interface.
 --
 module Cardano.Wallet.Shelley.MinimumUTxO.Internal
-    ( computeMinimumUTxOCoin
-    , computeMinimumUTxOCoinOracle
+    ( computeMinimumCoinForUTxOLedger
+    , computeMinimumCoinForUTxOCardanoApi
     ) where
 
 import Prelude
@@ -41,11 +41,11 @@ import qualified Cardano.Api.Shelley as Cardano
 
 -- | Computes a minimum UTxO value with the ledger.
 --
-computeMinimumUTxOCoin
+computeMinimumCoinForUTxOLedger
     :: MinimumUTxOForShelleyBasedEra
     -> TxOut
     -> Coin
-computeMinimumUTxOCoin (MinimumUTxOForShelleyBasedEra era pp) txOut =
+computeMinimumCoinForUTxOLedger minimumUTXO txOut =
     toWalletCoin $ case era of
         Cardano.ShelleyBasedEraShelley ->
             evaluateMinLovelaceOutput pp
@@ -62,23 +62,24 @@ computeMinimumUTxOCoin (MinimumUTxOForShelleyBasedEra era pp) txOut =
         Cardano.ShelleyBasedEraBabbage ->
             evaluateMinLovelaceOutput pp
                 $ toBabbageTxOut txOut Nothing
+  where
+    MinimumUTxOForShelleyBasedEra era pp = minimumUTxO
 
--- | Provides an oracle for computing minimum UTxO values.
+-- | Computes a minimum UTxO value with the Cardano API.
 --
--- Our oracle is based on the Cardano API function 'calculateMinimumUTxO',
--- which we treat as a source of truth.
---
-computeMinimumUTxOCoinOracle
+computeMinimumCoinForUTxOCardanoApi
     :: HasCallStack
     => MinimumUTxOForShelleyBasedEra
     -> TxOut
     -> Coin
-computeMinimumUTxOCoinOracle (MinimumUTxOForShelleyBasedEra era pp) txOut =
+computeMinimumCoinForUTxOCardanoApi minimumUTxO txOut =
     unsafeCoinFromResult $
         Cardano.calculateMinimumUTxO era
             (toCardanoTxOut era txOut)
             (Cardano.fromLedgerPParams era pp)
   where
+    MinimumUTxOForShelleyBasedEra era pp = minimumUTxO
+
     unsafeCoinFromResult
         :: Either Cardano.MinimumUTxOError Cardano.Value -> Coin
     unsafeCoinFromResult = \case
@@ -103,7 +104,7 @@ computeMinimumUTxOCoinOracle (MinimumUTxOForShelleyBasedEra era pp) txOut =
             -- must raise an error:
             --
             error $ unwords
-                [ "computeMinimumUTxOCoinOracle:"
+                [ "computeMinimumCoinForUTxOCardanoApi:"
                 , "unexpected error:"
                 , show e
                 ]
