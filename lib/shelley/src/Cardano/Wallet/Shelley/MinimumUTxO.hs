@@ -23,7 +23,7 @@ import Cardano.Wallet.Primitive.Types.Address
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( MinimumUTxO (..), MinimumUTxOForShelleyBasedEra (..) )
+    ( MinimumUTxO (..) )
 import Cardano.Wallet.Primitive.Types.TokenBundle
     ( TokenBundle (..) )
 import Cardano.Wallet.Primitive.Types.TokenMap
@@ -68,29 +68,16 @@ isBelowMinimumCoinForUTxO
     -> Address
     -> TokenBundle
     -> Bool
-isBelowMinimumCoinForUTxO = \case
-    MinimumUTxONone ->
-        \_addr _tokenBundle ->
+isBelowMinimumCoinForUTxO minimumUTxO addr tokenBundle =
+    case minimumUTxO of
+        MinimumUTxONone ->
             False
-    MinimumUTxOConstant c ->
-        \_addr tokenBundle ->
+        MinimumUTxOConstant c ->
             TokenBundle.getCoin tokenBundle < c
-    MinimumUTxOForShelleyBasedEraOf minUTxO ->
-        isBelowMinimumCoinForUTxOShelleyBasedEra minUTxO
-
--- | Returns 'True' if and only if the given 'TokenBundle' has a 'Coin' value
---   that is below the minimum acceptable 'Coin' value for a Shelley-based
---   era.
---
-isBelowMinimumCoinForUTxOShelleyBasedEra
-    :: MinimumUTxOForShelleyBasedEra
-    -> Address
-    -> TokenBundle
-    -> Bool
-isBelowMinimumCoinForUTxOShelleyBasedEra minimumUTxO addr tokenBundle =
-    TokenBundle.getCoin tokenBundle <
-        Internal.computeMinimumUTxOCoin minimumUTxO
-            (TxOut addr tokenBundle)
+        MinimumUTxOForShelleyBasedEraOf minimumUTxOShelley ->
+            TokenBundle.getCoin tokenBundle <
+                Internal.computeMinimumUTxOCoin minimumUTxOShelley
+                    (TxOut addr tokenBundle)
 
 -- | Embeds a 'TokenMap' within a padded 'Cardano.TxOut' value.
 --
