@@ -213,6 +213,7 @@ import Cardano.Wallet.Api.Types
     , ApiT
     , ApiTransactionT
     , ApiTxId
+    , ApiTxOutputT
     , ApiUtxoStatistics
     , ApiVerificationKeyShared
     , ApiVerificationKeyShelley
@@ -561,6 +562,7 @@ type ShelleyTransactions n =
     :<|> BalanceTransaction n
     :<|> DecodeTransaction n
     :<|> SubmitTransaction
+    :<|> ComputeMinimumUTxO n
 
 -- | https://input-output-hk.github.io/cardano-wallet/api/#operation/constructTransaction
 type ConstructTransaction n = "wallets"
@@ -636,6 +638,11 @@ type SubmitTransaction = "wallets"
     :> "transactions-submit"
     :> ReqBody '[JSON] ApiSerialisedTransaction
     :> PostAccepted '[JSON] ApiTxId
+
+-- | https://input-output-hk.github.io/cardano-wallet/api/#operation/computeMinimumUTxO
+type ComputeMinimumUTxO n = "compute-minimum-utxo"
+    :> ReqBody '[JSON] (ApiTxOutputT n)
+    :> PostAccepted '[JSON] (ApiTxOutputT n)
 
 {-------------------------------------------------------------------------------
                                  Shelley Migrations

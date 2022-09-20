@@ -177,6 +177,7 @@ module Cardano.Wallet.Api.Types
     , ResourceContext (..)
     , ApiWithdrawalGeneral (..)
     , ApiWalletOutput (..)
+    , ApiTxOutputT
     , ApiTxOutputGeneral (..)
     , ApiAnyCertificate (..)
     , ApiExternalCertificate (..)
@@ -3272,6 +3273,7 @@ type family ApiWalletMigrationPostDataT (n :: k1) (s :: k2) :: Type
 type family ApiPutAddressesDataT (n :: k) :: Type
 type family ApiBalanceTransactionPostDataT (n :: k) :: Type
 type family ApiDecodedTransactionT (n :: k) :: Type
+type family ApiTxOutputT (n :: k) :: Type
 
 type instance ApiAddressT (n :: NetworkDiscriminant) =
     ApiAddress n
@@ -3316,6 +3318,9 @@ type instance ApiBalanceTransactionPostDataT (n :: NetworkDiscriminant) =
 
 type instance ApiDecodedTransactionT (n :: NetworkDiscriminant) =
     ApiDecodedTransaction n
+
+type instance ApiTxOutputT (n :: NetworkDiscriminant) =
+    ApiTxOutput n
 
 {-------------------------------------------------------------------------------
                          SMASH interfacing types
