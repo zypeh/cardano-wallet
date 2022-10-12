@@ -1,7 +1,7 @@
 ############################################################################
 # Builds Haskell packages with Haskell.nix
 ############################################################################
-haskell-nix: haskell-nix.cabalProject' [
+unstable: haskell-nix: haskell-nix.cabalProject' [
   ({ lib, pkgs, buildProject, ... }: {
     options = {
       gitrev = lib.mkOption {
@@ -136,7 +136,7 @@ haskell-nix: haskell-nix.cabalProject' [
           go-jira
           haskellPackages.ghcid
           pkgconfig
-          python3Packages.openapi-spec-validator
+          unstable.python3Packages.openapi-spec-validator
           (ruby.withPackages (ps: [ ps.thor ]))
           sqlite-interactive
           curlFull

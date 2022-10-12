@@ -35,6 +35,7 @@
   inputs = {
     nixpkgs.follows = "haskellNix/nixpkgs-unstable";
     hostNixpkgs.follows = "nixpkgs";
+    unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     haskellNix = {
       url = "github:input-output-hk/haskell.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -57,7 +58,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, hostNixpkgs, flake-utils, haskellNix, iohkNix, customConfig, emanote, ... }:
+  outputs = { self, unstable, nixpkgs, hostNixpkgs, flake-utils, haskellNix, iohkNix, customConfig, emanote, ... }:
     let
       inherit (nixpkgs) lib;
       config = import ./nix/config.nix lib customConfig;
@@ -140,12 +141,16 @@
               collectChecks
               check;
 
-            project = (import ./nix/haskell.nix pkgs.haskell-nix).appendModule [{
-              gitrev =
-                if config.gitrev != null
-                then config.gitrev
-                else self.rev or "0000000000000000000000000000000000000000";
-            }
+              project =
+                let
+                    a = import unstable { inherit system; };
+                in
+                (import ./nix/haskell.nix a pkgs.haskell-nix ).appendModule [{
+                  gitrev =
+                    if config.gitrev != null
+                    then config.gitrev
+                    else self.rev or "0000000000000000000000000000000000000000";
+              }
               config.haskellNix];
             profiledProject = project.appendModule { profiling = true; };
             hydraProject = project.appendModule ({ pkgs, ... }: {

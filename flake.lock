@@ -700,7 +700,8 @@
         "nixpkgs": [
           "haskellNix",
           "nixpkgs-unstable"
-        ]
+        ],
+        "unstable": "unstable"
       }
     },
     "stackage": {
@@ -736,6 +737,22 @@
         "owner": "srid",
         "ref": "master",
         "repo": "tailwind-haskell",
+        "type": "github"
+      }
+    },
+    "unstable": {
+      "locked": {
+        "lastModified": 1665259268,
+        "narHash": "sha256-ONFhHBLv5nZKhwV/F2GOH16197PbvpyWhoO0AOyktkU=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "c5924154f000e6306030300592f4282949b2db6c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
         "type": "github"
       }
     }
