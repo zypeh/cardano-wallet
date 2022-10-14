@@ -16,135 +16,164 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
--- |
--- Copyright: © 2018-2021 IOHK
--- License: Apache-2.0
---
--- An implementation of shared script state using
--- scheme specified in CIP-1854 Multi-signature Wallets.
+{- |
+ Copyright: © 2018-2021 IOHK
+ License: Apache-2.0
 
-module Cardano.Wallet.Primitive.AddressDiscovery.Shared
-    (
-      SupportsDiscovery
+ An implementation of shared script state using
+ scheme specified in CIP-1854 Multi-signature Wallets.
+-}
+module Cardano.Wallet.Primitive.AddressDiscovery.Shared (
+    SupportsDiscovery,
 
     -- ** State
-    , SharedState (..)
-    , Readiness (..)
-    , SharedAddressPools (..)
-    , SharedAddressPool (..)
-    , newSharedAddressPool
-
-    , ErrAddCosigner (..)
-    , ErrScriptTemplate (..)
-    , mkSharedStateFromAccountXPub
-    , mkSharedStateFromRootXPrv
-    , addCosignerAccXPub
-    , isShared
-    , retrieveAllCosigners
-    , validateScriptTemplates
-    , toSharedWalletId
-
-    , CredentialType (..)
-    , liftPaymentAddress
-    , liftDelegationAddress
-    ) where
+    SharedState (..),
+    Readiness (..),
+    SharedAddressPools (..),
+    SharedAddressPool (..),
+    newSharedAddressPool,
+    ErrAddCosigner (..),
+    ErrScriptTemplate (..),
+    mkSharedStateFromAccountXPub,
+    mkSharedStateFromRootXPrv,
+    addCosignerAccXPub,
+    isShared,
+    retrieveAllCosigners,
+    validateScriptTemplates,
+    toSharedWalletId,
+    CredentialType (..),
+    liftPaymentAddress,
+    liftDelegationAddress,
+) where
 
 import Prelude
 
-import Cardano.Address.Script
-    ( Cosigner (..)
-    , ErrValidateScriptTemplate (..)
-    , Script (..)
-    , ScriptHash (..)
-    , ScriptTemplate (..)
-    , ValidationLevel (..)
-    , foldScript
-    , prettyErrValidateScriptTemplate
-    , toScriptHash
-    , validateScriptTemplate
-    )
-import Cardano.Address.Script.Parser
-    ( scriptToText )
-import Cardano.Address.Style.Shelley
-    ( Credential (..), delegationAddress, paymentAddress )
-import Cardano.Crypto.Wallet
-    ( XPrv, XPub, unXPub )
-import Cardano.Wallet.Primitive.AddressDerivation
-    ( Depth (..)
-    , DerivationIndex (..)
-    , DerivationPrefix (..)
-    , DerivationType (..)
-    , HardDerivation (..)
-    , Index (..)
-    , KeyFingerprint (..)
-    , MkKeyFingerprint (..)
-    , NetworkDiscriminant (..)
-    , PersistPublicKey (..)
-    , Role (..)
-    , SoftDerivation
-    , WalletKey (..)
-    , roleVal
-    , unsafePaymentKeyFingerprint
-    , utxoExternal
-    , utxoInternal
-    )
-import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
-    ( SharedKey (..)
-    , constructAddressFromIx
-    , purposeCIP1854
-    , replaceCosignersWithVerKeys
-    , toNetworkTag
-    )
-import Cardano.Wallet.Primitive.AddressDiscovery
-    ( CompareDiscovery (..)
-    , GenChange (..)
-    , GetAccount (..)
-    , IsOurs (..)
-    , IsOwned (..)
-    , KnownAddresses (..)
-    , MaybeLight (..)
-    , PendingIxs
-    , coinTypeAda
-    , emptyPendingIxs
-    , nextChangeIndex
-    , pendingIxsToList
-    )
-import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
-    ( AddressPoolGap (..) )
-import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase )
-import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..), AddressState (..) )
-import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount )
-import Control.Applicative
-    ( (<|>) )
-import Control.Arrow
-    ( first )
-import Control.DeepSeq
-    ( NFData )
-import Control.Monad
-    ( unless )
-import Crypto.Hash
-    ( Blake2b_160, Digest, hash )
-import Data.Either
-    ( isRight )
-import Data.Either.Combinators
-    ( mapLeft )
-import Data.Kind
-    ( Type )
-import Data.Proxy
-    ( Proxy (..) )
-import Data.Text
-    ( Text )
-import Data.Text.Class
-    ( FromText (..), TextDecodingError (..), ToText (..) )
-import Fmt
-    ( Buildable (..), blockListF', indentF )
-import GHC.Generics
-    ( Generic )
-import Type.Reflection
-    ( Typeable )
+import Cardano.Address.Script (
+    Cosigner (..),
+    ErrValidateScriptTemplate (..),
+    Script (..),
+    ScriptHash (..),
+    ScriptTemplate (..),
+    ValidationLevel (..),
+    foldScript,
+    prettyErrValidateScriptTemplate,
+    toScriptHash,
+    validateScriptTemplate,
+ )
+import Cardano.Address.Script.Parser (
+    scriptToText,
+ )
+import Cardano.Address.Style.Shelley (
+    Credential (..),
+    delegationAddress,
+    paymentAddress,
+ )
+import Cardano.Crypto.Wallet (
+    XPrv,
+    XPub,
+    unXPub,
+ )
+import Cardano.Wallet.Primitive.AddressDerivation (
+    Depth (..),
+    DerivationIndex (..),
+    DerivationPrefix (..),
+    DerivationType (..),
+    HardDerivation (..),
+    Index (..),
+    KeyFingerprint (..),
+    MkKeyFingerprint (..),
+    NetworkDiscriminant (..),
+    PersistPublicKey (..),
+    Role (..),
+    SoftDerivation,
+    WalletKey (..),
+    roleVal,
+    unsafePaymentKeyFingerprint,
+    utxoExternal,
+    utxoInternal,
+ )
+import Cardano.Wallet.Primitive.AddressDerivation.SharedKey (
+    SharedKey (..),
+    constructAddressFromIx,
+    purposeCIP1854,
+    replaceCosignersWithVerKeys,
+    toNetworkTag,
+ )
+import Cardano.Wallet.Primitive.AddressDiscovery (
+    CompareDiscovery (..),
+    GenChange (..),
+    GetAccount (..),
+    IsOurs (..),
+    IsOwned (..),
+    KnownAddresses (..),
+    MaybeLight (..),
+    PendingIxs,
+    coinTypeAda,
+    emptyPendingIxs,
+    nextChangeIndex,
+    pendingIxsToList,
+ )
+import Cardano.Wallet.Primitive.AddressDiscovery.Sequential (
+    AddressPoolGap (..),
+ )
+import Cardano.Wallet.Primitive.Passphrase (
+    Passphrase,
+ )
+import Cardano.Wallet.Primitive.Types.Address (
+    Address (..),
+    AddressState (..),
+ )
+import Cardano.Wallet.Primitive.Types.RewardAccount (
+    RewardAccount,
+ )
+import Control.Applicative (
+    (<|>),
+ )
+import Control.Arrow (
+    first,
+ )
+import Control.DeepSeq (
+    NFData,
+ )
+import Control.Monad (
+    unless,
+ )
+import Crypto.Hash (
+    Blake2b_160,
+    Digest,
+    hash,
+ )
+import Data.Either (
+    isRight,
+ )
+import Data.Either.Combinators (
+    mapLeft,
+ )
+import Data.Kind (
+    Type,
+ )
+import Data.Proxy (
+    Proxy (..),
+ )
+import Data.Text (
+    Text,
+ )
+import Data.Text.Class (
+    FromText (..),
+    TextDecodingError (..),
+    ToText (..),
+ )
+import Fmt (
+    Buildable (..),
+    blockListF',
+    indentF,
+ )
+import GHC.Generics (
+    Generic,
+ )
+import Type.Reflection (
+    Typeable,
+ )
 
 import qualified Cardano.Address as CA
 import qualified Cardano.Address.Style.Shelley as CA
@@ -179,28 +208,30 @@ data SharedAddressPools (key :: Depth -> Type -> Type) = SharedAddressPools
 instance NFData (SharedAddressPools key)
 
 instance Eq (SharedAddressPools key) where
-    (SharedAddressPools ext1 int1 pend1) == (SharedAddressPools ext2 int2 pend2)
-        =  AddressPool.addresses (getPool int1) == AddressPool.addresses (getPool int2)
-        && AddressPool.addresses (getPool ext1) == AddressPool.addresses (getPool ext2)
-        && pend1 == pend2
+    (SharedAddressPools ext1 int1 pend1) == (SharedAddressPools ext2 int2 pend2) =
+        AddressPool.addresses (getPool int1) == AddressPool.addresses (getPool int2)
+            && AddressPool.addresses (getPool ext1) == AddressPool.addresses (getPool ext2)
+            && pend1 == pend2
 
 instance Buildable (SharedAddressPools key) where
-    build (SharedAddressPools extPool intPool pending) = "\n"
-        <> indentF 6 ("External pool:" <> build extPool)
-        <> indentF 6 ("Internal pool:" <> build intPool)
-        <> indentF 6 ("Change indexes: " <> indentF 4 chgsF)
+    build (SharedAddressPools extPool intPool pending) =
+        "\n"
+            <> indentF 6 ("External pool:" <> build extPool)
+            <> indentF 6 ("Internal pool:" <> build intPool)
+            <> indentF 6 ("Change indexes: " <> indentF 4 chgsF)
       where
         chgsF = blockListF' "-" build (pendingIxsToList pending)
 
--- | An address pool which keeps track of shared addresses.
--- To create a new pool, see 'newSharedAddressPool'.
-newtype SharedAddressPool (c :: Role) (key :: Depth -> Type -> Type) =
-    SharedAddressPool {
-        getPool ::
-            AddressPool.Pool
-                (KeyFingerprint "payment" key)
-                (Index 'Soft 'CredFromScriptK)
-    } deriving (Generic, Show)
+{- | An address pool which keeps track of shared addresses.
+ To create a new pool, see 'newSharedAddressPool'.
+-}
+newtype SharedAddressPool (c :: Role) (key :: Depth -> Type -> Type) = SharedAddressPool
+    { getPool ::
+        AddressPool.Pool
+            (KeyFingerprint "payment" key)
+            (Index 'Soft 'CredFromScriptK)
+    }
+    deriving (Generic, Show)
 
 instance NFData (SharedAddressPool c k)
 
@@ -208,122 +239,126 @@ instance Buildable (SharedAddressPool c k) where
     build (SharedAddressPool pool) = build pool
 
 -- | Create a new shared address pool from complete script templates.
-newSharedAddressPool
-    :: forall (n :: NetworkDiscriminant) c key.
-        ( key ~ SharedKey
-        , SupportsDiscovery n key
-        , Typeable c )
-    => AddressPoolGap
-    -> ScriptTemplate
-    -> Maybe ScriptTemplate
-    -> SharedAddressPool c key
+newSharedAddressPool ::
+    forall (n :: NetworkDiscriminant) c key.
+    ( key ~ SharedKey
+    , SupportsDiscovery n key
+    , Typeable c
+    ) =>
+    AddressPoolGap ->
+    ScriptTemplate ->
+    Maybe ScriptTemplate ->
+    SharedAddressPool c key
 newSharedAddressPool g payment delegation =
     SharedAddressPool $ AddressPool.new addressFromIx gap
   where
     gap = fromIntegral $ getAddressPoolGap g
-    addressFromIx
-        = unsafePaymentKeyFingerprint @key
-        . constructAddressFromIx @n (roleVal @c) payment delegation
+    addressFromIx =
+        unsafePaymentKeyFingerprint @key
+            . constructAddressFromIx @n (roleVal @c) payment delegation
 
 {-------------------------------------------------------------------------------
     Shared State
 -------------------------------------------------------------------------------}
 
--- | Shared wallet is a new kind of wallet owned by one or more co-signers.
--- In this type of the wallet, addresses are defined by two monetary scripts
--- (one for the ownership of assets and the other one for the ownership of stake).
--- The two scripts can be the same, different, also the script for the ownership of stake
--- can be absent.
---
--- The shared wallet can be in two states: pending or ready. In a pending state the wallet
--- does not have account public keys for all co-signers, and hence discovery of script addresses
--- co-shared with other co-signers is not possible. In a ready state the wallet has account public
--- keys for all co-signers and co-shared script address discovery is possible.
---
--- The shared wallet is instantiated with an account public key, derivation path needed to
--- recreate it for a holder of this shared wallet, ie., one of the co-signers.
--- In order to construct correctly the wallet, ie., enable co-shared script addresses discovery
--- the following is needed:
---
--- - a way to determine what range of indices are checked on the
---   ledger. Mechanism of address pool, also adopted for sequential wallets,
---   is used. The idea is to track all indices starting from 0 and up to N.
---   N is variable as addresses are discovered (and marked as Used in consequence).
---   The pool of addresses is enlarged in such way that the number of consecutive
---   Unused addresses equals to address pool gap of the address pool. Hence,
---   the address pool gap needs to be specified.
---
--- - script template for payment credential contains information about all collected
---   account public keys for all parties engaged, here named co-signers. Also the skeleton
---   determining script structure is provided. In this sense script is predetermined from
---   the beginning and can variate only in verification key part that replaces co-signers in the
---   script skeleton. The places where a specific cosigner is present is to be replaced
---   with the derived verification key using the co-signer's account public key and
---   the index that was chosen. This is the reason why we need complete set of account public keys for
---   each co-signer to realize address discovery. The script template can be translated into
---   a corresponding script, which hash is used in the address, only when account public keys
---   for all cosigners specified in script are collected.The index for derivation is the same
---   for each cosigner's derivation. The same index is used in both scripts that represent
---   payment or delegation credential. Verification keys are derived
---   using role=3 for payment credential.
---
--- - optional script template for delegation credential contains all information as in case of
---   the script template for payment credential. One difference is that the verification keys are derived
---   using role=4 for delegation credential.
---
--- When both script are present, the base address (with both credentials) is expected to be discovered.
--- When script template for delegation credential is missing then enterprise address (non-stakable) is
--- expected.
+{- | Shared wallet is a new kind of wallet owned by one or more co-signers.
+ In this type of the wallet, addresses are defined by two monetary scripts
+ (one for the ownership of assets and the other one for the ownership of stake).
+ The two scripts can be the same, different, also the script for the ownership of stake
+ can be absent.
+
+ The shared wallet can be in two states: pending or ready. In a pending state the wallet
+ does not have account public keys for all co-signers, and hence discovery of script addresses
+ co-shared with other co-signers is not possible. In a ready state the wallet has account public
+ keys for all co-signers and co-shared script address discovery is possible.
+
+ The shared wallet is instantiated with an account public key, derivation path needed to
+ recreate it for a holder of this shared wallet, ie., one of the co-signers.
+ In order to construct correctly the wallet, ie., enable co-shared script addresses discovery
+ the following is needed:
+
+ - a way to determine what range of indices are checked on the
+   ledger. Mechanism of address pool, also adopted for sequential wallets,
+   is used. The idea is to track all indices starting from 0 and up to N.
+   N is variable as addresses are discovered (and marked as Used in consequence).
+   The pool of addresses is enlarged in such way that the number of consecutive
+   Unused addresses equals to address pool gap of the address pool. Hence,
+   the address pool gap needs to be specified.
+
+ - script template for payment credential contains information about all collected
+   account public keys for all parties engaged, here named co-signers. Also the skeleton
+   determining script structure is provided. In this sense script is predetermined from
+   the beginning and can variate only in verification key part that replaces co-signers in the
+   script skeleton. The places where a specific cosigner is present is to be replaced
+   with the derived verification key using the co-signer's account public key and
+   the index that was chosen. This is the reason why we need complete set of account public keys for
+   each co-signer to realize address discovery. The script template can be translated into
+   a corresponding script, which hash is used in the address, only when account public keys
+   for all cosigners specified in script are collected.The index for derivation is the same
+   for each cosigner's derivation. The same index is used in both scripts that represent
+   payment or delegation credential. Verification keys are derived
+   using role=3 for payment credential.
+
+ - optional script template for delegation credential contains all information as in case of
+   the script template for payment credential. One difference is that the verification keys are derived
+   using role=4 for delegation credential.
+
+ When both script are present, the base address (with both credentials) is expected to be discovered.
+ When script template for delegation credential is missing then enterprise address (non-stakable) is
+ expected.
+-}
 data SharedState (n :: NetworkDiscriminant) k = SharedState
     { derivationPrefix :: !DerivationPrefix
-        -- ^ Derivation path prefix from a root key up to the account key
+    -- ^ Derivation path prefix from a root key up to the account key
     , accountXPub :: !(k 'AccountK XPub)
-        -- ^ The account public key of an initiator of the shared wallet
+    -- ^ The account public key of an initiator of the shared wallet
     , paymentTemplate :: !ScriptTemplate
-        -- ^ Script template together with a map of account keys and cosigners
-        -- for payment credential.
+    -- ^ Script template together with a map of account keys and cosigners
+    -- for payment credential.
     , delegationTemplate :: !(Maybe ScriptTemplate)
-        -- ^ Script template together with a map of account keys and cosigners
-        -- for staking credential. If not specified then the same template as for
-        -- payment is used.
+    -- ^ Script template together with a map of account keys and cosigners
+    -- for staking credential. If not specified then the same template as for
+    -- payment is used.
     , poolGap :: !AddressPoolGap
-        -- ^ Address pool gap to be used in the address pool of shared state
+    -- ^ Address pool gap to be used in the address pool of shared state
     , ready :: !(Readiness (SharedAddressPools k))
-        -- ^ Readiness status of the shared state.
-        -- The state is ready if all cosigner public keys have been obtained.
-        -- In this case, an address pool is allocated
-    } deriving (Generic)
+    -- ^ Readiness status of the shared state.
+    -- The state is ready if all cosigner public keys have been obtained.
+    -- In this case, an address pool is allocated
+    }
+    deriving (Generic)
 
-instance ( NFData (k 'AccountK XPub) ) => NFData (SharedState n k)
+instance (NFData (k 'AccountK XPub)) => NFData (SharedState n k)
 
-deriving instance ( Show (k 'AccountK XPub) ) => Show (SharedState n k)
+deriving instance (Show (k 'AccountK XPub)) => Show (SharedState n k)
 
 -- We have to write the equality instance by hands,
 -- because there is no general equality for address pools
 -- (we cannot test the generators for equality).
 instance Eq (k 'AccountK XPub) => Eq (SharedState n k) where
-    SharedState a1 a2 a3 a4 a5 ap == SharedState b1 b2 b3 b4 b5 bp
-        = and [a1 == b1, a2 == b2, a3 == b3, a4 == b4, a5 == b5, ap `match` bp]
+    SharedState a1 a2 a3 a4 a5 ap == SharedState b1 b2 b3 b4 b5 bp =
+        and [a1 == b1, a2 == b2, a3 == b3, a4 == b4, a5 == b5, ap `match` bp]
       where
         match Pending Pending = True
-        match (Active sharedAddressPools1) (Active sharedAddressPools2)
-            = sharedAddressPools1 == sharedAddressPools2
+        match (Active sharedAddressPools1) (Active sharedAddressPools2) =
+            sharedAddressPools1 == sharedAddressPools2
         match _ _ = False
 
 instance PersistPublicKey (k 'AccountK) => Buildable (SharedState n k) where
-    build st = "SharedState:\n"
-        <> indentF 4 ("Derivation prefix: " <> build (toText $ derivationPrefix st))
-        <> indentF 4 ("accountXPub:" <> build (accountXPub st))
-        <> indentF 4 ("paymentTemplate:" <> build (paymentTemplate st))
-        <> indentF 4 ("delegationTemplate:" <> build (delegationTemplate st))
-        <> indentF 4 ("poolGap:" <> build (toText $ poolGap st))
-        <> indentF 4 ("ready: " <> readyF (ready st))
+    build st =
+        "SharedState:\n"
+            <> indentF 4 ("Derivation prefix: " <> build (toText $ derivationPrefix st))
+            <> indentF 4 ("accountXPub:" <> build (accountXPub st))
+            <> indentF 4 ("paymentTemplate:" <> build (paymentTemplate st))
+            <> indentF 4 ("delegationTemplate:" <> build (delegationTemplate st))
+            <> indentF 4 ("poolGap:" <> build (toText $ poolGap st))
+            <> indentF 4 ("ready: " <> readyF (ready st))
       where
         readyF (Pending) = "Pending"
         readyF (Active pool) =
             "Active:" <> printIndex (derivationPrefix st) <> " " <> build pool
-        printIndex (DerivationPrefix (_,_,ix)) =
-            " hardened index: "<> build (getIndex ix)
+        printIndex (DerivationPrefix (_, _, ix)) =
+            " hardened index: " <> build (getIndex ix)
 
 -- | Readiness status of the shared state.
 data Readiness a
@@ -334,92 +369,97 @@ data Readiness a
 instance (NFData a) => NFData (Readiness a)
 
 -- | Create a new SharedState from public account key.
-mkSharedStateFromAccountXPub
-    :: (SupportsDiscovery n k, WalletKey k, k ~ SharedKey)
-    => k 'AccountK XPub
-    -> Index 'Hardened 'AccountK
-    -> AddressPoolGap
-    -> ScriptTemplate
-    -> Maybe ScriptTemplate
-    -> SharedState n k
+mkSharedStateFromAccountXPub ::
+    (SupportsDiscovery n k, WalletKey k, k ~ SharedKey) =>
+    k 'AccountK XPub ->
+    Index 'Hardened 'AccountK ->
+    AddressPoolGap ->
+    ScriptTemplate ->
+    Maybe ScriptTemplate ->
+    SharedState n k
 mkSharedStateFromAccountXPub accXPub accIx gap pTemplate dTemplateM =
-    activate $ SharedState
-        { derivationPrefix = DerivationPrefix (purposeCIP1854, coinTypeAda, accIx)
-        , accountXPub = accXPub
-        , paymentTemplate = pTemplate
-        , delegationTemplate = dTemplateM
-        , poolGap = gap
-        , ready = Pending
-        }
+    activate $
+        SharedState
+            { derivationPrefix = DerivationPrefix (purposeCIP1854, coinTypeAda, accIx)
+            , accountXPub = accXPub
+            , paymentTemplate = pTemplate
+            , delegationTemplate = dTemplateM
+            , poolGap = gap
+            , ready = Pending
+            }
 
 -- | Create a new SharedState from root private key and password.
-mkSharedStateFromRootXPrv
-    :: (SupportsDiscovery n k, WalletKey k, k ~ SharedKey)
-    => (k 'RootK XPrv, Passphrase "encryption")
-    -> Index 'Hardened 'AccountK
-    -> AddressPoolGap
-    -> ScriptTemplate
-    -> Maybe ScriptTemplate
-    -> SharedState n k
+mkSharedStateFromRootXPrv ::
+    (SupportsDiscovery n k, WalletKey k, k ~ SharedKey) =>
+    (k 'RootK XPrv, Passphrase "encryption") ->
+    Index 'Hardened 'AccountK ->
+    AddressPoolGap ->
+    ScriptTemplate ->
+    Maybe ScriptTemplate ->
+    SharedState n k
 mkSharedStateFromRootXPrv (rootXPrv, pwd) accIx =
     mkSharedStateFromAccountXPub accXPub accIx
   where
     accXPub = publicKey $ deriveAccountPrivateKey pwd rootXPrv accIx
 
 -- | Turn a 'Pending' into an 'Active' state if all templates are complete.
+activate ::
+    forall n k.
+    (SupportsDiscovery n k, WalletKey k, k ~ SharedKey) =>
+    SharedState n k ->
+    SharedState n k
 activate
-    :: forall n k. (SupportsDiscovery n k, WalletKey k, k ~ SharedKey)
-    => SharedState n k -> SharedState n k
-activate
-    st@(SharedState{accountXPub,paymentTemplate=pT,delegationTemplate=dT,poolGap,ready})
-  = st { ready = new ready }
-  where
-    new Pending
-        | templatesComplete accountXPub pT dT
-            = Active $ SharedAddressPools
-              { externalPool = newSharedAddressPool @n poolGap pT dT
-              , internalPool = newSharedAddressPool @n poolGap pT dT
-              , pendingChangeIxs = emptyPendingIxs
-              }
-    new r   = r
+    st@(SharedState{accountXPub, paymentTemplate = pT, delegationTemplate = dT, poolGap, ready}) =
+        st{ready = new ready}
+      where
+        new Pending
+            | templatesComplete accountXPub pT dT =
+                Active $
+                    SharedAddressPools
+                        { externalPool = newSharedAddressPool @n poolGap pT dT
+                        , internalPool = newSharedAddressPool @n poolGap pT dT
+                        , pendingChangeIxs = emptyPendingIxs
+                        }
+        new r = r
 
 -- | Possible errors from adding a co-signer key to the shared wallet state.
 data ErrAddCosigner
-    = NoDelegationTemplate
-        -- ^ Adding key for a cosigner for a non-existent delegation template is
-        -- not allowed.
-    | NoSuchCosigner CredentialType Cosigner
-        -- ^ Adding key for a cosigners for a given script is possible for the
-        -- cosigner present in the script template.
-    | KeyAlreadyPresent CredentialType
-        -- ^ Adding the same key for different cosigners for a given script is
-        -- not allowed.
-    | WalletAlreadyActive
-        -- ^ Adding is possible only to pending shared wallet.
-    | CannotUpdateSharedWalletKey
-        -- ^ Updating key is possible only for other cosigners, not cosigner
-        -- belonging to the shared wallet.
+    = -- | Adding key for a cosigner for a non-existent delegation template is
+      -- not allowed.
+      NoDelegationTemplate
+    | -- | Adding key for a cosigners for a given script is possible for the
+      -- cosigner present in the script template.
+      NoSuchCosigner CredentialType Cosigner
+    | -- | Adding the same key for different cosigners for a given script is
+      -- not allowed.
+      KeyAlreadyPresent CredentialType
+    | -- | Adding is possible only to pending shared wallet.
+      WalletAlreadyActive
+    | -- | Updating key is possible only for other cosigners, not cosigner
+      -- belonging to the shared wallet.
+      CannotUpdateSharedWalletKey
     deriving (Eq, Show)
 
--- | The cosigner with his account public key is updated per template.
---
--- For each template the script is checked for presence of the cosigner:
---   * If present, then the key is inserted into the state.
---   * Otherwise, fail with 'NoSuchCosigner'.
--- If the key is already present it is going to be updated.
--- For a given template all keys must be unique. If already present key is tried to be added,
--- `KeyAlreadyPresent` error is produced. The updating works only with pending shared state,
---
--- When an active shared state is used `WalletAlreadyActive` error is triggered.
---
--- Updating the key for delegation script can be successful only if delegation script is
--- present. Otherwise, `NoDelegationTemplate` error is triggered.
-addCosignerAccXPub
-    :: (SupportsDiscovery n k, WalletKey k, k ~ SharedKey)
-    => (Cosigner, k 'AccountK XPub)
-    -> CredentialType
-    -> SharedState n k
-    -> Either ErrAddCosigner (SharedState n k)
+{- | The cosigner with his account public key is updated per template.
+
+ For each template the script is checked for presence of the cosigner:
+   * If present, then the key is inserted into the state.
+   * Otherwise, fail with 'NoSuchCosigner'.
+ If the key is already present it is going to be updated.
+ For a given template all keys must be unique. If already present key is tried to be added,
+ `KeyAlreadyPresent` error is produced. The updating works only with pending shared state,
+
+ When an active shared state is used `WalletAlreadyActive` error is triggered.
+
+ Updating the key for delegation script can be successful only if delegation script is
+ present. Otherwise, `NoDelegationTemplate` error is triggered.
+-}
+addCosignerAccXPub ::
+    (SupportsDiscovery n k, WalletKey k, k ~ SharedKey) =>
+    (Cosigner, k 'AccountK XPub) ->
+    CredentialType ->
+    SharedState n k ->
+    Either ErrAddCosigner (SharedState n k)
 addCosignerAccXPub (cosigner, cosignerXPub) cred st = case ready st of
     Active{} ->
         Left WalletAlreadyActive
@@ -434,8 +474,10 @@ addCosignerAccXPub (cosigner, cosignerXPub) cred st = case ready st of
                 | isCosignerMissing dt -> Left $ NoSuchCosigner cred cosigner
                 | isKeyAlreadyPresent dt -> Left $ KeyAlreadyPresent cred
             (Delegation, _, Nothing) -> Left NoDelegationTemplate
-            _ -> Right $
-                activate $ addCosignerPending (cosigner, cosignerXPub) cred st
+            _ ->
+                Right $
+                    activate $
+                        addCosignerPending (cosigner, cosignerXPub) cred st
   where
     walletKey = accountXPub st
     isKeyAlreadyPresent (ScriptTemplate cosignerKeys _) =
@@ -447,17 +489,17 @@ addCosignerAccXPub (cosigner, cosignerXPub) cred st = case ready st of
             Nothing -> False
             Just key' -> key' == getRawKey walletKey
 
-addCosignerPending
-    :: WalletKey k
-    => (Cosigner, k 'AccountK XPub)
-    -> CredentialType
-    -> SharedState n k
-    -> SharedState n k
+addCosignerPending ::
+    WalletKey k =>
+    (Cosigner, k 'AccountK XPub) ->
+    CredentialType ->
+    SharedState n k ->
+    SharedState n k
 addCosignerPending (cosigner, cosignerXPub) cred st = case cred of
     Payment ->
-        st { paymentTemplate = updateScriptTemplate (paymentTemplate st) }
+        st{paymentTemplate = updateScriptTemplate (paymentTemplate st)}
     Delegation ->
-        st { delegationTemplate = updateScriptTemplate <$> (delegationTemplate st) }
+        st{delegationTemplate = updateScriptTemplate <$> (delegationTemplate st)}
   where
     updateScriptTemplate sc@(ScriptTemplate cosignerMap script')
         | cosigner `elem` retrieveAllCosigners script' =
@@ -472,29 +514,29 @@ retrieveAllCosigners = foldScript (:) []
 -------------------------------------------------------------------------------}
 
 -- | Is the given account public key among the cosigners?
-accountXPubCondition
-    :: WalletKey k
-    => k 'AccountK XPub
-    -> ScriptTemplate
-    -> Bool
+accountXPubCondition ::
+    WalletKey k =>
+    k 'AccountK XPub ->
+    ScriptTemplate ->
+    Bool
 accountXPubCondition accXPub (ScriptTemplate cosignerKeys _) =
     getRawKey accXPub `F.elem` cosignerKeys
 
-data ErrScriptTemplate =
-      ErrScriptTemplateInvalid !CredentialType !ErrValidateScriptTemplate
+data ErrScriptTemplate
+    = ErrScriptTemplateInvalid !CredentialType !ErrValidateScriptTemplate
     | ErrScriptTemplateMissingKey !CredentialType !Text
     deriving (Show, Eq)
 
 instance ToText ErrValidateScriptTemplate where
     toText = T.pack . prettyErrValidateScriptTemplate
 
-validateScriptTemplates
-    :: WalletKey k
-    => k 'AccountK XPub
-    -> ValidationLevel
-    -> ScriptTemplate
-    -> Maybe ScriptTemplate
-    -> Either ErrScriptTemplate ()
+validateScriptTemplates ::
+    WalletKey k =>
+    k 'AccountK XPub ->
+    ValidationLevel ->
+    ScriptTemplate ->
+    Maybe ScriptTemplate ->
+    Either ErrScriptTemplate ()
 validateScriptTemplates accXPub level pTemplate dTemplateM = do
     checkTemplate Payment pTemplate
     unless (checkXPub pTemplate) $ Left $ ErrScriptTemplateMissingKey Payment accXPubErr
@@ -504,94 +546,104 @@ validateScriptTemplates accXPub level pTemplate dTemplateM = do
             unless (checkXPub dTemplate) $ Left $ ErrScriptTemplateMissingKey Delegation accXPubErr
         Nothing -> pure ()
   where
-      --when creating the shared wallet we can have cosigners in script with missing
-      --account public key. They are supposed to be collected when patching.
-      handleUnusedCosigner
-          :: Either ErrValidateScriptTemplate ()
-          -> Either ErrValidateScriptTemplate ()
-      handleUnusedCosigner = \case
-          Left MissingCosignerXPub -> Right ()
-          rest -> rest
-      checkTemplate cred template' =
-          mapLeft (ErrScriptTemplateInvalid cred) $
-          handleUnusedCosigner $
-          validateScriptTemplate level template'
-      checkXPub template' =
-          accountXPubCondition accXPub template'
-      accXPubErr = "The wallet's account key must be always present for the script template."
+    -- when creating the shared wallet we can have cosigners in script with missing
+    -- account public key. They are supposed to be collected when patching.
+    handleUnusedCosigner ::
+        Either ErrValidateScriptTemplate () ->
+        Either ErrValidateScriptTemplate ()
+    handleUnusedCosigner = \case
+        Left MissingCosignerXPub -> Right ()
+        rest -> rest
+    checkTemplate cred template' =
+        mapLeft (ErrScriptTemplateInvalid cred) $
+            handleUnusedCosigner $
+                validateScriptTemplate level template'
+    checkXPub template' =
+        accountXPubCondition accXPub template'
+    accXPubErr = "The wallet's account key must be always present for the script template."
 
 -- | Do we have all public keys in the templates?
-templatesComplete
-    :: WalletKey k
-    => k 'AccountK XPub
-    -> ScriptTemplate
-    -> Maybe ScriptTemplate
-    -> Bool
+templatesComplete ::
+    WalletKey k =>
+    k 'AccountK XPub ->
+    ScriptTemplate ->
+    Maybe ScriptTemplate ->
+    Bool
 templatesComplete accXPub pTemplate dTemplate =
     isValid pTemplate && maybe True isValid dTemplate
   where
     isValid template' =
         isRight (validateScriptTemplate RequiredValidation template')
-        && (accountXPubCondition accXPub template')
+            && (accountXPubCondition accXPub template')
 
 {-------------------------------------------------------------------------------
     Address discovery
 -------------------------------------------------------------------------------}
 
-isShared
-    :: SupportsDiscovery n k
-    => Address
-    -> SharedState n k
-    -> (Maybe (Index 'Soft 'CredFromScriptK, Role), SharedState n k)
+isShared ::
+    SupportsDiscovery n k =>
+    Address ->
+    SharedState n k ->
+    (Maybe (Index 'Soft 'CredFromScriptK, Role), SharedState n k)
 isShared addrRaw st = case ready st of
     Pending -> nop
     Active (SharedAddressPools extPool intPool pending) ->
         case paymentKeyFingerprint addrRaw of
             Left _ -> nop
             Right addr -> case ( AddressPool.lookup addr (getPool extPool)
-                               , AddressPool.lookup addr (getPool intPool)) of
+                               , AddressPool.lookup addr (getPool intPool)
+                               ) of
                 (Just ix, Nothing) ->
-                    let pool' = AddressPool.update addr (getPool extPool) in
-                    ( Just (ix, UtxoExternal)
-                    , st { ready = Active
-                             ( SharedAddressPools
-                                 (SharedAddressPool pool')
-                                 intPool
-                                 pending )
-                         } )
+                    let pool' = AddressPool.update addr (getPool extPool)
+                     in ( Just (ix, UtxoExternal)
+                        , st
+                            { ready =
+                                Active
+                                    ( SharedAddressPools
+                                        (SharedAddressPool pool')
+                                        intPool
+                                        pending
+                                    )
+                            }
+                        )
                 (Nothing, Just ix) ->
-                    let pool' = AddressPool.update addr (getPool intPool) in
-                    ( Just (ix, UtxoInternal)
-                    , st { ready = Active
-                             ( SharedAddressPools
-                                 extPool
-                                 (SharedAddressPool pool')
-                                 pending )
-                         } )
+                    let pool' = AddressPool.update addr (getPool intPool)
+                     in ( Just (ix, UtxoInternal)
+                        , st
+                            { ready =
+                                Active
+                                    ( SharedAddressPools
+                                        extPool
+                                        (SharedAddressPool pool')
+                                        pending
+                                    )
+                            }
+                        )
                 _ -> nop
   where
     nop = (Nothing, st)
-    -- FIXME: Check that the network discrimant of the type
-    -- is compatible with the discriminant of the Address!
 
-instance SupportsDiscovery n k => IsOurs (SharedState n k) Address
-  where
+-- FIXME: Check that the network discrimant of the type
+-- is compatible with the discriminant of the Address!
+
+instance SupportsDiscovery n k => IsOurs (SharedState n k) Address where
     isOurs addr st =
         first (fmap (decoratePath st utxoExternal . fst)) (isShared addr st)
 
 -- | Decorate an index with the derivation prefix corresponding to the state.
-decoratePath
-    :: SharedState n key
-    -> Index 'Soft 'RoleK
-    -> Index 'Soft 'CredFromScriptK
-    -> NE.NonEmpty DerivationIndex
-decoratePath st role' ix = NE.fromList
-    [ DerivationIndex $ getIndex purpose
-    , DerivationIndex $ getIndex coinType
-    , DerivationIndex $ getIndex accIx
-    , DerivationIndex $ getIndex role'
-    , DerivationIndex $ getIndex ix
-    ]
+decoratePath ::
+    SharedState n key ->
+    Index 'Soft 'RoleK ->
+    Index 'Soft 'CredFromScriptK ->
+    NE.NonEmpty DerivationIndex
+decoratePath st role' ix =
+    NE.fromList
+        [ DerivationIndex $ getIndex purpose
+        , DerivationIndex $ getIndex coinType
+        , DerivationIndex $ getIndex accIx
+        , DerivationIndex $ getIndex role'
+        , DerivationIndex $ getIndex ix
+        ]
   where
     DerivationPrefix (purpose, coinType, accIx) = derivationPrefix st
 
@@ -608,8 +660,8 @@ instance SupportsDiscovery n k => CompareDiscovery (SharedState n k) where
         Active pools ->
             case (ix a1 pools, ix a2 pools) of
                 (Nothing, Nothing) -> EQ
-                (Nothing, Just _)  -> GT
-                (Just _, Nothing)  -> LT
+                (Nothing, Just _) -> GT
+                (Just _, Nothing) -> LT
                 (Just i1, Just i2) -> compare i1 i2
       where
         ix :: Address -> SharedAddressPools k -> Maybe (Index 'Soft 'CredFromScriptK)
@@ -617,32 +669,36 @@ instance SupportsDiscovery n k => CompareDiscovery (SharedState n k) where
             case paymentKeyFingerprint a of
                 Left _ -> Nothing
                 Right addr ->
-                    AddressPool.lookup addr (getPool extPool) <|>
-                    AddressPool.lookup addr (getPool intPool)
+                    AddressPool.lookup addr (getPool extPool)
+                        <|> AddressPool.lookup addr (getPool intPool)
 
 instance Typeable n => KnownAddresses (SharedState n k) where
     knownAddresses st = case ready st of
         Pending -> []
         Active (SharedAddressPools extPool intPool ixs) ->
-            nonChangeAddresses extPool <>
-            usedChangeAddresses intPool <>
-            pendingChangeAddresses intPool (pendingIxsToList ixs)
+            nonChangeAddresses extPool
+                <> usedChangeAddresses intPool
+                <> pendingChangeAddresses intPool (pendingIxsToList ixs)
       where
         nonChangeAddresses extPool =
-            map (swivel utxoExternal) $ L.sortOn idx $ Map.toList $
-            AddressPool.addresses (getPool extPool)
+            map (swivel utxoExternal) $
+                L.sortOn idx $
+                    Map.toList $
+                        AddressPool.addresses (getPool extPool)
 
-        idx (_,(ix,_)) = ix
+        idx (_, (ix, _)) = ix
 
-        swivel role' (k,(ix,s)) =
+        swivel role' (k, (ix, s)) =
             (liftPaymentAddress @n k, s, decoratePath st role' ix)
 
         changeAddresses intPool =
-            map (swivel utxoInternal) $ L.sortOn idx $ Map.toList $
-            AddressPool.addresses (getPool intPool)
+            map (swivel utxoInternal) $
+                L.sortOn idx $
+                    Map.toList $
+                        AddressPool.addresses (getPool intPool)
         usedChangeAddresses intPool =
             filter (\(_, status, _) -> status == Used) $
-            changeAddresses intPool
+                changeAddresses intPool
 
         -- pick as many unused change addresses as there are pending
         -- transactions. Note: the last `internalGap` addresses are all
@@ -652,14 +708,15 @@ instance Typeable n => KnownAddresses (SharedState n k) where
                 changeAddresses' = changeAddresses intPool
                 edgeChangeAddresses =
                     drop (length changeAddresses' - internalGap) changeAddresses'
-            in take (length ixs) edgeChangeAddresses
+             in take (length ixs) edgeChangeAddresses
 
 instance MaybeLight (SharedState n k) where
     maybeDiscover = Nothing
 
 instance GenChange (SharedState n k) where
-    type ArgGenChange (SharedState n k) =
-        (ScriptTemplate -> Maybe ScriptTemplate -> Index 'Soft 'CredFromScriptK -> Address)
+    type
+        ArgGenChange (SharedState n k) =
+            (ScriptTemplate -> Maybe ScriptTemplate -> Index 'Soft 'CredFromScriptK -> Address)
 
     genChange mkAddress st = case ready st of
         Pending ->
@@ -667,7 +724,7 @@ instance GenChange (SharedState n k) where
         Active (SharedAddressPools extPool intPool pending) ->
             let (ix, pending') = nextChangeIndex (getPool intPool) pending
                 addr = mkAddress (paymentTemplate st) (delegationTemplate st) ix
-            in (addr, st{ ready = Active (SharedAddressPools extPool intPool pending') })
+             in (addr, st{ready = Active (SharedAddressPools extPool intPool pending')})
 
 {-------------------------------------------------------------------------------
     Address utilities
@@ -676,7 +733,7 @@ instance GenChange (SharedState n k) where
 
 data CredentialType = Payment | Delegation
     deriving (Eq, Show, Generic)
-    deriving anyclass NFData
+    deriving anyclass (NFData)
 
 instance ToText CredentialType where
     toText Payment = "payment"
@@ -686,61 +743,73 @@ instance FromText CredentialType where
     fromText = \case
         "payment" -> Right Payment
         "delegation" -> Right Delegation
-        _ -> Left $ TextDecodingError $ unwords
-            [ "Invalid credential type: expecting only following values:"
-            , "'payment', 'delegation'."
-            ]
+        _ ->
+            Left $
+                TextDecodingError $
+                    unwords
+                        [ "Invalid credential type: expecting only following values:"
+                        , "'payment', 'delegation'."
+                        ]
 
-liftPaymentAddress
-    :: forall (n :: NetworkDiscriminant) (k :: Depth -> Type -> Type).
-       Typeable n
-    => KeyFingerprint "payment" k
-    -> Address
+liftPaymentAddress ::
+    forall (n :: NetworkDiscriminant) (k :: Depth -> Type -> Type).
+    Typeable n =>
+    KeyFingerprint "payment" k ->
+    Address
 liftPaymentAddress (KeyFingerprint fingerprint) =
-    Address $ CA.unAddress $
-    paymentAddress (toNetworkTag @n)
-    (PaymentFromScriptHash (ScriptHash fingerprint))
+    Address $
+        CA.unAddress $
+            paymentAddress
+                (toNetworkTag @n)
+                (PaymentFromScriptHash (ScriptHash fingerprint))
 
-liftDelegationAddress
-    :: forall (n :: NetworkDiscriminant) (k :: Depth -> Type -> Type).
-       Typeable n
-    => Index 'Soft 'CredFromScriptK
-    -> ScriptTemplate
-    -> KeyFingerprint "payment" k
-    -> Address
+liftDelegationAddress ::
+    forall (n :: NetworkDiscriminant) (k :: Depth -> Type -> Type).
+    Typeable n =>
+    Index 'Soft 'CredFromScriptK ->
+    ScriptTemplate ->
+    KeyFingerprint "payment" k ->
+    Address
 liftDelegationAddress ix dTemplate (KeyFingerprint fingerprint) =
-    Address $ CA.unAddress $
-    delegationAddress (toNetworkTag @n)
-    (PaymentFromScriptHash (ScriptHash fingerprint))
-    (delegationCredential dScript)
+    Address $
+        CA.unAddress $
+            delegationAddress
+                (toNetworkTag @n)
+                (PaymentFromScriptHash (ScriptHash fingerprint))
+                (delegationCredential dScript)
   where
     delegationCredential =
         DelegationFromScriptHash . toScriptHash
     dScript =
         replaceCosignersWithVerKeys CA.Stake dTemplate ix
 
-toSharedWalletId
-    :: (WalletKey k, k ~ SharedKey)
-    => k 'AccountK XPub
-    -> ScriptTemplate
-    -> Maybe ScriptTemplate
-    -> Digest Blake2b_160
+toSharedWalletId ::
+    (WalletKey k, k ~ SharedKey) =>
+    k 'AccountK XPub ->
+    ScriptTemplate ->
+    Maybe ScriptTemplate ->
+    Digest Blake2b_160
 toSharedWalletId accXPub pTemplate dTemplateM =
     hash $
-    (unXPub . getRawKey $ accXPub) <>
-    serializeScriptTemplate pTemplate <>
-    maybe mempty serializeScriptTemplate dTemplateM
+        (unXPub . getRawKey $ accXPub)
+            <> serializeScriptTemplate pTemplate
+            <> maybe mempty serializeScriptTemplate dTemplateM
   where
     serializeScriptTemplate (ScriptTemplate _ script) =
         T.encodeUtf8 $ scriptToText script
 
-instance ( key ~ SharedKey
-         , SupportsDiscovery n key ) =>
-         IsOwned (SharedState n key) key 'CredFromScriptK where
+instance
+    ( key ~ SharedKey
+    , SupportsDiscovery n key
+    ) =>
+    IsOwned (SharedState n key) key 'CredFromScriptK
+    where
     isOwned st (rootPrv, pwd) addr = case isShared addr st of
         (Just (ix, role'), _) ->
-            let DerivationPrefix (_,_,accIx) = derivationPrefix st
+            let DerivationPrefix (_, _, accIx) = derivationPrefix st
                 accXPrv = deriveAccountPrivateKey pwd rootPrv accIx
-            in Just ( deriveAddressPrivateKey pwd accXPrv role' ix
-                    , pwd )
+             in Just
+                    ( deriveAddressPrivateKey pwd accXPrv role' ix
+                    , pwd
+                    )
         (Nothing, _) -> Nothing

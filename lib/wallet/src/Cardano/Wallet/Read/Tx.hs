@@ -13,16 +13,22 @@ License: Apache-2.0
 The 'Tx' type represents transactions as they are read from the mainnet ledger.
 It is compatible with the era-specific index types from @cardano-ledger@.
 -}
-module Cardano.Wallet.Read.Tx
-    ( -- * Transactions
-      Tx (..)
-    , TxT
-    ) where
+module Cardano.Wallet.Read.Tx (
+    -- * Transactions
+    Tx (..),
+    TxT,
+) where
 
 import Prelude
 
-import Cardano.Api
-    ( AllegraEra, AlonzoEra, BabbageEra, ByronEra, MaryEra, ShelleyEra )
+import Cardano.Api (
+    AllegraEra,
+    AlonzoEra,
+    BabbageEra,
+    ByronEra,
+    MaryEra,
+    ShelleyEra,
+ )
 
 import qualified Cardano.Api.Shelley as Api
 import qualified Cardano.Chain.UTxO as Byron

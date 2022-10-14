@@ -1,21 +1,23 @@
-module Cardano.Wallet.Primitive.Types.Address.Gen
-    (
-      -- * Generators and shrinkers
-      genAddress
-    , shrinkAddress
+module Cardano.Wallet.Primitive.Types.Address.Gen (
+    -- * Generators and shrinkers
+    genAddress,
+    shrinkAddress,
 
-      -- * Indicator functions on addresses
-    , addressParity
-    , Parity (..)
-    )
-    where
+    -- * Indicator functions on addresses
+    addressParity,
+    Parity (..),
+) where
 
 import Prelude
 
-import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
-import Test.QuickCheck
-    ( Gen, elements, sized )
+import Cardano.Wallet.Primitive.Types.Address (
+    Address (..),
+ )
+import Test.QuickCheck (
+    Gen,
+    elements,
+    sized,
+ )
 
 import qualified Data.Bits as Bits
 import qualified Data.ByteString as BS
@@ -42,27 +44,27 @@ addresses = mkAddress <$> ['0' ..]
 -- Indicator functions on addresses
 --------------------------------------------------------------------------------
 
--- | Computes the parity of an address.
---
--- Parity is defined in the following way:
---
---    - even-parity address:
---      an address with a pop count (Hamming weight) that is even.
---
---    - odd-parity address:
---      an address with a pop count (Hamming weight) that is odd.
---
--- Examples of even-parity and odd-parity addresses:
---
---    - 0b00000000 : even (Hamming weight = 0)
---    - 0b00000001 : odd  (Hamming weight = 1)
---    - 0b00000010 : odd  (Hamming weight = 1)
---    - 0b00000011 : even (Hamming weight = 2)
---    - 0b00000100 : odd  (Hamming weight = 1)
---    - ...
---    - 0b11111110 : odd  (Hamming weight = 7)
---    - 0b11111111 : even (Hamming weight = 8)
---
+{- | Computes the parity of an address.
+
+ Parity is defined in the following way:
+
+    - even-parity address:
+      an address with a pop count (Hamming weight) that is even.
+
+    - odd-parity address:
+      an address with a pop count (Hamming weight) that is odd.
+
+ Examples of even-parity and odd-parity addresses:
+
+    - 0b00000000 : even (Hamming weight = 0)
+    - 0b00000001 : odd  (Hamming weight = 1)
+    - 0b00000010 : odd  (Hamming weight = 1)
+    - 0b00000011 : even (Hamming weight = 2)
+    - 0b00000100 : odd  (Hamming weight = 1)
+    - ...
+    - 0b11111110 : odd  (Hamming weight = 7)
+    - 0b11111111 : even (Hamming weight = 8)
+-}
 addressParity :: Address -> Parity
 addressParity = parity . addressPopCount
   where
@@ -71,11 +73,10 @@ addressParity = parity . addressPopCount
 
     parity :: Integral a => a -> Parity
     parity a
-        | even a    = Even
+        | even a = Even
         | otherwise = Odd
 
 -- | Represents the parity of a value (whether the value is even or odd).
---
 data Parity = Even | Odd
     deriving (Eq, Show)
 

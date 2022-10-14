@@ -4,66 +4,84 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- |
--- Copyright: © 2022 IOHK
--- License: Apache-2.0
---
--- Pure data type which represents the entire wallet state,
--- including all checkpoints.
---
--- FIXME during ADP-1043: Actually include everything,
--- e.g. TxHistory, Pending transactions, …
+{- |
+ Copyright: © 2022 IOHK
+ License: Apache-2.0
 
-module Cardano.Wallet.DB.WalletState
-    ( -- * Wallet state
-      WalletState (..)
-    , fromGenesis
-    , getLatest
-    , findNearestPoint
+ Pure data type which represents the entire wallet state,
+ including all checkpoints.
+
+ FIXME during ADP-1043: Actually include everything,
+ e.g. TxHistory, Pending transactions, …
+-}
+module Cardano.Wallet.DB.WalletState (
+    -- * Wallet state
+    WalletState (..),
+    fromGenesis,
+    getLatest,
+    findNearestPoint,
 
     -- * WalletCheckpoint (internal use mostly)
-    , WalletCheckpoint (..)
-    , toWallet
-    , fromWallet
-    , getBlockHeight
-    , getSlot
+    WalletCheckpoint (..),
+    toWallet,
+    fromWallet,
+    getBlockHeight,
+    getSlot,
 
     -- * Delta types
-    , DeltaWalletState1 (..)
-    , DeltaWalletState
+    DeltaWalletState1 (..),
+    DeltaWalletState,
 
     -- * Multiple wallets
-    , DeltaMap (..)
-    , ErrNoSuchWallet (..)
-    , adjustNoSuchWallet
-    ) where
+    DeltaMap (..),
+    ErrNoSuchWallet (..),
+    adjustNoSuchWallet,
+) where
 
 import Prelude
 
-import Cardano.Wallet.Address.Book
-    ( AddressBookIso (..), Discoveries, Prologue )
-import Cardano.Wallet.Checkpoints
-    ( Checkpoints )
-import Cardano.Wallet.Primitive.Types
-    ( BlockHeader, WalletId )
-import Cardano.Wallet.Primitive.Types.UTxO
-    ( UTxO )
-import Data.Delta
-    ( Delta (..) )
-import Data.DeltaMap
-    ( DeltaMap (..) )
-import Data.Generics.Internal.VL
-    ( withIso )
-import Data.Generics.Internal.VL.Lens
-    ( over, view, (^.) )
-import Data.Map.Strict
-    ( Map )
-import Data.Word
-    ( Word32 )
-import Fmt
-    ( Buildable (..), pretty )
-import GHC.Generics
-    ( Generic )
+import Cardano.Wallet.Address.Book (
+    AddressBookIso (..),
+    Discoveries,
+    Prologue,
+ )
+import Cardano.Wallet.Checkpoints (
+    Checkpoints,
+ )
+import Cardano.Wallet.Primitive.Types (
+    BlockHeader,
+    WalletId,
+ )
+import Cardano.Wallet.Primitive.Types.UTxO (
+    UTxO,
+ )
+import Data.Delta (
+    Delta (..),
+ )
+import Data.DeltaMap (
+    DeltaMap (..),
+ )
+import Data.Generics.Internal.VL (
+    withIso,
+ )
+import Data.Generics.Internal.VL.Lens (
+    over,
+    view,
+    (^.),
+ )
+import Data.Map.Strict (
+    Map,
+ )
+import Data.Word (
+    Word32,
+ )
+import Fmt (
+    Buildable (..),
+    pretty,
+ )
+import GHC.Generics (
+    Generic,
+ )
 
 import qualified Cardano.Wallet.Checkpoints as CPS
 import qualified Cardano.Wallet.Primitive.Model as W
@@ -73,13 +91,16 @@ import qualified Data.Map.Strict as Map
 {-------------------------------------------------------------------------------
     Wallet Checkpoint
 -------------------------------------------------------------------------------}
--- | Data stored in a single checkpoint.
--- Only includes the 'UTxO' and the 'Discoveries', but not the 'Prologue'.
+
+{- | Data stored in a single checkpoint.
+ Only includes the 'UTxO' and the 'Discoveries', but not the 'Prologue'.
+-}
 data WalletCheckpoint s = WalletCheckpoint
     { currentTip :: !BlockHeader
     , utxo :: !UTxO
     , discoveries :: !(Discoveries s)
-    } deriving (Generic)
+    }
+    deriving (Generic)
 
 deriving instance AddressBookIso s => Eq (WalletCheckpoint s)
 
@@ -96,7 +117,7 @@ getSlot (WalletCheckpoint currentTip _ _) =
 -- | Convert a stored 'WalletCheckpoint' to the legacy 'W.Wallet' state.
 toWallet :: AddressBookIso s => Prologue s -> WalletCheckpoint s -> W.Wallet s
 toWallet pro (WalletCheckpoint pt utxo dis) =
-    W.unsafeInitWallet utxo pt $ withIso addressIso $ \_ from -> from (pro,dis)
+    W.unsafeInitWallet utxo pt $ withIso addressIso $ \_ from -> from (pro, dis)
 
 -- | Convert a legacy 'W.Wallet' state to a 'Prologue' and a 'WalletCheckpoint'
 fromWallet :: AddressBookIso s => W.Wallet s -> (Prologue s, WalletCheckpoint s)
@@ -107,25 +128,29 @@ fromWallet w = (pro, WalletCheckpoint (W.currentTip w) (W.utxo w) dis)
 {-------------------------------------------------------------------------------
     Wallet State
 -------------------------------------------------------------------------------}
--- | Wallet state. Currently includes:
---
--- * Prologue of the address discovery state
--- * Checkpoints of UTxO and of discoveries of the address discovery state.
---
--- FIXME during ADP-1043: Include also TxHistory, pending transactions, …,
--- everything.
+
+{- | Wallet state. Currently includes:
+
+ * Prologue of the address discovery state
+ * Checkpoints of UTxO and of discoveries of the address discovery state.
+
+ FIXME during ADP-1043: Include also TxHistory, pending transactions, …,
+ everything.
+-}
 data WalletState s = WalletState
-    { prologue    :: !(Prologue s)
+    { prologue :: !(Prologue s)
     , checkpoints :: !(Checkpoints (WalletCheckpoint s))
-    } deriving (Generic)
+    }
+    deriving (Generic)
 
 deriving instance AddressBookIso s => Eq (WalletState s)
 
 -- | Create a wallet from the genesis block.
 fromGenesis :: AddressBookIso s => W.Wallet s -> Maybe (WalletState s)
 fromGenesis cp
-    | W.isGenesisBlockHeader header = Just $
-        WalletState{ prologue, checkpoints = CPS.fromGenesis checkpoint }
+    | W.isGenesisBlockHeader header =
+        Just $
+            WalletState{prologue, checkpoints = CPS.fromGenesis checkpoint}
     | otherwise = Nothing
   where
     header = cp ^. #currentTip
@@ -146,10 +171,10 @@ findNearestPoint = CPS.findNearestPoint . view #checkpoints
 type DeltaWalletState s = [DeltaWalletState1 s]
 
 data DeltaWalletState1 s
-    = ReplacePrologue (Prologue s)
-    -- ^ Replace the prologue of the address discovery state
-    | UpdateCheckpoints (CPS.DeltasCheckpoints (WalletCheckpoint s))
-    -- ^ Update the wallet checkpoints.
+    = -- | Replace the prologue of the address discovery state
+      ReplacePrologue (Prologue s)
+    | -- | Update the wallet checkpoints.
+      UpdateCheckpoints (CPS.DeltasCheckpoints (WalletCheckpoint s))
 
 instance Delta (DeltaWalletState1 s) where
     type Base (DeltaWalletState1 s) = WalletState s
@@ -166,12 +191,13 @@ instance Show (DeltaWalletState1 s) where
 {-------------------------------------------------------------------------------
     Multiple wallets.
 -------------------------------------------------------------------------------}
+
 -- | Adjust a specific wallet if it exists or return 'ErrNoSuchWallet'.
-adjustNoSuchWallet
-    :: WalletId
-    -> (ErrNoSuchWallet -> e)
-    -> (w -> Either e (dw, b))
-    -> (Map WalletId w -> (Maybe (DeltaMap WalletId dw), Either e b))
+adjustNoSuchWallet ::
+    WalletId ->
+    (ErrNoSuchWallet -> e) ->
+    (w -> Either e (dw, b)) ->
+    (Map WalletId w -> (Maybe (DeltaMap WalletId dw), Either e b))
 adjustNoSuchWallet wid err update wallets = case Map.lookup wid wallets of
     Nothing -> (Nothing, Left $ err $ ErrNoSuchWallet wid)
     Just wal -> case update wal of
@@ -181,6 +207,7 @@ adjustNoSuchWallet wid err update wallets = case Map.lookup wid wallets of
 {-------------------------------------------------------------------------------
     Errors
 -------------------------------------------------------------------------------}
+
 -- | Can't perform given operation because there's no wallet
 newtype ErrNoSuchWallet
     = ErrNoSuchWallet WalletId -- Wallet is gone or doesn't exist yet

@@ -9,89 +9,141 @@ module Cardano.Wallet.Api.ServerSpec (spec) where
 
 import Prelude
 
-import Cardano.Api
-    ( AnyCardanoEra (..), CardanoEra (..), NetworkId (..), NetworkMagic (..) )
-import Cardano.BM.Trace
-    ( nullTracer )
-import Cardano.Slotting.Slot
-    ( EpochNo (..) )
-import Cardano.Wallet.Api.Server
-    ( IsServerError (..)
-    , Listen (..)
-    , ListenError (..)
-    , getNetworkClock
-    , getNetworkInformation
-    , liftHandler
-    , withListeningSocket
-    )
-import Cardano.Wallet.Api.Types
-    ( ApiNetworkInformation (..), ApiWalletMode (..) )
-import Cardano.Wallet.DB.WalletState
-    ( ErrNoSuchWallet (..) )
-import Cardano.Wallet.DummyTarget.Primitive.Types
-    ( dummyNetworkLayer )
-import Cardano.Wallet.Network
-    ( NetworkLayer (..) )
-import Cardano.Wallet.Primitive.Slotting
-    ( PastHorizonException
-    , TimeInterpreter
-    , currentRelativeTime
-    , mkTimeInterpreter
-    , neverFails
-    )
-import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncTolerance (..) )
-import Cardano.Wallet.Primitive.Types
-    ( Block (..), BlockHeader (..), SlotNo (..), StartTime (..) )
-import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
-import Cardano.Wallet.Unsafe
-    ( unsafeFromText )
-import Control.Monad
-    ( void )
-import Control.Monad.Trans.Except
-    ( ExceptT (..), throwE )
-import Data.Either
-    ( isLeft )
-import Data.Maybe
-    ( isJust, isNothing )
-import Data.Quantity
-    ( Quantity (..) )
-import Data.Time.Clock
-    ( addUTCTime, getCurrentTime )
-import Network.Socket
-    ( Family (..)
-    , SockAddr (..)
-    , SocketType (..)
-    , accept
-    , connect
-    , defaultProtocol
-    , getSocketName
-    , socket
-    , tupleToHostAddress
-    )
-import Ouroboros.Consensus.BlockchainTime.WallClock.Types
-    ( RelativeTime (..), mkSlotLength )
-import Ouroboros.Consensus.Config.SecurityParam
-    ( SecurityParam (..) )
-import Ouroboros.Consensus.Util.Counting
-    ( exactlyOne )
-import Servant.Server
-    ( ServerError (..), runHandler )
-import Test.Hspec
-    ( Spec, describe, it, pendingWith, shouldBe, shouldReturn, shouldSatisfy )
-import Test.QuickCheck.Modifiers
-    ( NonNegative (..) )
-import Test.QuickCheck.Monadic
-    ( PropertyM, assert, monadicIO, monitor, run )
-import Test.QuickCheck.Property
-    ( counterexample, property )
-import Test.Utils.Platform
-    ( skipOnWindows )
-import UnliftIO.Async
-    ( concurrently_, race_ )
-import UnliftIO.Concurrent
-    ( threadDelay )
+import Cardano.Api (
+    AnyCardanoEra (..),
+    CardanoEra (..),
+    NetworkId (..),
+    NetworkMagic (..),
+ )
+import Cardano.BM.Trace (
+    nullTracer,
+ )
+import Cardano.Slotting.Slot (
+    EpochNo (..),
+ )
+import Cardano.Wallet.Api.Server (
+    IsServerError (..),
+    Listen (..),
+    ListenError (..),
+    getNetworkClock,
+    getNetworkInformation,
+    liftHandler,
+    withListeningSocket,
+ )
+import Cardano.Wallet.Api.Types (
+    ApiNetworkInformation (..),
+    ApiWalletMode (..),
+ )
+import Cardano.Wallet.DB.WalletState (
+    ErrNoSuchWallet (..),
+ )
+import Cardano.Wallet.DummyTarget.Primitive.Types (
+    dummyNetworkLayer,
+ )
+import Cardano.Wallet.Network (
+    NetworkLayer (..),
+ )
+import Cardano.Wallet.Primitive.Slotting (
+    PastHorizonException,
+    TimeInterpreter,
+    currentRelativeTime,
+    mkTimeInterpreter,
+    neverFails,
+ )
+import Cardano.Wallet.Primitive.SyncProgress (
+    SyncTolerance (..),
+ )
+import Cardano.Wallet.Primitive.Types (
+    Block (..),
+    BlockHeader (..),
+    SlotNo (..),
+    StartTime (..),
+ )
+import Cardano.Wallet.Primitive.Types.Hash (
+    Hash (..),
+ )
+import Cardano.Wallet.Unsafe (
+    unsafeFromText,
+ )
+import Control.Monad (
+    void,
+ )
+import Control.Monad.Trans.Except (
+    ExceptT (..),
+    throwE,
+ )
+import Data.Either (
+    isLeft,
+ )
+import Data.Maybe (
+    isJust,
+    isNothing,
+ )
+import Data.Quantity (
+    Quantity (..),
+ )
+import Data.Time.Clock (
+    addUTCTime,
+    getCurrentTime,
+ )
+import Network.Socket (
+    Family (..),
+    SockAddr (..),
+    SocketType (..),
+    accept,
+    connect,
+    defaultProtocol,
+    getSocketName,
+    socket,
+    tupleToHostAddress,
+ )
+import Ouroboros.Consensus.BlockchainTime.WallClock.Types (
+    RelativeTime (..),
+    mkSlotLength,
+ )
+import Ouroboros.Consensus.Config.SecurityParam (
+    SecurityParam (..),
+ )
+import Ouroboros.Consensus.Util.Counting (
+    exactlyOne,
+ )
+import Servant.Server (
+    ServerError (..),
+    runHandler,
+ )
+import Test.Hspec (
+    Spec,
+    describe,
+    it,
+    pendingWith,
+    shouldBe,
+    shouldReturn,
+    shouldSatisfy,
+ )
+import Test.QuickCheck.Modifiers (
+    NonNegative (..),
+ )
+import Test.QuickCheck.Monadic (
+    PropertyM,
+    assert,
+    monadicIO,
+    monitor,
+    run,
+ )
+import Test.QuickCheck.Property (
+    counterexample,
+    property,
+ )
+import Test.Utils.Platform (
+    skipOnWindows,
+ )
+import UnliftIO.Async (
+    concurrently_,
+    race_,
+ )
+import UnliftIO.Concurrent (
+    threadDelay,
+ )
 
 import qualified Cardano.Wallet.Primitive.SyncProgress as S
 import qualified Data.ByteString.Char8 as B8
@@ -113,20 +165,19 @@ serverSpec = describe "API Server" $ do
     it "binds to the local interface" $ do
         withListeningSocket "127.0.0.1" ListenOnRandomPort $ \case
             Right (port, sock) -> do
-                getSocketName sock `shouldReturn`
-                    SockAddrInet (fromIntegral port) lo
+                getSocketName sock
+                    `shouldReturn` SockAddrInet (fromIntegral port) lo
             Left e -> fail (show e)
 
     it "can bind on any interface" $ do
         withListeningSocket "0.0.0.0" ListenOnRandomPort $ \case
             Right (port, sock) -> do
-                getSocketName sock `shouldReturn`
-                    SockAddrInet (fromIntegral port) 0
+                getSocketName sock
+                    `shouldReturn` SockAddrInet (fromIntegral port) 0
             Left e -> fail (show e)
 
     it "listens on the local interface" $ do
-        let
-            client port = do
+        let client port = do
                 sock <- socket AF_INET Stream defaultProtocol
                 connect sock $ SockAddrInet (fromIntegral port) lo
 
@@ -139,8 +190,9 @@ serverSpec = describe "API Server" $ do
                 fail "test case timed out"
 
         withListeningSocket "127.0.0.1" ListenOnRandomPort $ \case
-            Right (port, sock) -> race_ timeout $
-                concurrently_ (client port) (server sock)
+            Right (port, sock) ->
+                race_ timeout $
+                    concurrently_ (client port) (server sock)
             Left e -> fail (show e)
 
     -- assuming there is no host "patate"
@@ -169,34 +221,37 @@ serverSpec = describe "API Server" $ do
 
 networkInfoSpec :: Spec
 networkInfoSpec = describe "getNetworkInformation" $ do
-    it "doesn't return 500 when the time interpreter horizon is behind\
-       \ the current time" $ property $ \(gap' ::(NonNegative Int)) ->
-        monadicIO $ do
-        let gap = fromRational $ toRational $ getNonNegative gap'
-        st <- run $ StartTime . ((negate gap) `addUTCTime`) <$> getCurrentTime
-        let ti = forkInterpreter st
-        now <- currentRelativeTime ti
-        let nodeTip' = SlotNo 0
-        let nl = mockNetworkLayer nodeTip' ti now
-        Right info <- run
-            $ runHandler
-            $ getNetworkInformation (Testnet $ NetworkMagic 1) nl Node
+    it
+        "doesn't return 500 when the time interpreter horizon is behind\
+        \ the current time"
+        $ property
+        $ \(gap' :: (NonNegative Int)) ->
+            monadicIO $ do
+                let gap = fromRational $ toRational $ getNonNegative gap'
+                st <- run $ StartTime . ((negate gap) `addUTCTime`) <$> getCurrentTime
+                let ti = forkInterpreter st
+                now <- currentRelativeTime ti
+                let nodeTip' = SlotNo 0
+                let nl = mockNetworkLayer nodeTip' ti now
+                Right info <-
+                    run $
+                        runHandler $
+                            getNetworkInformation (Testnet $ NetworkMagic 1) nl Node
 
-        --  0              20
-        --  *               |        *
-        --  Node tip     Horizon   Network Tip
-        --  <------------------------>
-        --            gap
-        --
-        --  20 = epoch length = 10*k
-        if gap >= 20
-        then do
-            assertWith "networkTip is Nothing" $ isNothing $ networkTip info
-            assertWith "nextEpoch is Nothing" $ isNothing $ nextEpoch info
-        else do
-            assertWith "networkTip is Just " $ isJust $ networkTip info
-            assertWith "nextEpoch is Just" $ isJust $ nextEpoch info
-
+                --  0              20
+                --  *               |        *
+                --  Node tip     Horizon   Network Tip
+                --  <------------------------>
+                --            gap
+                --
+                --  20 = epoch length = 10*k
+                if gap >= 20
+                    then do
+                        assertWith "networkTip is Nothing" $ isNothing $ networkTip info
+                        assertWith "nextEpoch is Nothing" $ isNothing $ nextEpoch info
+                    else do
+                        assertWith "networkTip is Just " $ isJust $ networkTip info
+                        assertWith "nextEpoch is Just" $ isJust $ nextEpoch info
   where
     assertWith :: String -> Bool -> PropertyM IO ()
     assertWith lbl condition = do
@@ -204,20 +259,21 @@ networkInfoSpec = describe "getNetworkInformation" $ do
         monitor (counterexample $ lbl <> " " <> flag)
         assert condition
 
-    mockNetworkLayer
-        :: SlotNo
-        -> TimeInterpreter (ExceptT PastHorizonException IO)
-        -> RelativeTime
-        -> NetworkLayer IO Block
+    mockNetworkLayer ::
+        SlotNo ->
+        TimeInterpreter (ExceptT PastHorizonException IO) ->
+        RelativeTime ->
+        NetworkLayer IO Block
     mockNetworkLayer sl ti relativeTime =
         dummyNetworkLayer
             { currentNodeEra = pure $ AnyCardanoEra MaryEra
-            , currentNodeTip = pure $
-                BlockHeader
-                    sl
-                    (Quantity $ fromIntegral $ unSlotNo sl)
-                    (Hash "header hash")
-                    (Just $ Hash "prevHeaderHash")
+            , currentNodeTip =
+                pure $
+                    BlockHeader
+                        sl
+                        (Quantity $ fromIntegral $ unSlotNo sl)
+                        (Hash "header hash")
+                        (Just $ Hash "prevHeaderHash")
             , timeInterpreter = ti
             , syncProgress = \slot ->
                 S.syncProgress
@@ -228,27 +284,27 @@ networkInfoSpec = describe "getNetworkInformation" $ do
             }
 
     forkInterpreter startTime =
-        let
-            start = HF.initBound
-            end = HF.Bound
+        let start = HF.initBound
+            end =
+                HF.Bound
                     (RelativeTime 20)
                     (SlotNo 20)
                     (EpochNo 1)
 
             era1Params = HF.defaultEraParams (SecurityParam 2) (mkSlotLength 1)
-            summary = HF.summaryWithExactly $ exactlyOne $
-                HF.EraSummary start (HF.EraEnd end) era1Params
+            summary =
+                HF.summaryWithExactly $
+                    exactlyOne $
+                        HF.EraSummary start (HF.EraEnd end) era1Params
             int = HF.mkInterpreter summary
-        in mkTimeInterpreter nullTracer startTime (pure int)
-
-
+         in mkTimeInterpreter nullTracer startTime (pure int)
 
 errorHandlingSpec :: Spec
 errorHandlingSpec = describe "liftHandler and toServerError" $ do
-    let testWalletHandler
-            :: IsServerError e
-            => ExceptT e IO a
-            -> IO (Either ServerError a)
+    let testWalletHandler ::
+            IsServerError e =>
+            ExceptT e IO a ->
+            IO (Either ServerError a)
         testWalletHandler = runHandler . liftHandler
 
     -- Check that an example error handled by the wallet API server produces a
@@ -261,24 +317,27 @@ errorHandlingSpec = describe "liftHandler and toServerError" $ do
         res `shouldSatisfy` isLeft
         let Left actualErr = res
         errHTTPCode actualErr `shouldBe` 404
-        errReasonPhrase actualErr `shouldBe`
-            "Not Found"
-        BL.toStrict (errBody actualErr) `shouldSatisfy`
-            (B8.isInfixOf "no_such_wallet")
-        errHeaders actualErr `shouldBe`
-            [("Content-Type","application/json;charset=utf-8")]
+        errReasonPhrase actualErr
+            `shouldBe` "Not Found"
+        BL.toStrict (errBody actualErr)
+            `shouldSatisfy` (B8.isInfixOf "no_such_wallet")
+        errHeaders actualErr
+            `shouldBe` [("Content-Type", "application/json;charset=utf-8")]
 
     it "Unhandled exception" $ do
         pendingWith "TODO: ADP-641 catch all exceptions in application"
-        let expectedErr = ServerError
-                { errHTTPCode = 500
-                , errReasonPhrase = "Internal Server Error"
-                , errBody = mconcat
-                    [ "{\"code\":\"internal_server_error\","
-                    , "\"message\":\"Something went wrong\"}" ]
-                , errHeaders =
-                    [("Content-Type","application/json;charset=utf-8")]
-                }
+        let expectedErr =
+                ServerError
+                    { errHTTPCode = 500
+                    , errReasonPhrase = "Internal Server Error"
+                    , errBody =
+                        mconcat
+                            [ "{\"code\":\"internal_server_error\","
+                            , "\"message\":\"Something went wrong\"}"
+                            ]
+                    , errHeaders =
+                        [("Content-Type", "application/json;charset=utf-8")]
+                    }
 
         runHandler (getNetworkClock (error "bomb") True)
             `shouldReturn` Left expectedErr

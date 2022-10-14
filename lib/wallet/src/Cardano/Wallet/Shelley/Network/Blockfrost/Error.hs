@@ -6,28 +6,42 @@ module Cardano.Wallet.Shelley.Network.Blockfrost.Error where
 
 import Prelude
 
-import Cardano.Wallet.Primitive.Types
-    ( EpochNo, PoolId )
-import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin )
-import Control.Exception
-    ( Exception, throwIO )
-import Control.Monad
-    ( (<=<) )
-import Control.Monad.Error.Class
-    ( MonadError (throwError) )
-import Control.Monad.Trans.Except
-    ( ExceptT, runExceptT )
-import Data.Bits
-    ( Bits )
-import Data.IntCast
-    ( intCastMaybe )
-import Data.Quantity
-    ( MkPercentageError )
-import Data.Text
-    ( Text )
-import Data.Text.Class
-    ( TextDecodingError )
+import Cardano.Wallet.Primitive.Types (
+    EpochNo,
+    PoolId,
+ )
+import Cardano.Wallet.Primitive.Types.Coin (
+    Coin,
+ )
+import Control.Exception (
+    Exception,
+    throwIO,
+ )
+import Control.Monad (
+    (<=<),
+ )
+import Control.Monad.Error.Class (
+    MonadError (throwError),
+ )
+import Control.Monad.Trans.Except (
+    ExceptT,
+    runExceptT,
+ )
+import Data.Bits (
+    Bits,
+ )
+import Data.IntCast (
+    intCastMaybe,
+ )
+import Data.Quantity (
+    MkPercentageError,
+ )
+import Data.Text (
+    Text,
+ )
+import Data.Text.Class (
+    TextDecodingError,
+ )
 
 import qualified Blockfrost.Client as BF
 import qualified Cardano.Binary as Binary
@@ -72,11 +86,11 @@ infixl 8 <?>
 {-# INLINE (<?>) #-}
 
 -- | Casts integral values safely or raises an `IntegralCastError`
-(<?#>)
-    :: (MonadError BlockfrostError m, Integral a, Integral b, Bits a, Bits b)
-    => a
-    -> String
-    -> m b
+(<?#>) ::
+    (MonadError BlockfrostError m, Integral a, Integral b, Bits a, Bits b) =>
+    a ->
+    String ->
+    m b
 (<?#>) a e = intCastMaybe a <?> IntegralCastError e
 
 infixl 8 <?#>

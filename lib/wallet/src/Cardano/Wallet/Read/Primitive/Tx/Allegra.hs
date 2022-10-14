@@ -11,47 +11,54 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- |
--- Copyright: © 2020 IOHK
--- License: Apache-2.0
---
-
-module Cardano.Wallet.Read.Primitive.Tx.Allegra
-    ( fromAllegraTx
-    , fromLedgerTxValidity
-    )
-    where
+{- |
+ Copyright: © 2020 IOHK
+ License: Apache-2.0
+-}
+module Cardano.Wallet.Read.Primitive.Tx.Allegra (
+    fromAllegraTx,
+    fromLedgerTxValidity,
+) where
 
 import Prelude
 
-import Cardano.Api
-    ( AllegraEra )
-import Cardano.Wallet.Read.Eras
-    ( allegra, inject )
-import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates
-    ( anyEraCerts )
-import Cardano.Wallet.Read.Primitive.Tx.Shelley
-    ( fromShelleyCoin
-    , fromShelleyMD
-    , fromShelleyTxIn
-    , fromShelleyTxOut
-    , fromShelleyWdrl
-    )
-import Cardano.Wallet.Read.Tx
-    ( Tx (..) )
-import Cardano.Wallet.Read.Tx.CBOR
-    ( renderTxToCBOR )
-import Cardano.Wallet.Read.Tx.Hash
-    ( shelleyTxHash )
-import Cardano.Wallet.Transaction
-    ( TokenMapWithScripts (..)
-    , ValidityIntervalExplicit (..)
-    , emptyTokenMapWithScripts
-    )
-import Data.Foldable
-    ( toList )
-import Data.Quantity
-    ( Quantity (..) )
+import Cardano.Api (
+    AllegraEra,
+ )
+import Cardano.Wallet.Read.Eras (
+    allegra,
+    inject,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates (
+    anyEraCerts,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Shelley (
+    fromShelleyCoin,
+    fromShelleyMD,
+    fromShelleyTxIn,
+    fromShelleyTxOut,
+    fromShelleyWdrl,
+ )
+import Cardano.Wallet.Read.Tx (
+    Tx (..),
+ )
+import Cardano.Wallet.Read.Tx.CBOR (
+    renderTxToCBOR,
+ )
+import Cardano.Wallet.Read.Tx.Hash (
+    shelleyTxHash,
+ )
+import Cardano.Wallet.Transaction (
+    TokenMapWithScripts (..),
+    ValidityIntervalExplicit (..),
+    emptyTokenMapWithScripts,
+ )
+import Data.Foldable (
+    toList,
+ )
+import Data.Quantity (
+    Quantity (..),
+ )
 
 import qualified Cardano.Api.Shelley as Cardano
 import qualified Cardano.Ledger.BaseTypes as SL
@@ -67,14 +74,14 @@ import qualified Ouroboros.Network.Block as O
 
 -- NOTE: For resolved inputs we have to pass in a dummy value of 0.
 
-fromAllegraTx
-    :: SLAPI.Tx (Cardano.ShelleyLedgerEra AllegraEra)
-    -> ( W.Tx
-       , [W.Certificate]
-       , TokenMapWithScripts
-       , TokenMapWithScripts
-       , Maybe ValidityIntervalExplicit
-       )
+fromAllegraTx ::
+    SLAPI.Tx (Cardano.ShelleyLedgerEra AllegraEra) ->
+    ( W.Tx
+    , [W.Certificate]
+    , TokenMapWithScripts
+    , TokenMapWithScripts
+    , Maybe ValidityIntervalExplicit
+    )
 fromAllegraTx tx =
     ( W.Tx
         { txId =
@@ -113,9 +120,9 @@ fromAllegraTx tx =
     -- multisig/script balance reporting.
     toSLMetadata (MA.AuxiliaryData blob _scripts) = SL.Metadata blob
 
-fromLedgerTxValidity
-    :: MA.ValidityInterval
-    -> ValidityIntervalExplicit
+fromLedgerTxValidity ::
+    MA.ValidityInterval ->
+    ValidityIntervalExplicit
 fromLedgerTxValidity (MA.ValidityInterval from to) =
     case (from, to) of
         (MA.SNothing, MA.SJust (O.SlotNo s)) ->

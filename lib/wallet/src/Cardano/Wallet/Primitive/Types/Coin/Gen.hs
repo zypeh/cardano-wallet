@@ -1,26 +1,35 @@
-module Cardano.Wallet.Primitive.Types.Coin.Gen
-    ( chooseCoin
-    , genCoin
-    , genCoinPositive
-    , shrinkCoin
-    , shrinkCoinPositive
-    , genCoinPartition
-    ) where
+module Cardano.Wallet.Primitive.Types.Coin.Gen (
+    chooseCoin,
+    genCoin,
+    genCoinPositive,
+    shrinkCoin,
+    shrinkCoinPositive,
+    genCoinPartition,
+) where
 
 import Prelude
 
-import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
-import Control.Monad
-    ( replicateM )
-import Data.Coerce
-    ( coerce )
-import Data.List.NonEmpty
-    ( NonEmpty )
-import Test.QuickCheck
-    ( Gen, choose, sized )
-import Test.QuickCheck.Extra
-    ( chooseNatural, shrinkNatural )
+import Cardano.Wallet.Primitive.Types.Coin (
+    Coin (..),
+ )
+import Control.Monad (
+    replicateM,
+ )
+import Data.Coerce (
+    coerce,
+ )
+import Data.List.NonEmpty (
+    NonEmpty,
+ )
+import Test.QuickCheck (
+    Gen,
+    choose,
+    sized,
+ )
+import Test.QuickCheck.Extra (
+    chooseNatural,
+    shrinkNatural,
+ )
 
 import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
 import qualified Data.List.NonEmpty as NE
@@ -56,17 +65,20 @@ shrinkCoinPositive (Coin c) = Coin <$> filter (> 0) (shrinkNatural c)
 -- Partitioning coins
 --------------------------------------------------------------------------------
 
--- | Partitions a coin randomly into a given number of parts.
---
--- Satisfies the following properties:
---
--- prop> forAll (genCoinPartition c i) $ (==       c) . fold
--- prop> forAll (genCoinPartition c i) $ (== max 1 i) . length
---
+{- | Partitions a coin randomly into a given number of parts.
+
+ Satisfies the following properties:
+
+ prop> forAll (genCoinPartition c i) $ (==       c) . fold
+ prop> forAll (genCoinPartition c i) $ (== max 1 i) . length
+-}
 genCoinPartition :: Coin -> Int -> Gen (NonEmpty Coin)
 genCoinPartition c i =
     Coin.partitionDefault c <$> genWeights
   where
     genWeights :: Gen (NonEmpty Coin)
-    genWeights = NE.fromList <$> replicateM (max 1 i)
-        (chooseCoin (Coin 1, max (Coin 1) c))
+    genWeights =
+        NE.fromList
+            <$> replicateM
+                (max 1 i)
+                (chooseCoin (Coin 1, max (Coin 1) c))

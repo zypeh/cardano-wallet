@@ -1,46 +1,78 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 
--- |
--- Copyright: © 2018-2020 IOHK
--- License: Apache-2.0
---
--- Unit tests for 'withShutdownHandler' using pipes within a single process.
+{- |
+ Copyright: © 2018-2020 IOHK
+ License: Apache-2.0
 
-module Cardano.StartupSpec
-    ( spec
-    ) where
+ Unit tests for 'withShutdownHandler' using pipes within a single process.
+-}
+module Cardano.StartupSpec (
+    spec,
+) where
 
 import Prelude
 
-import Cardano.Startup
-    ( ShutdownHandlerLog (..), withShutdownHandler' )
-import Control.Monad
-    ( unless )
-import Control.Tracer
-    ( Tracer, nullTracer )
-import System.IO
-    ( Handle, IOMode (..), hClose, hWaitForInput, stdin, withFile )
-import System.IO.Error
-    ( isUserError )
-import Test.Hspec
-    ( Spec, describe, it, shouldBe, shouldContain, shouldReturn, shouldThrow )
-import Test.Hspec.Core.Spec
-    ( ResultStatus (..) )
-import Test.Hspec.Expectations
-    ( Expectation, HasCallStack )
-import Test.Utils.Platform
-    ( nullFileName, pendingOnWindows )
-import Test.Utils.Trace
-    ( captureLogging )
-import UnliftIO.Async
-    ( race )
-import UnliftIO.Concurrent
-    ( threadDelay )
-import UnliftIO.Exception
-    ( IOException, bracket, catch, throwIO )
-import UnliftIO.Process
-    ( createPipe )
+import Cardano.Startup (
+    ShutdownHandlerLog (..),
+    withShutdownHandler',
+ )
+import Control.Monad (
+    unless,
+ )
+import Control.Tracer (
+    Tracer,
+    nullTracer,
+ )
+import System.IO (
+    Handle,
+    IOMode (..),
+    hClose,
+    hWaitForInput,
+    stdin,
+    withFile,
+ )
+import System.IO.Error (
+    isUserError,
+ )
+import Test.Hspec (
+    Spec,
+    describe,
+    it,
+    shouldBe,
+    shouldContain,
+    shouldReturn,
+    shouldThrow,
+ )
+import Test.Hspec.Core.Spec (
+    ResultStatus (..),
+ )
+import Test.Hspec.Expectations (
+    Expectation,
+    HasCallStack,
+ )
+import Test.Utils.Platform (
+    nullFileName,
+    pendingOnWindows,
+ )
+import Test.Utils.Trace (
+    captureLogging,
+ )
+import UnliftIO.Async (
+    race,
+ )
+import UnliftIO.Concurrent (
+    threadDelay,
+ )
+import UnliftIO.Exception (
+    IOException,
+    bracket,
+    catch,
+    throwIO,
+ )
+import UnliftIO.Process (
+    createPipe,
+ )
 
 #if defined(WINDOWS)
 import UnliftIO.Concurrent
@@ -153,15 +185,17 @@ spec = describe "withShutdownHandler" $ do
 
 withPipe :: ((Handle, Handle) -> IO a) -> IO a
 withPipe = bracket createPipe closePipe
-    where closePipe (a, b) = hClose b >> hClose a
+  where
+    closePipe (a, b) = hClose b >> hClose a
 
 captureLogging' :: (Tracer IO msg -> IO a) -> IO [msg]
 captureLogging' = fmap fst . captureLogging
 
--- | Run an IO action allowing interruptions on windows.
--- Any 'IOException's are rethrown.
--- The action should not throw any exception other than 'IOException'.
--- Example: https://github.com/input-output-hk/ouroboros-network/blob/69d62063e59f966dc90bda5b4d0ac0a11efd3657/Win32-network/src/System/Win32/Async/Socket.hs#L46-L59
+{- | Run an IO action allowing interruptions on windows.
+ Any 'IOException's are rethrown.
+ The action should not throw any exception other than 'IOException'.
+ Example: https://github.com/input-output-hk/ouroboros-network/blob/69d62063e59f966dc90bda5b4d0ac0a11efd3657/Win32-network/src/System/Win32/Async/Socket.hs#L46-L59
+-}
 wrapIO :: IO a -> IO a
 #if defined(WINDOWS)
 wrapIO action = do

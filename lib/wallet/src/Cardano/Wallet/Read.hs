@@ -12,8 +12,8 @@ and is meant to be imported qualified, e.g.
 import qualified Cardano.Wallet.Read as Read
 @
 -}
-module Cardano.Wallet.Read
-    ( module Cardano.Wallet.Read.Tx
-    ) where
+module Cardano.Wallet.Read (
+    module Cardano.Wallet.Read.Tx,
+) where
 
 import Cardano.Wallet.Read.Tx

@@ -6,83 +6,101 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
+
 {- HLINT ignore "Use null" -}
 
-module Test.QuickCheck.ExtraSpec
-    where
+module Test.QuickCheck.ExtraSpec where
 
 import Prelude
 
-import Algebra.PartialOrd
-    ( PartialOrd (..) )
-import Control.Monad
-    ( forM_ )
-import Data.Bifunctor
-    ( first )
-import Data.Function
-    ( (&) )
-import Data.Generics.Internal.VL.Lens
-    ( view )
-import Data.Generics.Labels
-    ()
-import Data.List.Extra
-    ( dropEnd )
-import Data.List.NonEmpty
-    ( NonEmpty (..) )
-import Data.Map.Strict
-    ( Map )
-import Data.Maybe
-    ( isJust, isNothing )
-import Data.Set
-    ( Set )
-import Generics.SOP
-    ( NP (Nil) )
-import GHC.Generics
-    ( Generic )
-import Safe
-    ( tailMay )
-import Test.Hspec
-    ( Spec, describe, it )
-import Test.QuickCheck
-    ( Arbitrary (..)
-    , Fun (..)
-    , Gen
-    , NonNegative (..)
-    , NonPositive (..)
-    , Positive (..)
-    , Property
-    , Small (..)
-    , Testable
-    , applyFun
-    , checkCoverage
-    , chooseInteger
-    , conjoin
-    , cover
-    , forAll
-    , frequency
-    , genericShrink
-    , listOf
-    , oneof
-    , property
-    , scale
-    , shrinkIntegral
-    , within
-    , (===)
-    )
-import Test.QuickCheck.Extra
-    ( Pretty (..)
-    , genShrinkSequence
-    , genericRoundRobinShrink
-    , interleaveRoundRobin
-    , partitionList
-    , selectMapEntries
-    , selectMapEntry
-    , shrinkSpace
-    , shrinkWhile
-    , shrinkWhileSteps
-    , (<:>)
-    , (<@>)
-    )
+import Algebra.PartialOrd (
+    PartialOrd (..),
+ )
+import Control.Monad (
+    forM_,
+ )
+import Data.Bifunctor (
+    first,
+ )
+import Data.Function (
+    (&),
+ )
+import Data.Generics.Internal.VL.Lens (
+    view,
+ )
+import Data.Generics.Labels (
+
+ )
+import Data.List.Extra (
+    dropEnd,
+ )
+import Data.List.NonEmpty (
+    NonEmpty (..),
+ )
+import Data.Map.Strict (
+    Map,
+ )
+import Data.Maybe (
+    isJust,
+    isNothing,
+ )
+import Data.Set (
+    Set,
+ )
+import GHC.Generics (
+    Generic,
+ )
+import Generics.SOP (
+    NP (Nil),
+ )
+import Safe (
+    tailMay,
+ )
+import Test.Hspec (
+    Spec,
+    describe,
+    it,
+ )
+import Test.QuickCheck (
+    Arbitrary (..),
+    Fun (..),
+    Gen,
+    NonNegative (..),
+    NonPositive (..),
+    Positive (..),
+    Property,
+    Small (..),
+    Testable,
+    applyFun,
+    checkCoverage,
+    chooseInteger,
+    conjoin,
+    cover,
+    forAll,
+    frequency,
+    genericShrink,
+    listOf,
+    oneof,
+    property,
+    scale,
+    shrinkIntegral,
+    within,
+    (===),
+ )
+import Test.QuickCheck.Extra (
+    Pretty (..),
+    genShrinkSequence,
+    genericRoundRobinShrink,
+    interleaveRoundRobin,
+    partitionList,
+    selectMapEntries,
+    selectMapEntry,
+    shrinkSpace,
+    shrinkWhile,
+    shrinkWhileSteps,
+    (<:>),
+    (<@>),
+ )
 
 import qualified Data.Foldable as F
 import qualified Data.List as L
@@ -93,7 +111,6 @@ import qualified Data.Set as Set
 
 spec :: Spec
 spec = describe "Test.QuickCheck.ExtraSpec" $ do
-
     describe "genericRoundRobinShrink" $ do
         it "prop_genericRoundRobinShrink_equivalence" $
             property prop_genericRoundRobinShrink_equivalence
@@ -114,117 +131,148 @@ spec = describe "Test.QuickCheck.ExtraSpec" $ do
     describe "partitionList" $ do
         it "prop_partitionList_coverage" $
             prop_partitionList_coverage
-                @Int & property
+                @Int
+                & property
         it "prop_partitionList_identity" $
             prop_partitionList_identity
-                @Int & property
+                @Int
+                & property
         it "prop_partitionList_mconcat" $
             prop_partitionList_mconcat
-                @Int & property
+                @Int
+                & property
         it "prop_partitionList_GE" $
             prop_partitionList_GE
-                @Int & property
+                @Int
+                & property
         it "prop_partitionList_LT" $
             prop_partitionList_LT
-                @Int & property
+                @Int
+                & property
 
     describe "Selecting random map entries" $ do
-
         describe "selectMapEntry" $ do
             it "prop_selectMapEntry_empty" $
                 prop_selectMapEntry_empty
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntry_singleton" $
                 prop_selectMapEntry_singleton
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntry_insert" $
                 prop_selectMapEntry_insert
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntry_lookup_Just" $
                 prop_selectMapEntry_lookup_Just
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntry_lookup_Nothing" $
                 prop_selectMapEntry_lookup_Nothing
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
 
         describe "selectMapEntries" $ do
             it "prop_selectMapEntries_empty" $
                 prop_selectMapEntries_empty
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntries_fromList" $
                 prop_selectMapEntries_fromList
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntries_length" $
                 prop_selectMapEntries_length
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntries_nonPositive" $
                 prop_selectMapEntries_nonPositive
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntries_disjoint" $
                 prop_selectMapEntries_disjoint
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
             it "prop_selectMapEntries_union" $
                 prop_selectMapEntries_union
-                    @Int @Int & property
+                    @Int
+                    @Int
+                    & property
 
     describe "Evaluating shrinkers" $ do
-
         describe "Generating sequences of shrunken values" $ do
-
             describe "genShrinkSequence" $ do
-
                 it "prop_genShrinkSequence_length" $
                     prop_genShrinkSequence_length
-                        @Integer & property
+                        @Integer
+                        & property
                 it "prop_genShrinkSequence_empty" $
                     prop_genShrinkSequence_empty
-                        @Integer & property
+                        @Integer
+                        & property
                 it "prop_genShrinkSequence_start" $
                     prop_genShrinkSequence_start
-                        @Integer & property
+                        @Integer
+                        & property
                 it "prop_genShrinkSequence_termination" $
                     prop_genShrinkSequence_termination
-                        @Integer & property
+                        @Integer
+                        & property
                 it "prop_genShrinkSequence_validity" $
                     prop_genShrinkSequence_validity
-                        @Integer & property
+                        @Integer
+                        & property
 
         describe "Evaluating the entire shrink space of a shrinker" $ do
-
             describe "shrinkSpace" $ do
-
                 it "prop_shrinkSpace_complete" $
                     prop_shrinkSpace_complete
-                        @Int & property
+                        @Int
+                        & property
                 it "prop_shrinkSpace_empty" $
                     prop_shrinkSpace_empty
-                        @Int & property
+                        @Int
+                        & property
                 it "prop_shrinkSpace_singleton" $
                     prop_shrinkSpace_singleton
-                        @Int & property
+                        @Int
+                        & property
 
         describe "Repeatedly shrinking while a condition holds" $ do
-
             describe "shrinkWhile" $ do
-
                 it "prop_shrinkWhile_coverage" $
                     prop_shrinkWhile_coverage
-                        @Int & property
+                        @Int
+                        & property
                 it "prop_shrinkWhile_isNothing" $
                     prop_shrinkWhile_isNothing
-                        @Int & property
+                        @Int
+                        & property
                 it "prop_shrinkWhile_satisfy" $
                     prop_shrinkWhile_satisfy
-                        @Int & property
+                        @Int
+                        & property
 
             describe "shrinkWhileSteps" $ do
-
                 it "prop_shrinkWhileSteps_coverage" $
                     prop_shrinkWhileSteps_coverage
-                        @Int & property
+                        @Int
+                        & property
                 it "prop_shrinkWhileSteps_satisfy" $
                     prop_shrinkWhileSteps_satisfy
-                        @Int & property
+                        @Int
+                        & property
                 unit_shrinkWhileSteps_Int
 
 --------------------------------------------------------------------------------
@@ -240,63 +288,71 @@ data TestRecord = TestRecord
 
 instance PartialOrd TestRecord where
     r1 `leq` r2 =
-        fieldA r1 <= fieldA r2 &&
-        fieldB r1 <= fieldB r2 &&
-        fieldC r1 <= fieldC r2
+        fieldA r1 <= fieldA r2
+            && fieldB r1 <= fieldB r2
+            && fieldC r1 <= fieldC r2
 
 genTestRecord :: Gen TestRecord
-genTestRecord = TestRecord
-    <$> genInteger
-    <*> genInteger
-    <*> genInteger
+genTestRecord =
+    TestRecord
+        <$> genInteger
+        <*> genInteger
+        <*> genInteger
   where
     genInteger :: Gen Integer
-    genInteger = oneof
-        [ pure 0
-        , chooseInteger (1, 1_000_000_000_000)
-        ]
+    genInteger =
+        oneof
+            [ pure 0
+            , chooseInteger (1, 1_000_000_000_000)
+            ]
 
 shrinkTestRecordGenerically :: TestRecord -> [TestRecord]
-shrinkTestRecordGenerically = genericRoundRobinShrink
-    <@> shrinkIntegral
-    <:> shrinkIntegral
-    <:> shrinkIntegral
-    <:> Nil
+shrinkTestRecordGenerically =
+    genericRoundRobinShrink
+        <@> shrinkIntegral
+        <:> shrinkIntegral
+        <:> shrinkIntegral
+        <:> Nil
 
 shrinkTestRecordManually :: TestRecord -> [TestRecord]
 shrinkTestRecordManually (TestRecord a1 a2 a3) =
     interleaveRoundRobin
-        [ [ TestRecord a1' a2  a3  | a1' <- shrinkIntegral a1 ]
-        , [ TestRecord a1  a2' a3  | a2' <- shrinkIntegral a2 ]
-        , [ TestRecord a1  a2  a3' | a3' <- shrinkIntegral a3 ]
+        [ [TestRecord a1' a2 a3 | a1' <- shrinkIntegral a1]
+        , [TestRecord a1 a2' a3 | a2' <- shrinkIntegral a2]
+        , [TestRecord a1 a2 a3' | a3' <- shrinkIntegral a3]
         ]
 
 minimalTestRecord :: TestRecord
 minimalTestRecord = TestRecord 0 0 0
 
-prop_genericRoundRobinShrink_coverage
-    :: Testable p
-    => TestRecord
-    -> p
-    -> Property
+prop_genericRoundRobinShrink_coverage ::
+    Testable p =>
+    TestRecord ->
+    p ->
+    Property
 prop_genericRoundRobinShrink_coverage r p =
-    checkCoverage $
-    cover 50
-        (r /= minimalTestRecord)
-        "record is not already minimal" $
-    cover 50
-        (shrinkResultsGeneric /= [])
-        "shrunken list is not empty (when shrunk generically)" $
-    cover 50
-        (shrinkResultsManual /= [])
-        "shrunken list is not empty (when shrunk manually)" $
-    cover 10
-        (L.length shrinkResultsGeneric >= 100)
-        "shrunken list has at least 100 elements (when shrunk generically)" $
-    cover 10
-        (L.length shrinkResultsManual >= 100)
-        "shrunken list has at least 100 elements (when shrunk manually)" $
-    property p
+    checkCoverage
+        $ cover
+            50
+            (r /= minimalTestRecord)
+            "record is not already minimal"
+        $ cover
+            50
+            (shrinkResultsGeneric /= [])
+            "shrunken list is not empty (when shrunk generically)"
+        $ cover
+            50
+            (shrinkResultsManual /= [])
+            "shrunken list is not empty (when shrunk manually)"
+        $ cover
+            10
+            (L.length shrinkResultsGeneric >= 100)
+            "shrunken list has at least 100 elements (when shrunk generically)"
+        $ cover
+            10
+            (L.length shrinkResultsManual >= 100)
+            "shrunken list has at least 100 elements (when shrunk manually)"
+        $ property p
   where
     shrinkResultsManual =
         shrinkTestRecordManually r
@@ -308,17 +364,17 @@ prop_genericRoundRobinShrink_coverage r p =
 prop_genericRoundRobinShrink_equivalence :: Property
 prop_genericRoundRobinShrink_equivalence =
     forAll genTestRecord $ \r ->
-    prop_genericRoundRobinShrink_coverage r $
-    shrinkTestRecordGenerically r ===
-    shrinkTestRecordManually r
+        prop_genericRoundRobinShrink_coverage r $
+            shrinkTestRecordGenerically r
+                === shrinkTestRecordManually r
 
 -- Verifies that generic shrinking eventually leads to a minimal value.
 --
 prop_genericRoundRobinShrink_minimization :: Property
 prop_genericRoundRobinShrink_minimization =
     forAll genTestRecord $ \r ->
-    prop_genericRoundRobinShrink_coverage r $
-    shrinkRepeatedlyUntilMinimal r === minimalTestRecord
+        prop_genericRoundRobinShrink_coverage r $
+            shrinkRepeatedlyUntilMinimal r === minimalTestRecord
   where
     shrinkRepeatedlyUntilMinimal :: TestRecord -> TestRecord
     shrinkRepeatedlyUntilMinimal record =
@@ -331,16 +387,19 @@ prop_genericRoundRobinShrink_minimization =
 prop_genericRoundRobinShrink_progression :: Property
 prop_genericRoundRobinShrink_progression =
     forAll genTestRecord $ \r ->
-    prop_genericRoundRobinShrink_coverage r $
-    property $ all (\s -> r /= s && s `leq` r) (shrinkTestRecordGenerically r)
+        prop_genericRoundRobinShrink_coverage r $
+            property $
+                all (\s -> r /= s && s `leq` r) (shrinkTestRecordGenerically r)
 
 -- Verifies that generic shrinking never generates duplicate values.
 --
 prop_genericRoundRobinShrink_uniqueness :: Property
 prop_genericRoundRobinShrink_uniqueness =
     forAll genTestRecord $ \r ->
-    prop_genericRoundRobinShrink_coverage r $
-    property $ not $ L.anySame (shrinkTestRecordGenerically r)
+        prop_genericRoundRobinShrink_coverage r $
+            property $
+                not $
+                    L.anySame (shrinkTestRecordGenerically r)
 
 --------------------------------------------------------------------------------
 -- Round-robin interleaving of lists
@@ -348,17 +407,20 @@ prop_genericRoundRobinShrink_uniqueness =
 
 prop_interleaveRoundRobin_coverage :: Testable p => [[Int]] -> p -> Property
 prop_interleaveRoundRobin_coverage xs p =
-    checkCoverage $
-    cover 50
-        (L.length xs >= 3)
-        "have at least three lists" $
-    cover 50
-        (Set.size listLengths > 1)
-        "lists have different lengths" $
-    cover 50
-        (L.sort allElements /= allElements)
-        "list elements not in sorted order" $
-    property p
+    checkCoverage
+        $ cover
+            50
+            (L.length xs >= 3)
+            "have at least three lists"
+        $ cover
+            50
+            (Set.size listLengths > 1)
+            "lists have different lengths"
+        $ cover
+            50
+            (L.sort allElements /= allElements)
+            "list elements not in sorted order"
+        $ property p
   where
     allElements :: [Int]
     allElements = F.fold xs
@@ -369,18 +431,19 @@ prop_interleaveRoundRobin_coverage xs p =
 prop_interleaveRoundRobin_length :: [[Int]] -> Property
 prop_interleaveRoundRobin_length xs =
     prop_interleaveRoundRobin_coverage xs $
-    L.length (interleaveRoundRobin xs) === L.length (F.fold xs)
+        L.length (interleaveRoundRobin xs) === L.length (F.fold xs)
 
 prop_interleaveRoundRobin_sort :: [[Int]] -> Property
 prop_interleaveRoundRobin_sort xs =
     prop_interleaveRoundRobin_coverage xs $
-    L.sort (interleaveRoundRobin xs) === L.sort (F.fold xs)
+        L.sort (interleaveRoundRobin xs) === L.sort (F.fold xs)
 
 unit_interleaveRoundRobin :: Spec
-unit_interleaveRoundRobin = unitTests
-    "unit_interleaveRoundRobin"
-    interleaveRoundRobin
-    tests
+unit_interleaveRoundRobin =
+    unitTests
+        "unit_interleaveRoundRobin"
+        interleaveRoundRobin
+        tests
   where
     tests :: [UnitTestData [[Int]] [Int]]
     tests =
@@ -430,11 +493,12 @@ genPartitionListData =
     PartitionListData <$> genBounds <*> genList
   where
     genBounds :: Gen (Int, Int)
-    genBounds = frequency
-        [ (1, genBoundsAny)
-        , (2, genBoundsValidAndDifferent)
-        , (2, genBoundsValidAndIdentical)
-        ]
+    genBounds =
+        frequency
+            [ (1, genBoundsAny)
+            , (2, genBoundsValidAndDifferent)
+            , (2, genBoundsValidAndIdentical)
+            ]
       where
         genBoundsAny :: Gen (Int, Int)
         genBoundsAny = arbitrary
@@ -451,80 +515,94 @@ genPartitionListData =
             pure (x, x)
 
     genList :: Gen [a]
-    genList = frequency
-        [ (1, pure [])
-        , (4, listOf arbitrary)
-        , (4, listOf arbitrary & scale (* 8))
-        ]
+    genList =
+        frequency
+            [ (1, pure [])
+            , (4, listOf arbitrary)
+            , (4, listOf arbitrary & scale (* 8))
+            ]
 
-shrinkPartitionListData
-    :: Arbitrary a => PartitionListData a -> [PartitionListData a]
+shrinkPartitionListData ::
+    Arbitrary a => PartitionListData a -> [PartitionListData a]
 shrinkPartitionListData = genericShrink
 
-prop_partitionList_coverage
-    :: (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
+prop_partitionList_coverage ::
+    (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
 prop_partitionList_coverage (PartitionListData (x, y) as) =
     forAll (partitionList (x, y) as) $ \rs ->
-        checkCoverage $
-        cover 10
-            (x < 0 || y < x)
-            "bounds are invalid" $
-        cover 10
-            (x >= 1 && y == x)
-            "bounds are valid and identical" $
-        cover 10
-            (x >= 0 && y > x)
-            "bounds are valid and different" $
-        cover 10
-            (length rs == 0)
-            "partitioned list length == 0" $
-        cover 10
-            (length rs == 1)
-            "partitioned list length == 1" $
-        cover 10
-            (length rs >= 10)
-            "partitioned list length >= 10" $
-        property True
+        checkCoverage
+            $ cover
+                10
+                (x < 0 || y < x)
+                "bounds are invalid"
+            $ cover
+                10
+                (x >= 1 && y == x)
+                "bounds are valid and identical"
+            $ cover
+                10
+                (x >= 0 && y > x)
+                "bounds are valid and different"
+            $ cover
+                10
+                (length rs == 0)
+                "partitioned list length == 0"
+            $ cover
+                10
+                (length rs == 1)
+                "partitioned list length == 1"
+            $ cover
+                10
+                (length rs >= 10)
+                "partitioned list length >= 10"
+            $ property True
 
-prop_partitionList_identity
-    :: (Arbitrary a, Eq a, Show a) => [a] -> Property
+prop_partitionList_identity ::
+    (Arbitrary a, Eq a, Show a) => [a] -> Property
 prop_partitionList_identity as =
-    forAll (partitionList (length as, length as) as)
+    forAll
+        (partitionList (length as, length as) as)
         (=== [as | length as > 0])
 
-prop_partitionList_mconcat
-    :: (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
+prop_partitionList_mconcat ::
+    (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
 prop_partitionList_mconcat (PartitionListData (x, y) as) =
-    forAll (partitionList (x, y) as)
+    forAll
+        (partitionList (x, y) as)
         ((=== as) . mconcat)
 
-prop_partitionList_GE
-    :: (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
+prop_partitionList_GE ::
+    (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
 prop_partitionList_GE (PartitionListData (x, y) as) =
     forAll (partitionList (x, y) as) $ \rs ->
-        checkCoverage $
-        cover 10
-            (any ((> x') . length) rs)
-            "at least one generated sublist has length > minimum" $
-        cover 10
-            (any ((== x') . length) rs)
-            "at least one generated sublist has length = minimum" $
-        all ((>= x') . length) $ dropEnd 1 rs
+        checkCoverage
+            $ cover
+                10
+                (any ((> x') . length) rs)
+                "at least one generated sublist has length > minimum"
+            $ cover
+                10
+                (any ((== x') . length) rs)
+                "at least one generated sublist has length = minimum"
+            $ all ((>= x') . length)
+            $ dropEnd 1 rs
   where
     x' = max 0 x
 
-prop_partitionList_LT
-    :: (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
+prop_partitionList_LT ::
+    (Arbitrary a, Eq a, Show a) => PartitionListData a -> Property
 prop_partitionList_LT (PartitionListData (x, y) as) =
     forAll (partitionList (x, y) as) $ \rs ->
-        checkCoverage $
-        cover 10
-            (any ((< y') . length) rs)
-            "at least one generated sublist has length < maximum" $
-        cover 10
-            (any ((== y') . length) rs)
-            "at least one generated sublist has length = maximum" $
-        all ((<= y') . length) rs
+        checkCoverage
+            $ cover
+                10
+                (any ((< y') . length) rs)
+                "at least one generated sublist has length < maximum"
+            $ cover
+                10
+                (any ((== y') . length) rs)
+                "at least one generated sublist has length = maximum"
+            $ all ((<= y') . length) rs
   where
     x' = max 0 x
     y' = max 1 (max y x')
@@ -533,165 +611,200 @@ prop_partitionList_LT (PartitionListData (x, y) as) =
 -- Selecting map entries (one at a time)
 --------------------------------------------------------------------------------
 
-prop_selectMapEntry_empty
-    :: forall k v. (Ord k, Show k, Eq v, Show v) => Property
+prop_selectMapEntry_empty ::
+    forall k v. (Ord k, Show k, Eq v, Show v) => Property
 prop_selectMapEntry_empty =
     forAll (selectMapEntry (Map.empty @k @v)) (=== Nothing)
 
-prop_selectMapEntry_singleton
-    :: (Ord k, Show k, Eq v, Show v) => k -> v -> Property
+prop_selectMapEntry_singleton ::
+    (Ord k, Show k, Eq v, Show v) => k -> v -> Property
 prop_selectMapEntry_singleton k v =
     forAll (selectMapEntry (Map.singleton k v)) (=== Just ((k, v), mempty))
 
-prop_selectMapEntry_insert
-    :: (Ord k, Show k, Eq v, Show v) => Map k v -> Property
+prop_selectMapEntry_insert ::
+    (Ord k, Show k, Eq v, Show v) => Map k v -> Property
 prop_selectMapEntry_insert m0 =
     forAll (selectMapEntry m0) $ \mr ->
-        checkCoverage $
-        cover 20 (isJust mr)
-            "number of selected entries = 1" $
-        cover 1 (isNothing mr)
-            "number of selected entries = 0" $
-        case mr of
-            Nothing ->
-                m0 === mempty
-            Just ((k, v), m1) ->
-                m0 === Map.insert k v m1
+        checkCoverage
+            $ cover
+                20
+                (isJust mr)
+                "number of selected entries = 1"
+            $ cover
+                1
+                (isNothing mr)
+                "number of selected entries = 0"
+            $ case mr of
+                Nothing ->
+                    m0 === mempty
+                Just ((k, v), m1) ->
+                    m0 === Map.insert k v m1
 
-prop_selectMapEntry_lookup_Just
-    :: (Ord k, Show k, Eq v, Show v) => Map k v -> Property
+prop_selectMapEntry_lookup_Just ::
+    (Ord k, Show k, Eq v, Show v) => Map k v -> Property
 prop_selectMapEntry_lookup_Just m0 =
     forAll (selectMapEntry m0) $ \mr ->
-        checkCoverage $
-        cover 20 (isJust mr)
-            "number of selected entries = 1" $
-        cover 1 (isNothing mr)
-            "number of selected entries = 0" $
-        case mr of
-            Nothing ->
-                m0 === mempty
-            Just ((k, v), _) ->
-                Map.lookup k m0 === Just v
+        checkCoverage
+            $ cover
+                20
+                (isJust mr)
+                "number of selected entries = 1"
+            $ cover
+                1
+                (isNothing mr)
+                "number of selected entries = 0"
+            $ case mr of
+                Nothing ->
+                    m0 === mempty
+                Just ((k, v), _) ->
+                    Map.lookup k m0 === Just v
 
-prop_selectMapEntry_lookup_Nothing
-    :: (Ord k, Show k, Eq v, Show v) => Map k v -> Property
+prop_selectMapEntry_lookup_Nothing ::
+    (Ord k, Show k, Eq v, Show v) => Map k v -> Property
 prop_selectMapEntry_lookup_Nothing m0 =
     forAll (selectMapEntry m0) $ \mr ->
-        checkCoverage $
-        cover 20 (isJust mr)
-            "number of selected entries = 1" $
-        cover 1 (isNothing mr)
-            "number of selected entries = 0" $
-        case mr of
-            Nothing ->
-                m0 === mempty
-            Just ((k, _), m1) ->
-                Map.lookup k m1 === Nothing
+        checkCoverage
+            $ cover
+                20
+                (isJust mr)
+                "number of selected entries = 1"
+            $ cover
+                1
+                (isNothing mr)
+                "number of selected entries = 0"
+            $ case mr of
+                Nothing ->
+                    m0 === mempty
+                Just ((k, _), m1) ->
+                    Map.lookup k m1 === Nothing
 
 --------------------------------------------------------------------------------
 -- Selecting map entries (many at a time)
 --------------------------------------------------------------------------------
 
-prop_selectMapEntries_empty
-    :: forall k v. (Ord k, Show k, Eq v, Show v) => Int -> Property
+prop_selectMapEntries_empty ::
+    forall k v. (Ord k, Show k, Eq v, Show v) => Int -> Property
 prop_selectMapEntries_empty i =
     forAll (selectMapEntries (Map.empty @k @v) i) (=== ([], Map.empty))
 
-prop_selectMapEntries_fromList
-    :: (Ord k, Show k, Eq v, Show v) => Map k v -> Property
+prop_selectMapEntries_fromList ::
+    (Ord k, Show k, Eq v, Show v) => Map k v -> Property
 prop_selectMapEntries_fromList m =
-    checkCoverage $
-    cover 10 (Map.size m > 0)
-        "number of available entries > 0" $
-    cover 1 (Map.size m == 0)
-        "number of available entries = 0" $
-    forAll (selectMapEntries m (length m)) $
-        (=== (m, mempty)) . first Map.fromList
+    checkCoverage
+        $ cover
+            10
+            (Map.size m > 0)
+            "number of available entries > 0"
+        $ cover
+            1
+            (Map.size m == 0)
+            "number of available entries = 0"
+        $ forAll (selectMapEntries m (length m))
+        $ (=== (m, mempty)) . first Map.fromList
 
-prop_selectMapEntries_length
-    :: forall k v. (Ord k, Show k, Eq v, Show v)
-    => Map k v
-    -> Positive (Small Int)
-    -> Property
+prop_selectMapEntries_length ::
+    forall k v.
+    (Ord k, Show k, Eq v, Show v) =>
+    Map k v ->
+    Positive (Small Int) ->
+    Property
 prop_selectMapEntries_length m (Positive (Small i)) =
     forAll (selectMapEntries m i) $ \(kvs, _) ->
-        checkCoverage $
-        cover 10 (i < Map.size m)
-            "number of requested entries < size of map" $
-        cover 10 (i > Map.size m)
-            "number of requested entries > size of map" $
-        cover 1 (i == Map.size m)
-            "number of requested entries = size of map" $
-        length kvs === min i (Map.size m)
+        checkCoverage
+            $ cover
+                10
+                (i < Map.size m)
+                "number of requested entries < size of map"
+            $ cover
+                10
+                (i > Map.size m)
+                "number of requested entries > size of map"
+            $ cover
+                1
+                (i == Map.size m)
+                "number of requested entries = size of map"
+            $ length kvs === min i (Map.size m)
 
-prop_selectMapEntries_nonPositive
-    :: (Ord k, Show k, Eq v, Show v)
-    => Map k v
-    -> NonPositive (Small Int)
-    -> Property
+prop_selectMapEntries_nonPositive ::
+    (Ord k, Show k, Eq v, Show v) =>
+    Map k v ->
+    NonPositive (Small Int) ->
+    Property
 prop_selectMapEntries_nonPositive m (NonPositive (Small i)) =
     forAll (selectMapEntries m i) (== ([], m))
 
-prop_selectMapEntries_disjoint
-    :: (Ord k, Show k, Eq v, Show v)
-    => Map k v
-    -> Positive (Small Int)
-    -> Property
+prop_selectMapEntries_disjoint ::
+    (Ord k, Show k, Eq v, Show v) =>
+    Map k v ->
+    Positive (Small Int) ->
+    Property
 prop_selectMapEntries_disjoint m0 (Positive (Small i)) =
     forAll (selectMapEntries m0 i) $ \(kvs, m1) ->
-        checkCoverage $
-        cover 10 (length kvs == i && i >= 1)
-            "number of selected entries = requested number" $
-        cover 10 (length kvs >= 1 && length kvs < i)
-            "number of selected entries < requested number" $
-        cover 1 (length kvs == 0)
-            "number of selected entries = 0" $
-        Map.fromList kvs `Map.disjoint` m1
+        checkCoverage
+            $ cover
+                10
+                (length kvs == i && i >= 1)
+                "number of selected entries = requested number"
+            $ cover
+                10
+                (length kvs >= 1 && length kvs < i)
+                "number of selected entries < requested number"
+            $ cover
+                1
+                (length kvs == 0)
+                "number of selected entries = 0"
+            $ Map.fromList kvs `Map.disjoint` m1
 
-prop_selectMapEntries_union
-    :: (Ord k, Show k, Eq v, Show v)
-    => Map k v
-    -> Positive (Small Int)
-    -> Property
+prop_selectMapEntries_union ::
+    (Ord k, Show k, Eq v, Show v) =>
+    Map k v ->
+    Positive (Small Int) ->
+    Property
 prop_selectMapEntries_union m0 (Positive (Small i)) =
     forAll (selectMapEntries m0 i) $ \(kvs, m1) ->
-        checkCoverage $
-        cover 10 (length kvs == i && i >= 1)
-            "number of selected entries = requested number" $
-        cover 10 (length kvs >= 1 && length kvs < i)
-            "number of selected entries < requested number" $
-        cover 1 (length kvs == 0)
-            "number of selected entries = 0" $
-        Map.fromList kvs `Map.union` m1 === m0
+        checkCoverage
+            $ cover
+                10
+                (length kvs == i && i >= 1)
+                "number of selected entries = requested number"
+            $ cover
+                10
+                (length kvs >= 1 && length kvs < i)
+                "number of selected entries < requested number"
+            $ cover
+                1
+                (length kvs == 0)
+                "number of selected entries = 0"
+            $ Map.fromList kvs `Map.union` m1 === m0
 
 --------------------------------------------------------------------------------
 -- Generating sequences of shrunken values
 --------------------------------------------------------------------------------
 
-prop_genShrinkSequence_length
-    :: (Arbitrary a, Eq a, Show a) => a -> Property
+prop_genShrinkSequence_length ::
+    (Arbitrary a, Eq a, Show a) => a -> Property
 prop_genShrinkSequence_length a =
     forAll (genShrinkSequence shrink a) $ \as ->
         checkCoverage $
-        cover 2 (length as ==  0) "length as ==  0" $
-        cover 2 (length as ==  1) "length as ==  1" $
-        cover 2 (length as ==  2) "length as ==  2" $
-        cover 2 (length as >= 10) "length as >= 10" $
-        property True
+            cover 2 (length as == 0) "length as ==  0" $
+                cover 2 (length as == 1) "length as ==  1" $
+                    cover 2 (length as == 2) "length as ==  2" $
+                        cover 2 (length as >= 10) "length as >= 10" $
+                            property True
 
 -- Verify that the resulting sequence is only empty if the starting value
 -- cannot be shrunk.
 --
-prop_genShrinkSequence_empty
-    :: (Arbitrary a, Eq a, Show a) => a -> Property
+prop_genShrinkSequence_empty ::
+    (Arbitrary a, Eq a, Show a) => a -> Property
 prop_genShrinkSequence_empty a =
     forAll (genShrinkSequence shrink a) $ \as ->
         null as === null (shrink a)
 
 -- Verify that the starting value is not present in the resulting sequence.
 --
-prop_genShrinkSequence_start
-    :: (Arbitrary a, Eq a, Show a) => a -> Property
+prop_genShrinkSequence_start ::
+    (Arbitrary a, Eq a, Show a) => a -> Property
 prop_genShrinkSequence_start a =
     forAll (genShrinkSequence shrink a) $ \as ->
         a `notElem` as
@@ -699,8 +812,8 @@ prop_genShrinkSequence_start a =
 -- Verify that the final element in the resulting sequence cannot be shrunk
 -- further.
 --
-prop_genShrinkSequence_termination
-    :: (Arbitrary a, Eq a, Show a) => a -> Property
+prop_genShrinkSequence_termination ::
+    (Arbitrary a, Eq a, Show a) => a -> Property
 prop_genShrinkSequence_termination a =
     forAll (genShrinkSequence shrink a) $ \as ->
         shrink (NE.last (a :| as)) === []
@@ -708,8 +821,8 @@ prop_genShrinkSequence_termination a =
 -- Verify that each successive element in the resulting sequence is a member of
 -- the shrink set of the preceding element.
 --
-prop_genShrinkSequence_validity
-    :: (Arbitrary a, Eq a, Show a) => a -> Property
+prop_genShrinkSequence_validity ::
+    (Arbitrary a, Eq a, Show a) => a -> Property
 prop_genShrinkSequence_validity a =
     forAll (genShrinkSequence shrink a) $ \as ->
         all (\(x, y) -> y `elem` shrink x) (consecutivePairs (a :| as))
@@ -721,12 +834,12 @@ prop_genShrinkSequence_validity a =
 prop_shrinkSpace_complete :: (Arbitrary a, Ord a) => a -> Property
 prop_shrinkSpace_complete a =
     within twoSeconds $
-    conjoin
-        [ -- All initial shrinks are present in the set:
-          all (`Set.member` ss) (shrink a)
-          -- All transitive shrinks are present in the set:
-        , all (all (`Set.member` ss) . shrink) ss
-        ]
+        conjoin
+            [ -- All initial shrinks are present in the set:
+              all (`Set.member` ss) (shrink a)
+            , -- All transitive shrinks are present in the set:
+              all (all (`Set.member` ss) . shrink) ss
+            ]
   where
     ss = shrinkSpace shrink a
     twoSeconds = 2_000_000
@@ -744,54 +857,60 @@ prop_shrinkSpace_singleton a =
 --------------------------------------------------------------------------------
 
 prop_shrinkWhile_coverage :: Arbitrary a => Fun a Bool -> a -> Property
-prop_shrinkWhile_coverage (applyFun -> condition) a
-    = checkCoverage
-    $ cover 10
-        (isJust shrinkWhileResult)
-        "isJust shrinkWhileResult"
-    $ cover 10
-        (isNothing shrinkWhileResult)
-        "isNothing shrinkWhileResult"
-    $ property True
+prop_shrinkWhile_coverage (applyFun -> condition) a =
+    checkCoverage
+        $ cover
+            10
+            (isJust shrinkWhileResult)
+            "isJust shrinkWhileResult"
+        $ cover
+            10
+            (isNothing shrinkWhileResult)
+            "isNothing shrinkWhileResult"
+        $ property True
   where
     shrinkWhileResult = shrinkWhile condition shrink a
 
 prop_shrinkWhile_isNothing :: Arbitrary a => Fun a Bool -> a -> Property
 prop_shrinkWhile_isNothing (applyFun -> condition) a =
     isNothing (shrinkWhile condition shrink a)
-    === (not (condition a) || null (L.find condition (shrink a)))
+        === (not (condition a) || null (L.find condition (shrink a)))
 
 prop_shrinkWhile_satisfy :: Arbitrary a => Fun a Bool -> a -> Property
 prop_shrinkWhile_satisfy (applyFun -> condition) a =
     all condition (shrinkWhile condition shrink a)
-    === True
+        === True
 
 prop_shrinkWhileSteps_coverage :: Arbitrary a => Fun a Bool -> a -> Property
-prop_shrinkWhileSteps_coverage (applyFun -> condition) a
-    = checkCoverage
-    $ cover 10
-        (null shrinkWhileStepsResult)
-        "null shrinkWhileStepsResult"
-    $ cover 10
-        (length shrinkWhileStepsResult == 1)
-        "length shrinkWhileStepsResult == 1"
-    $ cover 10
-        (length shrinkWhileStepsResult >= 2)
-        "length shrinkWhileStepsResult >= 2"
-    $ property True
+prop_shrinkWhileSteps_coverage (applyFun -> condition) a =
+    checkCoverage
+        $ cover
+            10
+            (null shrinkWhileStepsResult)
+            "null shrinkWhileStepsResult"
+        $ cover
+            10
+            (length shrinkWhileStepsResult == 1)
+            "length shrinkWhileStepsResult == 1"
+        $ cover
+            10
+            (length shrinkWhileStepsResult >= 2)
+            "length shrinkWhileStepsResult >= 2"
+        $ property True
   where
     shrinkWhileStepsResult = shrinkWhileSteps condition shrink a
 
 prop_shrinkWhileSteps_satisfy :: Arbitrary a => Fun a Bool -> a -> Property
 prop_shrinkWhileSteps_satisfy (applyFun -> condition) a =
     all condition (shrinkWhileSteps condition shrink a)
-    === True
+        === True
 
 unit_shrinkWhileSteps_Int :: Spec
-unit_shrinkWhileSteps_Int = unitTests
-    "unit_shrinkWhileSteps_Int"
-    (\(a, condition) -> shrinkWhileSteps condition shrink a)
-    tests
+unit_shrinkWhileSteps_Int =
+    unitTests
+        "unit_shrinkWhileSteps_Int"
+        (\(a, condition) -> shrinkWhileSteps condition shrink a)
+        tests
   where
     tests :: [UnitTestData (Int, (Int -> Bool)) [Int]]
     tests =
@@ -831,21 +950,21 @@ data UnitTestData params result = UnitTestData
     }
     deriving (Eq, Generic, Show)
 
-unitTests
-    :: (Eq result, Show result)
-    => String
-    -> (params -> result)
-    -> [UnitTestData params result]
-    -> Spec
+unitTests ::
+    (Eq result, Show result) =>
+    String ->
+    (params -> result) ->
+    [UnitTestData params result] ->
+    Spec
 unitTests title f unitTestData =
     describe title $
-    forM_ (zip testNumbers unitTestData) $
-        \(testNumber :: Int, test) -> do
-            let subtitle = "Unit test #" <> show testNumber
-            it subtitle $
-                let resultExpected = view #result test in
-                let resultActual = f (view #params test) in
-                property $ Pretty resultExpected === Pretty resultActual
+        forM_ (zip testNumbers unitTestData) $
+            \(testNumber :: Int, test) -> do
+                let subtitle = "Unit test #" <> show testNumber
+                it subtitle $
+                    let resultExpected = view #result test
+                     in let resultActual = f (view #params test)
+                         in property $ Pretty resultExpected === Pretty resultActual
   where
     testNumbers :: [Int]
     testNumbers = [1 ..]

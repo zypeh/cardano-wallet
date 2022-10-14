@@ -1,51 +1,56 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
--- |
--- Copyright: © 2020 IOHK
--- License: Apache-2.0
---
-
-module Cardano.Wallet.Read.Primitive.Tx
-    ( fromCardanoTx
-    )
-    where
+{- |
+ Copyright: © 2020 IOHK
+ License: Apache-2.0
+-}
+module Cardano.Wallet.Read.Primitive.Tx (
+    fromCardanoTx,
+) where
 
 import Prelude
 
-import Cardano.Wallet.Read.Primitive.Tx.Allegra
-    ( fromAllegraTx )
-import Cardano.Wallet.Read.Primitive.Tx.Alonzo
-    ( fromAlonzoTx )
-import Cardano.Wallet.Read.Primitive.Tx.Babbage
-    ( fromBabbageTx )
-import Cardano.Wallet.Read.Primitive.Tx.Byron
-    ( fromTxAux )
-import Cardano.Wallet.Read.Primitive.Tx.Mary
-    ( fromMaryTx )
-import Cardano.Wallet.Read.Primitive.Tx.Shelley
-    ( fromShelleyTx )
-import Cardano.Wallet.Transaction
-    ( TokenMapWithScripts (..)
-    , ValidityIntervalExplicit (..)
-    , emptyTokenMapWithScripts
-    )
+import Cardano.Wallet.Read.Primitive.Tx.Allegra (
+    fromAllegraTx,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Alonzo (
+    fromAlonzoTx,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Babbage (
+    fromBabbageTx,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Byron (
+    fromTxAux,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Mary (
+    fromMaryTx,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Shelley (
+    fromShelleyTx,
+ )
+import Cardano.Wallet.Transaction (
+    TokenMapWithScripts (..),
+    ValidityIntervalExplicit (..),
+    emptyTokenMapWithScripts,
+ )
 
 import qualified Cardano.Api as Cardano
-import qualified Cardano.Api.Byron as Cardano
-    ( Tx (ByronTx) )
+import qualified Cardano.Api.Byron as Cardano (
+    Tx (ByronTx),
+ )
 import qualified Cardano.Api.Shelley as Cardano
 import qualified Cardano.Wallet.Primitive.Types as W
 import qualified Cardano.Wallet.Primitive.Types.Tx as W
 
-fromCardanoTx
-    :: Cardano.Tx era
-    ->  ( W.Tx
-        , TokenMapWithScripts
-        , TokenMapWithScripts
-        , [W.Certificate]
-        , Maybe ValidityIntervalExplicit
-        )
+fromCardanoTx ::
+    Cardano.Tx era ->
+    ( W.Tx
+    , TokenMapWithScripts
+    , TokenMapWithScripts
+    , [W.Certificate]
+    , Maybe ValidityIntervalExplicit
+    )
 fromCardanoTx = \case
     Cardano.ShelleyTx era tx -> case era of
         Cardano.ShelleyBasedEraShelley ->
@@ -68,5 +73,3 @@ fromCardanoTx = \case
   where
     extract (tx, certs, mint, burn, validity) =
         (tx, mint, burn, certs, validity)
-
-

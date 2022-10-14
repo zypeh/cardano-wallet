@@ -1,39 +1,41 @@
--- |
--- Copyright: © 2022 IOHK
--- License: Apache-2.0
---
--- Abstract data type that describes a policy for keeping and discarding
--- checkpoints. To be used with the 'Checkpoints' type.
-module Cardano.Wallet.Checkpoints.Policy
-    ( BlockHeight
-    , CheckpointPolicy
-    , nextCheckpoint
-    , keepWhereTip
-    , toListAtTip
+{- |
+ Copyright: © 2022 IOHK
+ License: Apache-2.0
+
+ Abstract data type that describes a policy for keeping and discarding
+ checkpoints. To be used with the 'Checkpoints' type.
+-}
+module Cardano.Wallet.Checkpoints.Policy (
+    BlockHeight,
+    CheckpointPolicy,
+    nextCheckpoint,
+    keepWhereTip,
+    toListAtTip,
 
     -- * Construction
-    , atGenesis
-    , atTip
-    , trailingArithmetic
-    , sparseArithmetic
-    , defaultPolicy
-    , gapSize
+    atGenesis,
+    atTip,
+    trailingArithmetic,
+    sparseArithmetic,
+    defaultPolicy,
+    gapSize,
 
     -- * Internal invariants
     -- $invariants
-    ) where
+) where
 
 import Prelude
 
-import Data.List
-    ( unfoldr )
+import Data.List (
+    unfoldr,
+ )
 
 {-------------------------------------------------------------------------------
     CheckpointPolicy, abstract data type
 -------------------------------------------------------------------------------}
 type BlockHeight = Integer
 
-{-| [CheckpointPolicy]
+{- | [CheckpointPolicy]
 
 To save memory and time, we do not store every checkpoint.
 Instead, a 'CheckpointPolicy' determines which checkpoints
@@ -66,13 +68,13 @@ In contrast, block height is "dense".
 -}
 newtype CheckpointPolicy = CheckpointPolicy
     { nextCheckpoint :: BlockHeight -> BlockHeight -> Maybe BlockHeight
-        -- ^ Assuming that the tip of the chain is at block height @tip@,
-        -- @nextCheckpoint policy tip height@ returns the smallest
-        -- @height'@ satisfying @height' >= height#
-        -- at which the next checkpoint is to be made.
+    -- ^ Assuming that the tip of the chain is at block height @tip@,
+    -- @nextCheckpoint policy tip height@ returns the smallest
+    -- @height'@ satisfying @height' >= height#
+    -- at which the next checkpoint is to be made.
     }
 
-{-$invariants
+{- $invariants
 
 Internal invariants of the 'CheckpointPolicy' type:
 
@@ -82,26 +84,32 @@ Internal invariants of the 'CheckpointPolicy' type:
   will never return a blockheight that is smaller.
 -}
 
--- | Assuming that the tip of the chain is at block height @tip@,
--- the value @keepWhereTip policy tip height@
--- indicates whether a checkpoint should ('True') or should not ('False')
--- be stored at @height@.
-keepWhereTip
-    :: CheckpointPolicy -> BlockHeight -> BlockHeight
-    -> Bool
+{- | Assuming that the tip of the chain is at block height @tip@,
+ the value @keepWhereTip policy tip height@
+ indicates whether a checkpoint should ('True') or should not ('False')
+ be stored at @height@.
+-}
+keepWhereTip ::
+    CheckpointPolicy ->
+    BlockHeight ->
+    BlockHeight ->
+    Bool
 keepWhereTip policy tip height =
     nextCheckpoint policy tip height == Just height
 
 -- | List all checkpoints for a given tip.
 toListAtTip :: CheckpointPolicy -> BlockHeight -> [BlockHeight]
 toListAtTip policy tip = unfoldr (fmap next . nextCheckpoint policy tip) 0
-  where next x = (x,x+1)
+  where
+    next x = (x, x + 1)
 
 {-------------------------------------------------------------------------------
     CheckpointPolicy, construction
 -------------------------------------------------------------------------------}
--- | The combination of two 'CheckpointPolicy' makes a checkpoint
--- where at least one of the policies wants to make a checkpoint.
+
+{- | The combination of two 'CheckpointPolicy' makes a checkpoint
+ where at least one of the policies wants to make a checkpoint.
+-}
 instance Semigroup CheckpointPolicy where
     p1 <> p2 = CheckpointPolicy $ \t h ->
         union min (nextCheckpoint p1 t h) (nextCheckpoint p2 t h)
@@ -123,16 +131,17 @@ atTip :: CheckpointPolicy
 atTip = CheckpointPolicy $ \tip height ->
     if height <= tip then Just tip else Nothing
 
--- | @trailingArithmetic n height@ keeps @n@ checkpoints
--- at block heights that are multiples of @height@
--- and which are closest to the tip of the chain.
--- (Fewer than @n@ checkpoints are kept while the chain is too short
--- to accommodate all checkpoints.)
+{- | @trailingArithmetic n height@ keeps @n@ checkpoints
+ at block heights that are multiples of @height@
+ and which are closest to the tip of the chain.
+ (Fewer than @n@ checkpoints are kept while the chain is too short
+ to accommodate all checkpoints.)
+-}
 trailingArithmetic :: Integer -> BlockHeight -> CheckpointPolicy
 trailingArithmetic n grid = CheckpointPolicy $ \tip height ->
     case [h | h <- window tip, h >= height] of
         [] -> Nothing
-        (x:_) -> Just x
+        (x : _) -> Just x
   where
     window tip = [a, a + grid .. tip]
       where
@@ -175,9 +184,9 @@ matter what.
 sparseArithmetic :: BlockHeight -> CheckpointPolicy
 sparseArithmetic epochStability =
     atGenesis
-    <> atTip
-    <> trailingArithmetic 10 1
-    <> trailingArithmetic n largeGap
+        <> atTip
+        <> trailingArithmetic 10 1
+        <> trailingArithmetic n largeGap
   where
     largeGap = gapSize epochStability
     n = epochStability `div` largeGap
@@ -204,4 +213,4 @@ So, `k / 3` = 720, which corresponds to around a second of time needed to catch
 up in case of large rollbacks (if our local node has caught up already).
 -}
 gapSize :: BlockHeight -> Integer
-gapSize epochStability = max 1 (epochStability  `div` 3)
+gapSize epochStability = max 1 (epochStability `div` 3)

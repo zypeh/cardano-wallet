@@ -1,28 +1,37 @@
-
-module Cardano.Wallet.Primitive.Types.TokenPolicySpec
-    ( spec
-    ) where
+module Cardano.Wallet.Primitive.Types.TokenPolicySpec (
+    spec,
+) where
 
 import Prelude
 
-import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenFingerprint (..)
-    , TokenName (..)
-    , TokenPolicyId (..)
-    , mkTokenFingerprint
-    )
-import Cardano.Wallet.Unsafe
-    ( unsafeFromHex )
-import Data.ByteString
-    ( ByteString )
-import Data.Text
-    ( Text )
-import Test.Hspec
-    ( Spec, SpecWith, describe, it, shouldBe )
-import Test.Hspec.Extra
-    ( parallel )
+import Cardano.Wallet.Primitive.Types.Hash (
+    Hash (..),
+ )
+import Cardano.Wallet.Primitive.Types.TokenPolicy (
+    TokenFingerprint (..),
+    TokenName (..),
+    TokenPolicyId (..),
+    mkTokenFingerprint,
+ )
+import Cardano.Wallet.Unsafe (
+    unsafeFromHex,
+ )
+import Data.ByteString (
+    ByteString,
+ )
+import Data.Text (
+    Text,
+ )
+import Test.Hspec (
+    Spec,
+    SpecWith,
+    describe,
+    it,
+    shouldBe,
+ )
+import Test.Hspec.Extra (
+    parallel,
+ )
 
 import qualified Data.Text as T
 
@@ -68,11 +77,11 @@ spec = parallel $ describe "mkAssetFingerprint" $ do
         "0000000000000000000000000000000000000000000000000000000000000000"
         "asset1pkpwyknlvul7az0xx8czhl60pyel45rpje4z8w"
 
-goldenTestCIP14
-    :: ByteString -- Base16-encoded PolicyId
-    -> ByteString -- Base16-encoded AssetName
-    -> Text -- Bech32-encoded TokenFingerprint
-    -> SpecWith ()
+goldenTestCIP14 ::
+    ByteString -> -- Base16-encoded PolicyId
+    ByteString -> -- Base16-encoded AssetName
+    Text -> -- Bech32-encoded TokenFingerprint
+    SpecWith ()
 goldenTestCIP14 rawPolicyId rawAssetName rawFingerprint =
     it ("golden test CIP-0014 - " <> T.unpack rawFingerprint) $ do
         let policyId = UnsafeTokenPolicyId $ Hash $ unsafeFromHex rawPolicyId

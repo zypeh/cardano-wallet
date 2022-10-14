@@ -3,45 +3,60 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE RecordWildCards #-}
 
--- |
--- Copyright: © 2018-2022 IOHK
--- License: Apache-2.0
-
-module Cardano.Wallet.Api.Types.BlockHeader
-    ( ApiBlockHeader (..)
-    , mkApiBlockHeader
-    )
-    where
+{- |
+ Copyright: © 2018-2022 IOHK
+ License: Apache-2.0
+-}
+module Cardano.Wallet.Api.Types.BlockHeader (
+    ApiBlockHeader (..),
+    mkApiBlockHeader,
+) where
 
 import Prelude
 
-import Cardano.Wallet.Api.Aeson
-    ( fromTextJSON, toTextJSON )
-import Cardano.Wallet.Primitive.Types
-    ( BlockHeader (..), SlotNo (..) )
-import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash )
-import Data.Aeson
-    ( FromJSON (parseJSON), ToJSON (toJSON), (.:), (.=) )
-import Data.Binary
-    ( Word32, Word64 )
-import Data.Quantity
-    ( Quantity (Quantity) )
-import GHC.Generics
-    ( Generic )
+import Cardano.Wallet.Api.Aeson (
+    fromTextJSON,
+    toTextJSON,
+ )
+import Cardano.Wallet.Primitive.Types (
+    BlockHeader (..),
+    SlotNo (..),
+ )
+import Cardano.Wallet.Primitive.Types.Hash (
+    Hash,
+ )
+import Data.Aeson (
+    FromJSON (parseJSON),
+    ToJSON (toJSON),
+    (.:),
+    (.=),
+ )
+import Data.Binary (
+    Word32,
+    Word64,
+ )
+import Data.Quantity (
+    Quantity (Quantity),
+ )
+import GHC.Generics (
+    Generic,
+ )
 
 import qualified Data.Aeson as Aeson
 
 data ApiBlockHeader = ApiBlockHeader
-  { headerHash :: Hash "BlockHeader"
-  , slotNo :: Quantity "slot" Word64
-  , blockHeight :: Quantity "block" Word32
-  }
-  deriving (Eq, Show, Generic)
+    { headerHash :: Hash "BlockHeader"
+    , slotNo :: Quantity "slot" Word64
+    , blockHeight :: Quantity "block" Word32
+    }
+    deriving (Eq, Show, Generic)
 
 mkApiBlockHeader :: BlockHeader -> ApiBlockHeader
-mkApiBlockHeader BlockHeader{..} = ApiBlockHeader
-    {slotNo = Quantity $ unSlotNo slotNo, ..}
+mkApiBlockHeader BlockHeader{..} =
+    ApiBlockHeader
+        { slotNo = Quantity $ unSlotNo slotNo
+        , ..
+        }
 
 instance ToJSON ApiBlockHeader where
     toJSON ApiBlockHeader{..} =

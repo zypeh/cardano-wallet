@@ -7,50 +7,67 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Cardano.Wallet.Network.Light
-    ( -- * Interface
-      LightSyncSource (..)
-    , LightBlocks
-    , hoistLightSyncSource
-    , lightSync
-    , Consensual (..)
-    , LightLayerLog (..)
-    ) where
+module Cardano.Wallet.Network.Light (
+    -- * Interface
+    LightSyncSource (..),
+    LightBlocks,
+    hoistLightSyncSource,
+    lightSync,
+    Consensual (..),
+    LightLayerLog (..),
+) where
 
 import Prelude
 
-import Cardano.BM.Data.Severity
-    ( Severity (..) )
-import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
-import Cardano.Wallet.Network
-    ( ChainFollower (..) )
-import Cardano.Wallet.Primitive.BlockSummary
-    ( BlockSummary (..) )
-import Cardano.Wallet.Primitive.Types
-    ( BlockHeader (..)
-    , ChainPoint (..)
-    , chainPointFromBlockHeader
-    , compareSlot
-    )
-import Control.Monad.Class.MonadTimer
-    ( MonadDelay (..) )
-import Control.Tracer
-    ( Tracer, traceWith )
-import Data.Functor
-    ( ($>) )
-import Data.List
-    ( maximumBy, sortBy )
-import Data.List.NonEmpty
-    ( NonEmpty (..) )
-import Data.Text.Class
-    ( ToText (..) )
-import Data.Void
-    ( Void )
-import Fmt
-    ( Buildable (build), pretty )
-import GHC.Generics
-    ( Generic )
+import Cardano.BM.Data.Severity (
+    Severity (..),
+ )
+import Cardano.BM.Data.Tracer (
+    HasPrivacyAnnotation (..),
+    HasSeverityAnnotation (..),
+ )
+import Cardano.Wallet.Network (
+    ChainFollower (..),
+ )
+import Cardano.Wallet.Primitive.BlockSummary (
+    BlockSummary (..),
+ )
+import Cardano.Wallet.Primitive.Types (
+    BlockHeader (..),
+    ChainPoint (..),
+    chainPointFromBlockHeader,
+    compareSlot,
+ )
+import Control.Monad.Class.MonadTimer (
+    MonadDelay (..),
+ )
+import Control.Tracer (
+    Tracer,
+    traceWith,
+ )
+import Data.Functor (
+    ($>),
+ )
+import Data.List (
+    maximumBy,
+    sortBy,
+ )
+import Data.List.NonEmpty (
+    NonEmpty (..),
+ )
+import Data.Text.Class (
+    ToText (..),
+ )
+import Data.Void (
+    Void,
+ )
+import Fmt (
+    Buildable (build),
+    pretty,
+ )
+import GHC.Generics (
+    Generic,
+ )
 
 import qualified Data.Text as T
 
@@ -62,35 +79,36 @@ type BlockHeight = Integer
 -- | Blockchain data source suitable for the implementation of 'lightSync'.
 data LightSyncSource m block addr txs = LightSyncSource
     { getHeader :: block -> BlockHeader
-        -- ^ Get the 'BlockHeader' of a given @block@.
+    -- ^ Get the 'BlockHeader' of a given @block@.
     , getTip :: m BlockHeader
-        -- ^ Latest tip of the chain.
+    -- ^ Latest tip of the chain.
     , getBlockHeaderAtHeight :: BlockHeight -> m (Consensual BlockHeader)
-        -- ^ Get the 'BlockHeader' at a given block height.
+    -- ^ Get the 'BlockHeader' at a given block height.
     , getNextBlockHeader :: BlockHeader -> m (Consensual (Maybe BlockHeader))
-        -- ^ Get the next block header.
+    -- ^ Get the next block header.
     , getBlockHeaderAt :: ChainPoint -> m (Consensual BlockHeader)
-        -- ^ Get the full 'BlockHeader' belonging to a given 'ChainPoint'.
-        -- Return 'Nothing' if the point is not consensus anymore.
+    -- ^ Get the full 'BlockHeader' belonging to a given 'ChainPoint'.
+    -- Return 'Nothing' if the point is not consensus anymore.
     , getNextBlocks :: ChainPoint -> m (Consensual [block])
-        -- ^ Get several blocks immediately following the given 'Chainpoint'.
+    -- ^ Get several blocks immediately following the given 'Chainpoint'.
     , getAddressTxs :: BlockHeader -> BlockHeader -> addr -> m txs
-        -- ^ Transactions for a given address and point range.
+    -- ^ Transactions for a given address and point range.
     }
 
-hoistLightSyncSource
-    :: (forall a. m a -> n a)
-    -> LightSyncSource m block addr txs
-    -> LightSyncSource n block addr txs
-hoistLightSyncSource f x = LightSyncSource
-    { getHeader = getHeader x
-    , getTip = f $ getTip x
-    , getBlockHeaderAtHeight = f . getBlockHeaderAtHeight x
-    , getNextBlockHeader = f . getNextBlockHeader x
-    , getBlockHeaderAt = f . getBlockHeaderAt x
-    , getNextBlocks = f . getNextBlocks x
-    , getAddressTxs = \a block c -> f $ getAddressTxs x a block c
-    }
+hoistLightSyncSource ::
+    (forall a. m a -> n a) ->
+    LightSyncSource m block addr txs ->
+    LightSyncSource n block addr txs
+hoistLightSyncSource f x =
+    LightSyncSource
+        { getHeader = getHeader x
+        , getTip = f $ getTip x
+        , getBlockHeaderAtHeight = f . getBlockHeaderAtHeight x
+        , getNextBlockHeader = f . getNextBlockHeader x
+        , getBlockHeaderAt = f . getBlockHeaderAt x
+        , getNextBlocks = f . getNextBlocks x
+        , getAddressTxs = \a block c -> f $ getAddressTxs x a block c
+        }
 
 type LightBlocks m block addr txs =
     Either (NonEmpty block) (BlockSummary m addr txs)
@@ -102,18 +120,19 @@ latest xs = maximumBy compareSlot xs
 
 -- | Retrieve the 'ChainPoint' with the second-highest 'Slot'.
 secondLatest :: [ChainPoint] -> ChainPoint
-secondLatest []  = ChainPointAtGenesis
+secondLatest [] = ChainPointAtGenesis
 secondLatest [_] = ChainPointAtGenesis
-secondLatest xs  = head . tail $ sortBy (flip compareSlot) xs
+secondLatest xs = head . tail $ sortBy (flip compareSlot) xs
 
--- | Drive a 'ChainFollower' using a 'LightSyncSource'.
--- Never returns.
-lightSync
-    :: MonadDelay m
-    => Tracer m LightLayerLog
-    -> LightSyncSource m block addr txs
-    -> ChainFollower m ChainPoint BlockHeader (LightBlocks m block addr txs)
-    -> m Void
+{- | Drive a 'ChainFollower' using a 'LightSyncSource'.
+ Never returns.
+-}
+lightSync ::
+    MonadDelay m =>
+    Tracer m LightLayerLog ->
+    LightSyncSource m block addr txs ->
+    ChainFollower m ChainPoint BlockHeader (LightBlocks m block addr txs) ->
+    m Void
 lightSync tr light follower = readChainPoints follower >>= syncFrom . latest
   where
     syncFrom chainPoint = do
@@ -131,9 +150,10 @@ lightSync tr light follower = readChainPoints follower >>= syncFrom . latest
                 rollForward follower (Right $ mkBlockSummary light old new) tip
                 traceWith tr $ MsgLightRolledForward new
                 pure $ chainPointFromBlockHeader new
-            WaitForANewTip tip -> do
-                threadDelay 2 -- seconds
-                $> chainPointFromBlockHeader tip
+            WaitForANewTip tip ->
+                do
+                    threadDelay 2 -- seconds
+                    $> chainPointFromBlockHeader tip
 
 data NextPointMove block
     = RollForward
@@ -147,35 +167,36 @@ data NextPointMove block
     | WaitForANewTip BlockHeader
     deriving (Show)
 
--- | 'Consensual' represents the result of query on the blockchain.
--- Either the result is a value that is part of the consensus chain,
--- or the result is an indication that the consensus had changed
--- before the entire value could be retrieved.
+{- | 'Consensual' represents the result of query on the blockchain.
+ Either the result is a value that is part of the consensus chain,
+ or the result is an indication that the consensus had changed
+ before the entire value could be retrieved.
+-}
 data Consensual a
     = NotConsensual
     | Consensual a
     deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 instance Buildable a => Buildable (Consensual a) where
-  build = \case
-    NotConsensual -> "NotConsensual"
-    Consensual a -> "Consensual " <> build a
+    build = \case
+        NotConsensual -> "NotConsensual"
+        Consensual a -> "Consensual " <> build a
 
-consensually
-    :: Applicative m
-    => (a -> m (NextPointMove block))
-    -> Consensual a
-    -> m (NextPointMove block)
+consensually ::
+    Applicative m =>
+    (a -> m (NextPointMove block)) ->
+    Consensual a ->
+    m (NextPointMove block)
 consensually k ca =
     case ca of
-        NotConsensual-> pure RollBackward
+        NotConsensual -> pure RollBackward
         Consensual a -> k a
 
-proceedToNextPoint
-    :: Monad m
-    => LightSyncSource m block addr txs
-    -> ChainPoint
-    -> m (NextPointMove block)
+proceedToNextPoint ::
+    Monad m =>
+    LightSyncSource m block addr txs ->
+    ChainPoint ->
+    m (NextPointMove block)
 proceedToNextPoint LightSyncSource{..} chainPoint =
     getBlockHeaderAt chainPoint >>= consensually \currentBlock ->
         getNextBlockHeader currentBlock >>= consensually \case
@@ -199,30 +220,35 @@ proceedToNextPoint LightSyncSource{..} chainPoint =
                 -- with each other.)
                 pure
                     if blockHeight fromBlock <= blockHeight chainTip
-                    then RollForward fromBlock chainTip chainTip
-                    else RollBackward
+                        then RollForward fromBlock chainTip chainTip
+                        else RollBackward
 
 -- | Create a 'BlockSummary'
-mkBlockSummary
-    :: LightSyncSource m block addr txs
-    -> BlockHeader
-    -> BlockHeader
-    -> BlockSummary m addr txs
-mkBlockSummary light old new = BlockSummary
-    { from = old
-    , to = new
-    , query = getAddressTxs light old new
-    }
+mkBlockSummary ::
+    LightSyncSource m block addr txs ->
+    BlockHeader ->
+    BlockHeader ->
+    BlockSummary m addr txs
+mkBlockSummary light old new =
+    BlockSummary
+        { from = old
+        , to = new
+        , query = getAddressTxs light old new
+        }
 
 {-------------------------------------------------------------------------------
     Logging
 -------------------------------------------------------------------------------}
 data LightLayerLog
     = MsgLightRollForward
-        ChainPoint BlockHeader BlockHeader BlockHeader
+        ChainPoint
+        BlockHeader
+        BlockHeader
+        BlockHeader
     | MsgLightRolledForward BlockHeader
     | MsgLightRollBackward
-        ChainPoint ChainPoint
+        ChainPoint
+        ChainPoint
     deriving (Show, Eq, Generic)
 
 instance ToText LightLayerLog where
@@ -230,21 +256,28 @@ instance ToText LightLayerLog where
         MsgLightRollForward cp_ from_ to_ tip ->
             T.unwords
                 [ "LightLayer started rolling forward:"
-                , "chain_point: ", pretty cp_
-                , "from: ", pretty from_
-                , "to: ", pretty to_
-                , "tip: ", pretty tip
+                , "chain_point: "
+                , pretty cp_
+                , "from: "
+                , pretty from_
+                , "to: "
+                , pretty to_
+                , "tip: "
+                , pretty tip
                 ]
         MsgLightRolledForward bh ->
             T.unwords
                 [ "LightLayer finished rolling forward:"
-                , "last block: ", pretty bh
+                , "last block: "
+                , pretty bh
                 ]
         MsgLightRollBackward from_ to_ ->
             T.unwords
                 [ "LightLayer roll backward:"
-                , "from: ", pretty from_
-                , "to: ", pretty to_
+                , "from: "
+                , pretty from_
+                , "to: "
+                , pretty to_
                 ]
 
 instance HasPrivacyAnnotation LightLayerLog

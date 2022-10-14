@@ -5,42 +5,65 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Cardano.Wallet.DB.Store.Transactions.StoreSpec
-    ( spec
-    ) where
+module Cardano.Wallet.DB.Store.Transactions.StoreSpec (
+    spec,
+) where
 
 import Prelude
 
-import Cardano.DB.Sqlite
-    ( ForeignKeysSetting (..) )
-import Cardano.Wallet.DB.Arbitrary
-    ()
-import Cardano.Wallet.DB.Fixtures
-    ( StoreProperty, logScale, withDBInMemory, withStoreProp )
-import Cardano.Wallet.DB.Sqlite.Types
-    ( TxId (TxId) )
-import Cardano.Wallet.DB.Store.Transactions.Model
-    ( DeltaTxHistory (..)
-    , TxHistory (..)
-    , collateralIns
-    , decorateTxIns
-    , ins
-    , lookupTxOutForTxCollateral
-    , lookupTxOutForTxIn
-    , mkTxHistory
-    )
-import Cardano.Wallet.DB.Store.Transactions.Store
-    ( mkStoreTransactions )
-import Cardano.Wallet.Primitive.Types.Tx
-    ( Tx (..) )
-import Data.Generics.Internal.VL
-    ( set )
-import Test.DBVar
-    ( GenDelta, prop_StoreUpdates )
-import Test.Hspec
-    ( Spec, around, describe, it )
-import Test.QuickCheck
-    ( Property, arbitrary, elements, forAll, frequency, property, (===) )
+import Cardano.DB.Sqlite (
+    ForeignKeysSetting (..),
+ )
+import Cardano.Wallet.DB.Arbitrary (
+
+ )
+import Cardano.Wallet.DB.Fixtures (
+    StoreProperty,
+    logScale,
+    withDBInMemory,
+    withStoreProp,
+ )
+import Cardano.Wallet.DB.Sqlite.Types (
+    TxId (TxId),
+ )
+import Cardano.Wallet.DB.Store.Transactions.Model (
+    DeltaTxHistory (..),
+    TxHistory (..),
+    collateralIns,
+    decorateTxIns,
+    ins,
+    lookupTxOutForTxCollateral,
+    lookupTxOutForTxIn,
+    mkTxHistory,
+ )
+import Cardano.Wallet.DB.Store.Transactions.Store (
+    mkStoreTransactions,
+ )
+import Cardano.Wallet.Primitive.Types.Tx (
+    Tx (..),
+ )
+import Data.Generics.Internal.VL (
+    set,
+ )
+import Test.DBVar (
+    GenDelta,
+    prop_StoreUpdates,
+ )
+import Test.Hspec (
+    Spec,
+    around,
+    describe,
+    it,
+ )
+import Test.QuickCheck (
+    Property,
+    arbitrary,
+    elements,
+    forAll,
+    frequency,
+    property,
+    (===),
+ )
 
 import qualified Cardano.Wallet.Primitive.Types.Coin as W
 import qualified Cardano.Wallet.Primitive.Types.Tx as W
@@ -66,6 +89,7 @@ spec = do
 {-----------------------------------------------------------------------------
     Properties
 ------------------------------------------------------------------------------}
+
 {- | We check that `decorateTxIns` indeed decorates transaction inputs.
 We do this by generating a set of random transactions, as well as a
 "guinea pig" transaction, whose inputs point to all outputs
@@ -78,20 +102,21 @@ prop_DecorateLinksTxInToTxOuts = do
             transactions :: [W.Tx] <- arbitrary
             guinea <- arbitrary
             let guineaId = TxId $ txId guinea
-                (txins, txouts) = unzip
-                    [ (txin, txout)
-                    | Tx{txId,outputs} <- transactions
-                    , (txOutPos, txout) <- zip [0 ..] outputs
-                    , let txin = (W.TxIn txId txOutPos, W.Coin 0)
-                    ]
+                (txins, txouts) =
+                    unzip
+                        [ (txin, txout)
+                        | Tx{txId, outputs} <- transactions
+                        , (txOutPos, txout) <- zip [0 ..] outputs
+                        , let txin = (W.TxIn txId txOutPos, W.Coin 0)
+                        ]
             let guinea' = set #resolvedInputs txins guinea
             pure (guineaId, mkTxHistory (guinea' : transactions), txouts)
 
     forAll transactionsGen $ \(txid, TxHistory history, txouts) ->
         let guinea = history Map.! txid
-            deco   = decorateTxIns (TxHistory history) guinea
-        in  [ lookupTxOutForTxIn txin deco | txin <- ins guinea]
-            === map Just txouts
+            deco = decorateTxIns (TxHistory history) guinea
+         in [lookupTxOutForTxIn txin deco | txin <- ins guinea]
+                === map Just txouts
 
 {- | We check that `decorateTxIns` indeed decorates transaction inputs.
 We do this by generating a set of random transactions, as well as a
@@ -105,22 +130,23 @@ prop_DecorateLinksTxCollateralsToTxOuts = do
             transactions :: [W.Tx] <- arbitrary
             guinea <- arbitrary
             let guineaId = TxId $ txId guinea
-                (txins, txouts) = unzip
-                    [ (txin, txout)
-                    | Tx{txId,outputs} <- transactions
-                    , (txOutPos, txout) <- zip [0 ..] outputs
-                    , let txin = (W.TxIn txId txOutPos, W.Coin 0)
-                    ]
+                (txins, txouts) =
+                    unzip
+                        [ (txin, txout)
+                        | Tx{txId, outputs} <- transactions
+                        , (txOutPos, txout) <- zip [0 ..] outputs
+                        , let txin = (W.TxIn txId txOutPos, W.Coin 0)
+                        ]
             let guinea' = set #resolvedCollateralInputs txins guinea
             pure (guineaId, mkTxHistory (guinea' : transactions), txouts)
 
     forAll transactionsGen $ \(txid, TxHistory history, txouts) ->
         let guinea = history Map.! txid
-            deco   = decorateTxIns (TxHistory history) guinea
-        in  [ lookupTxOutForTxCollateral txcol deco
+            deco = decorateTxIns (TxHistory history) guinea
+         in [ lookupTxOutForTxCollateral txcol deco
             | txcol <- collateralIns guinea
             ]
-            === map Just txouts
+                === map Just txouts
 
 prop_StoreLaws :: StoreProperty
 prop_StoreLaws = withStoreProp $ \runQ ->

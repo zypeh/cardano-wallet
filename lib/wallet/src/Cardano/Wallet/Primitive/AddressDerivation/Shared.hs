@@ -9,77 +9,98 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
--- |
--- Copyright: © 2018-2021 IOHK
--- License: Apache-2.0
---
--- Implementation of address derivation for 'Shared' Keys.
+{- |
+ Copyright: © 2018-2021 IOHK
+ License: Apache-2.0
 
-module Cardano.Wallet.Primitive.AddressDerivation.Shared
-    ( -- * Types
-      SharedKey(..)
+ Implementation of address derivation for 'Shared' Keys.
+-}
+module Cardano.Wallet.Primitive.AddressDerivation.Shared (
+    -- * Types
+    SharedKey (..),
 
     -- * Generation and derivation
-    , generateKeyFromSeed
-    , unsafeGenerateKeyFromSeed
-
-    , purposeCIP1854
-    ) where
+    generateKeyFromSeed,
+    unsafeGenerateKeyFromSeed,
+    purposeCIP1854,
+) where
 
 import Prelude
 
-import Cardano.Address.Derivation
-    ( xpubPublicKey )
-import Cardano.Crypto.Wallet
-    ( XPrv, XPub, toXPub, unXPrv, unXPub, xprv, xpub )
-import Cardano.Mnemonic
-    ( SomeMnemonic )
-import Cardano.Wallet.Primitive.AddressDerivation
-    ( BoundedAddressLength (..)
-    , Depth (..)
-    , DerivationType (..)
-    , HardDerivation (..)
-    , KeyFingerprint (..)
-    , MkKeyFingerprint (..)
-    , NetworkDiscriminant (..)
-    , PersistPrivateKey (..)
-    , PersistPublicKey (..)
-    , SoftDerivation (..)
-    , WalletKey (..)
-    , fromHex
-    , hex
-    )
-import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
-    ( SharedKey (..), purposeCIP1854 )
-import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( deriveAccountPrivateKeyShelley
-    , deriveAddressPrivateKeyShelley
-    , deriveAddressPublicKeyShelley
-    , unsafeGenerateKeyFromSeedShelley
-    )
-import Cardano.Wallet.Primitive.AddressDiscovery
-    ( GetPurpose (..) )
-import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase (..), PassphraseHash (..), changePassphraseXPrv )
-import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
-import Control.Monad
-    ( (<=<) )
-import Crypto.Hash
-    ( hash )
-import Crypto.Hash.Algorithms
-    ( Blake2b_224 (..) )
-import Crypto.Hash.IO
-    ( HashAlgorithm (hashDigestSize) )
-import Crypto.Hash.Utils
-    ( blake2b224 )
-import Data.ByteString
-    ( ByteString )
-import Data.Proxy
-    ( Proxy (..) )
+import Cardano.Address.Derivation (
+    xpubPublicKey,
+ )
+import Cardano.Crypto.Wallet (
+    XPrv,
+    XPub,
+    toXPub,
+    unXPrv,
+    unXPub,
+    xprv,
+    xpub,
+ )
+import Cardano.Mnemonic (
+    SomeMnemonic,
+ )
+import Cardano.Wallet.Primitive.AddressDerivation (
+    BoundedAddressLength (..),
+    Depth (..),
+    DerivationType (..),
+    HardDerivation (..),
+    KeyFingerprint (..),
+    MkKeyFingerprint (..),
+    NetworkDiscriminant (..),
+    PersistPrivateKey (..),
+    PersistPublicKey (..),
+    SoftDerivation (..),
+    WalletKey (..),
+    fromHex,
+    hex,
+ )
+import Cardano.Wallet.Primitive.AddressDerivation.SharedKey (
+    SharedKey (..),
+    purposeCIP1854,
+ )
+import Cardano.Wallet.Primitive.AddressDerivation.Shelley (
+    deriveAccountPrivateKeyShelley,
+    deriveAddressPrivateKeyShelley,
+    deriveAddressPublicKeyShelley,
+    unsafeGenerateKeyFromSeedShelley,
+ )
+import Cardano.Wallet.Primitive.AddressDiscovery (
+    GetPurpose (..),
+ )
+import Cardano.Wallet.Primitive.Passphrase (
+    Passphrase (..),
+    PassphraseHash (..),
+    changePassphraseXPrv,
+ )
+import Cardano.Wallet.Primitive.Types.Address (
+    Address (..),
+ )
+import Control.Monad (
+    (<=<),
+ )
+import Crypto.Hash (
+    hash,
+ )
+import Crypto.Hash.Algorithms (
+    Blake2b_224 (..),
+ )
+import Crypto.Hash.IO (
+    HashAlgorithm (hashDigestSize),
+ )
+import Crypto.Hash.Utils (
+    blake2b224,
+ )
+import Data.ByteString (
+    ByteString,
+ )
+import Data.Proxy (
+    Proxy (..),
+ )
 
 import qualified Data.ByteString as BS
 
@@ -87,24 +108,26 @@ import qualified Data.ByteString as BS
                             Sequential Derivation
 -------------------------------------------------------------------------------}
 
--- | Generate a root key from a corresponding seed.
--- The seed should be at least 16 bytes.
-generateKeyFromSeed
-    :: (SomeMnemonic, Maybe SomeMnemonic)
-       -- ^ The actual seed and its recovery / generation passphrase
-    -> Passphrase "encryption"
-    -> SharedKey 'RootK XPrv
+{- | Generate a root key from a corresponding seed.
+ The seed should be at least 16 bytes.
+-}
+generateKeyFromSeed ::
+    -- | The actual seed and its recovery / generation passphrase
+    (SomeMnemonic, Maybe SomeMnemonic) ->
+    Passphrase "encryption" ->
+    SharedKey 'RootK XPrv
 generateKeyFromSeed = unsafeGenerateKeyFromSeed
 
--- | Generate a new key from seed. Note that the @depth@ is left open so that
--- the caller gets to decide what type of key this is. This is mostly for
--- testing, in practice, seeds are used to represent root keys, and one should
--- use 'generateKeyFromSeed'.
-unsafeGenerateKeyFromSeed
-    :: (SomeMnemonic, Maybe SomeMnemonic)
-        -- ^ The actual seed and its recovery / generation passphrase
-    -> Passphrase "encryption"
-    -> SharedKey depth XPrv
+{- | Generate a new key from seed. Note that the @depth@ is left open so that
+ the caller gets to decide what type of key this is. This is mostly for
+ testing, in practice, seeds are used to represent root keys, and one should
+ use 'generateKeyFromSeed'.
+-}
+unsafeGenerateKeyFromSeed ::
+    -- | The actual seed and its recovery / generation passphrase
+    (SomeMnemonic, Maybe SomeMnemonic) ->
+    Passphrase "encryption" ->
+    SharedKey depth XPrv
 unsafeGenerateKeyFromSeed mnemonics pwd =
     SharedKey $ unsafeGenerateKeyFromSeedShelley mnemonics pwd
 
@@ -162,9 +185,11 @@ instance PersistPrivateKey (SharedKey 'RootK) where
         , hex . getPassphraseHash $ h
         )
 
-    unsafeDeserializeXPrv (k, h) = either err id $ (,)
-        <$> fmap SharedKey (xprvFromText k)
-        <*> fmap PassphraseHash (fromHex h)
+    unsafeDeserializeXPrv (k, h) =
+        either err id $
+            (,)
+                <$> fmap SharedKey (xprvFromText k)
+                <*> fmap PassphraseHash (fromHex h)
       where
         xprvFromText = xprv <=< fromHex @ByteString
         err _ = error "unsafeDeserializeXPrv: unable to deserialize SharedKey"

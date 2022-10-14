@@ -7,81 +7,102 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
--- |
--- Copyright: © 2021 IOHK
--- License: Apache-2.0
---
-module Cardano.Wallet.Primitive.Types.TxSpec
-    ( spec
-    ) where
+{- |
+ Copyright: © 2021 IOHK
+ License: Apache-2.0
+-}
+module Cardano.Wallet.Primitive.Types.TxSpec (
+    spec,
+) where
 
 import Prelude
 
-import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId (..) )
-import Cardano.Wallet.Primitive.Types.TokenMap.Gen
-    ( genAssetId, shrinkAssetId )
-import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName (..), TokenPolicyId (..) )
-import Cardano.Wallet.Primitive.Types.Tx
-    ( SealedTx (..)
-    , Tx (..)
-    , TxOut (..)
-    , mockSealedTx
-    , sealedTxFromBytes
-    , txAssetIds
-    , txMapAssetIds
-    , txMapTxIds
-    , txOutAssetIds
-    , txOutMapAssetIds
-    , txOutRemoveAssetId
-    , txRemoveAssetId
-    )
-import Cardano.Wallet.Primitive.Types.Tx.Gen
-    ( genTx, genTxOut, shrinkTx, shrinkTxOut )
-import Data.ByteString
-    ( ByteString, pack )
-import Data.Either
-    ( isLeft )
-import Data.Function
-    ( (&) )
-import Data.Maybe
-    ( listToMaybe )
-import Test.Hspec
-    ( Spec, describe, it )
-import Test.Hspec.Extra
-    ( parallel )
-import Test.Hspec.QuickCheck
-    ( prop )
-import Test.QuickCheck
-    ( Arbitrary (..)
-    , CoArbitrary (..)
-    , Fun (..)
-    , Function (..)
-    , Property
-    , applyFun
-    , property
-    , (===)
-    )
-import Test.QuickCheck.Instances.ByteString
-    ()
+import Cardano.Wallet.Primitive.Types.Hash (
+    Hash (..),
+ )
+import Cardano.Wallet.Primitive.Types.TokenMap (
+    AssetId (..),
+ )
+import Cardano.Wallet.Primitive.Types.TokenMap.Gen (
+    genAssetId,
+    shrinkAssetId,
+ )
+import Cardano.Wallet.Primitive.Types.TokenPolicy (
+    TokenName (..),
+    TokenPolicyId (..),
+ )
+import Cardano.Wallet.Primitive.Types.Tx (
+    SealedTx (..),
+    Tx (..),
+    TxOut (..),
+    mockSealedTx,
+    sealedTxFromBytes,
+    txAssetIds,
+    txMapAssetIds,
+    txMapTxIds,
+    txOutAssetIds,
+    txOutMapAssetIds,
+    txOutRemoveAssetId,
+    txRemoveAssetId,
+ )
+import Cardano.Wallet.Primitive.Types.Tx.Gen (
+    genTx,
+    genTxOut,
+    shrinkTx,
+    shrinkTxOut,
+ )
+import Data.ByteString (
+    ByteString,
+    pack,
+ )
+import Data.Either (
+    isLeft,
+ )
+import Data.Function (
+    (&),
+ )
+import Data.Maybe (
+    listToMaybe,
+ )
+import Test.Hspec (
+    Spec,
+    describe,
+    it,
+ )
+import Test.Hspec.Extra (
+    parallel,
+ )
+import Test.Hspec.QuickCheck (
+    prop,
+ )
+import Test.QuickCheck (
+    Arbitrary (..),
+    CoArbitrary (..),
+    Fun (..),
+    Function (..),
+    Property,
+    applyFun,
+    property,
+    (===),
+ )
+import Test.QuickCheck.Instances.ByteString (
+
+ )
 
 import qualified Data.Foldable as F
 import qualified Data.Set as Set
 
 spec :: Spec
 spec = do
-
     parallel $ describe "SealedTx" $ do
-        prop "sealedTxFromBytes - won't accept gibberish"
+        prop
+            "sealedTxFromBytes - won't accept gibberish"
             prop_sealedTxGibberish
-        prop "mockSealedTx - passes through mock values"
+        prop
+            "mockSealedTx - passes through mock values"
             prop_mockSealedTx
 
     parallel $ describe "Transformations" $ do
-
         describe "txMapAssetIds" $ do
             it "prop_txMapAssetIds_identity" $
                 prop_txMapAssetIds_identity & property
@@ -113,8 +134,9 @@ spec = do
 -------------------------------------------------------------------------------}
 
 prop_sealedTxGibberish :: Gibberish -> Property
-prop_sealedTxGibberish (Gibberish bs) = property $
-    isLeft (sealedTxFromBytes bs)
+prop_sealedTxGibberish (Gibberish bs) =
+    property $
+        isLeft (sealedTxFromBytes bs)
 
 prop_mockSealedTx :: Gibberish -> Property
 prop_mockSealedTx (Gibberish bs) =
@@ -133,24 +155,24 @@ prop_txMapAssetIds_identity :: Tx -> Property
 prop_txMapAssetIds_identity m =
     txMapAssetIds id m === m
 
-prop_txMapAssetIds_composition
-    :: Tx -> Fun AssetId AssetId -> Fun AssetId AssetId -> Property
+prop_txMapAssetIds_composition ::
+    Tx -> Fun AssetId AssetId -> Fun AssetId AssetId -> Property
 prop_txMapAssetIds_composition m (applyFun -> f) (applyFun -> g) =
-    txMapAssetIds f (txMapAssetIds g m) ===
-    txMapAssetIds (f . g) m
+    txMapAssetIds f (txMapAssetIds g m)
+        === txMapAssetIds (f . g) m
 
 prop_txMapTxIds_identity :: Tx -> Property
 prop_txMapTxIds_identity m =
     txMapTxIds id m === m
 
-prop_txMapTxIds_composition
-    :: Tx
-    -> Fun (Hash "Tx") (Hash "Tx")
-    -> Fun (Hash "Tx") (Hash "Tx")
-    -> Property
+prop_txMapTxIds_composition ::
+    Tx ->
+    Fun (Hash "Tx") (Hash "Tx") ->
+    Fun (Hash "Tx") (Hash "Tx") ->
+    Property
 prop_txMapTxIds_composition m (applyFun -> f) (applyFun -> g) =
-    txMapTxIds f (txMapTxIds g m) ===
-    txMapTxIds (f . g) m
+    txMapTxIds f (txMapTxIds g m)
+        === txMapTxIds (f . g) m
 
 prop_txRemoveAssetId_txAssetIds :: Tx -> Property
 prop_txRemoveAssetId_txAssetIds tx =
@@ -158,9 +180,10 @@ prop_txRemoveAssetId_txAssetIds tx =
         Nothing ->
             assetIds === mempty
         Just assetId ->
-            Set.notMember assetId
+            Set.notMember
+                assetId
                 (txAssetIds (tx `txRemoveAssetId` assetId))
-            === True
+                === True
   where
     assetIdM = listToMaybe $ F.toList assetIds
     assetIds = txAssetIds tx
@@ -169,11 +192,11 @@ prop_txOutMapAssetIds_identity :: TxOut -> Property
 prop_txOutMapAssetIds_identity m =
     txOutMapAssetIds id m === m
 
-prop_txOutMapAssetIds_composition
-    :: TxOut -> Fun AssetId AssetId -> Fun AssetId AssetId -> Property
+prop_txOutMapAssetIds_composition ::
+    TxOut -> Fun AssetId AssetId -> Fun AssetId AssetId -> Property
 prop_txOutMapAssetIds_composition m (applyFun -> f) (applyFun -> g) =
-    txOutMapAssetIds f (txOutMapAssetIds g m) ===
-    txOutMapAssetIds (f . g) m
+    txOutMapAssetIds f (txOutMapAssetIds g m)
+        === txOutMapAssetIds (f . g) m
 
 prop_txOutRemoveAssetId_txOutAssetIds :: TxOut -> Property
 prop_txOutRemoveAssetId_txOutAssetIds txOut =
@@ -181,9 +204,10 @@ prop_txOutRemoveAssetId_txOutAssetIds txOut =
         Nothing ->
             assetIds === mempty
         Just assetId ->
-            Set.notMember assetId
+            Set.notMember
+                assetId
                 (txOutAssetIds (txOut `txOutRemoveAssetId` assetId))
-            === True
+                === True
   where
     assetIdM = listToMaybe $ F.toList assetIds
     assetIds = txOutAssetIds txOut

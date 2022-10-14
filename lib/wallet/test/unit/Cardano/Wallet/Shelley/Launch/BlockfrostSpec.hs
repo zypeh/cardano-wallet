@@ -1,43 +1,54 @@
 {-# LANGUAGE PackageImports #-}
-module Cardano.Wallet.Shelley.Launch.BlockfrostSpec
-    ( spec
-    ) where
+
+module Cardano.Wallet.Shelley.Launch.BlockfrostSpec (
+    spec,
+) where
 
 import Prelude
 
 import qualified Blockfrost.Client.Types as Blockfrost
 import qualified Data.Text as T
 
-import Blockfrost.Env
-    ( Env (Testnet) )
-import Cardano.Wallet.Shelley.Launch
-    ( Mode (Light, Normal), modeOption )
-import Cardano.Wallet.Shelley.Launch.Blockfrost
-    ( TokenException (..), TokenFile (TokenFile), readToken )
+import Blockfrost.Env (
+    Env (Testnet),
+ )
+import Cardano.Wallet.Shelley.Launch (
+    Mode (Light, Normal),
+    modeOption,
+ )
+import Cardano.Wallet.Shelley.Launch.Blockfrost (
+    TokenException (..),
+    TokenFile (TokenFile),
+    readToken,
+ )
+
 -- See ADP-1910
-import "optparse-applicative" Options.Applicative
-    ( ParserFailure (execFailure)
-    , ParserResult (CompletionInvoked, Failure, Success)
-    , defaultPrefs
-    , execParserPure
-    , fullDesc
-    , info
-    )
-import Test.Hspec
-    ( Spec
-    , describe
-    , expectationFailure
-    , it
-    , shouldReturn
-    , shouldStartWith
-    , shouldThrow
-    )
-import Test.Utils.Platform
-    ( isWindows )
-import UnliftIO
-    ( withSystemTempFile )
-import UnliftIO.IO
-    ( hClose )
+import "optparse-applicative" Options.Applicative (
+    ParserFailure (execFailure),
+    ParserResult (CompletionInvoked, Failure, Success),
+    defaultPrefs,
+    execParserPure,
+    fullDesc,
+    info,
+ )
+import Test.Hspec (
+    Spec,
+    describe,
+    expectationFailure,
+    it,
+    shouldReturn,
+    shouldStartWith,
+    shouldThrow,
+ )
+import Test.Utils.Platform (
+    isWindows,
+ )
+import UnliftIO (
+    withSystemTempFile,
+ )
+import UnliftIO.IO (
+    hClose,
+ )
 
 spec :: Spec
 spec = describe "Blockfrost CLI options" $ do
@@ -61,15 +72,16 @@ spec = describe "Blockfrost CLI options" $ do
             Success Normal{} -> expectationFailure "Light mode expected"
             Success (Light tf) -> do
                 hClose h *> writeFile f (net <> projectId)
-                readToken tf `shouldReturn`
-                    Blockfrost.Project Testnet (T.pack projectId)
+                readToken tf
+                    `shouldReturn` Blockfrost.Project Testnet (T.pack projectId)
 
     it "modeOption requires --light flag" $ do
         let parserInfo = info modeOption fullDesc
             args = ["--blockfrost-token-file", mockSocketOrPipe]
         case execParserPure defaultPrefs parserInfo args of
-            Failure pf | (help, _code, _int) <- execFailure pf "" ->
-                show help `shouldStartWith` "Missing: --light"
+            Failure pf
+                | (help, _code, _int) <- execFailure pf "" ->
+                    show help `shouldStartWith` "Missing: --light"
             result -> expectationFailure $ show result
 
     it "readToken throws in case of a non-existing token file" $ do

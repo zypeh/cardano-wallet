@@ -1,12 +1,15 @@
 module Light.Types where
 
 import Blockfrost.Client
-import Data.Foldable
-    ( maximumBy )
-import Data.Ord
-    ( comparing )
-import Data.Text
-    ( Text )
+import Data.Foldable (
+    maximumBy,
+ )
+import Data.Ord (
+    comparing,
+ )
+import Data.Text (
+    Text,
+ )
 
 type Blocks = [Block]
 type Coin = Lovelaces
@@ -27,6 +30,7 @@ instance Ord Address where
 {-----------------------------------------------------------------------------
     ChainPoint
 ------------------------------------------------------------------------------}
+
 -- | Point on the blockchain.
 data ChainPoint
     = Origin
@@ -45,4 +49,3 @@ fromBlock :: Block -> ChainPoint
 fromBlock b = case _blockHeight b of
     Nothing -> Origin
     Just height -> At height (_blockHash b)
-

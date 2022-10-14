@@ -1,34 +1,44 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TupleSections #-}
 
--- |
--- Copyright: © 2020 IOHK
--- License: Apache-2.0
---
-
-module Cardano.Wallet.Read.Primitive.Tx.Byron
-    ( fromTxAux
-    , fromTxIn
-    , fromTxOut
-    )
-    where
+{- |
+ Copyright: © 2020 IOHK
+ License: Apache-2.0
+-}
+module Cardano.Wallet.Read.Primitive.Tx.Byron (
+    fromTxAux,
+    fromTxIn,
+    fromTxOut,
+) where
 
 import Prelude
 
-import Cardano.Binary
-    ( serialize' )
-import Cardano.Chain.Common
-    ( unsafeGetLovelace )
-import Cardano.Chain.UTxO
-    ( ATxAux (..), Tx (..), TxIn (..), TxOut (..), taTx )
-import Cardano.Wallet.Read.Eras
-    ( byron, inject )
-import Cardano.Wallet.Read.Tx
-    ( Tx (..) )
-import Cardano.Wallet.Read.Tx.CBOR
-    ( renderTxToCBOR )
-import Cardano.Wallet.Read.Tx.Hash
-    ( byronTxHash )
+import Cardano.Binary (
+    serialize',
+ )
+import Cardano.Chain.Common (
+    unsafeGetLovelace,
+ )
+import Cardano.Chain.UTxO (
+    ATxAux (..),
+    Tx (..),
+    TxIn (..),
+    TxOut (..),
+    taTx,
+ )
+import Cardano.Wallet.Read.Eras (
+    byron,
+    inject,
+ )
+import Cardano.Wallet.Read.Tx (
+    Tx (..),
+ )
+import Cardano.Wallet.Read.Tx.CBOR (
+    renderTxToCBOR,
+ )
+import Cardano.Wallet.Read.Tx.Hash (
+    byronTxHash,
+ )
 
 import qualified Cardano.Crypto.Hashing as CC
 import qualified Cardano.Wallet.Primitive.Types.Address as W
@@ -41,43 +51,37 @@ import qualified Data.List.NonEmpty as NE
 
 fromTxAux :: ATxAux a -> W.Tx
 fromTxAux txAux = case taTx txAux of
-    UnsafeTx inputs outputs _attributes -> W.Tx
-        { txId = W.Hash $ byronTxHash txAux
-
-        , txCBOR = Just $ renderTxToCBOR $ inject byron $ Tx $ () <$ txAux
-
-        , fee = Nothing
-
-        -- TODO: Review 'W.Tx' to not require resolved inputs but only inputs
-        , resolvedInputs =
-            (, W.Coin 0) . fromTxIn <$> NE.toList inputs
-
-        , resolvedCollateralInputs = []
-
-        , outputs =
-            fromTxOut <$> NE.toList outputs
-
-        , collateralOutput =
-            Nothing
-
-        , withdrawals =
-            mempty
-
-        , metadata =
-            Nothing
-
-        , scriptValidity =
-            Nothing
-        }
+    UnsafeTx inputs outputs _attributes ->
+        W.Tx
+            { txId = W.Hash $ byronTxHash txAux
+            , txCBOR = Just $ renderTxToCBOR $ inject byron $ Tx $ () <$ txAux
+            , fee = Nothing
+            , -- TODO: Review 'W.Tx' to not require resolved inputs but only inputs
+              resolvedInputs =
+                (,W.Coin 0) . fromTxIn <$> NE.toList inputs
+            , resolvedCollateralInputs = []
+            , outputs =
+                fromTxOut <$> NE.toList outputs
+            , collateralOutput =
+                Nothing
+            , withdrawals =
+                mempty
+            , metadata =
+                Nothing
+            , scriptValidity =
+                Nothing
+            }
 
 fromTxIn :: TxIn -> W.TxIn
-fromTxIn (TxInUtxo id_ ix) = W.TxIn
-    { inputId = W.Hash $ CC.hashToBytes id_
-    , inputIx = fromIntegral ix
-    }
+fromTxIn (TxInUtxo id_ ix) =
+    W.TxIn
+        { inputId = W.Hash $ CC.hashToBytes id_
+        , inputIx = fromIntegral ix
+        }
 
 fromTxOut :: TxOut -> W.TxOut
-fromTxOut (TxOut addr coin) = W.TxOut
-    { address = W.Address (serialize' addr)
-    , tokens = TokenBundle.fromCoin $ Coin.fromWord64 $ unsafeGetLovelace coin
-    }
+fromTxOut (TxOut addr coin) =
+    W.TxOut
+        { address = W.Address (serialize' addr)
+        , tokens = TokenBundle.fromCoin $ Coin.fromWord64 $ unsafeGetLovelace coin
+        }

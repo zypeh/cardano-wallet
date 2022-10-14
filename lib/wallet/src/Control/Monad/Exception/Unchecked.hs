@@ -1,30 +1,39 @@
 {-# LANGUAGE LambdaCase #-}
 
--- |
--- Copyright: © 2022 IOHK
--- License: Apache-2.0
---
--- 'Unchecked' helps convert a checked exception ('ExceptT')
--- into an unchecked exception (instance of the 'Exception' class).
-module Control.Monad.Exception.Unchecked
-    ( throwUnchecked
-    , catchUnchecked
-    , throwSomeException
-    ) where
+{- |
+ Copyright: © 2022 IOHK
+ License: Apache-2.0
+
+ 'Unchecked' helps convert a checked exception ('ExceptT')
+ into an unchecked exception (instance of the 'Exception' class).
+-}
+module Control.Monad.Exception.Unchecked (
+    throwUnchecked,
+    catchUnchecked,
+    throwSomeException,
+) where
 
 import Prelude
 
-import Control.Exception
-    ( throw )
-import Control.Monad.Catch
-    ( Exception, MonadCatch (catch), SomeException (SomeException) )
-import Control.Monad.Except
-    ( ExceptT (..), runExceptT )
-import Data.Typeable
-    ( Typeable )
+import Control.Exception (
+    throw,
+ )
+import Control.Monad.Catch (
+    Exception,
+    MonadCatch (catch),
+    SomeException (SomeException),
+ )
+import Control.Monad.Except (
+    ExceptT (..),
+    runExceptT,
+ )
+import Data.Typeable (
+    Typeable,
+ )
 
--- | The type @Unchecked e@ any 'Typeable' type @e@ into
--- an instance of the 'Exception' class.
+{- | The type @Unchecked e@ any 'Typeable' type @e@ into
+ an instance of the 'Exception' class.
+-}
 newtype Unchecked e = Unchecked e
     deriving (Eq, Show)
 

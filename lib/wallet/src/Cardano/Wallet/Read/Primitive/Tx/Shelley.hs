@@ -3,55 +3,71 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- |
--- Copyright: © 2020 IOHK
--- License: Apache-2.0
---
-
-module Cardano.Wallet.Read.Primitive.Tx.Shelley
-    ( fromShelleyTxIn
-    , fromShelleyTxOut
-    , fromShelleyCoin
-    , fromShelleyWdrl
-    , fromShelleyMD
-    , fromShelleyTx
-    , fromShelleyAddress
-    )
-    where
+{- |
+ Copyright: © 2020 IOHK
+ License: Apache-2.0
+-}
+module Cardano.Wallet.Read.Primitive.Tx.Shelley (
+    fromShelleyTxIn,
+    fromShelleyTxOut,
+    fromShelleyCoin,
+    fromShelleyWdrl,
+    fromShelleyMD,
+    fromShelleyTx,
+    fromShelleyAddress,
+) where
 
 import Prelude
 
-import Cardano.Api
-    ( ShelleyEra )
-import Cardano.Api.Shelley
-    ( fromShelleyMetadata )
-import Cardano.Ledger.Era
-    ( Era (..) )
-import Cardano.Wallet.Read.Eras
-    ( inject, shelley )
-import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates
-    ( anyEraCerts, fromStakeCredential )
-import Cardano.Wallet.Read.Tx
-    ( Tx (..) )
-import Cardano.Wallet.Read.Tx.CBOR
-    ( renderTxToCBOR )
-import Cardano.Wallet.Read.Tx.Hash
-    ( fromShelleyTxId, shelleyTxHash )
-import Cardano.Wallet.Transaction
-    ( TokenMapWithScripts (..)
-    , ValidityIntervalExplicit (..)
-    , emptyTokenMapWithScripts
-    )
-import Data.Bifunctor
-    ( bimap )
-import Data.Foldable
-    ( toList )
-import Data.Map.Strict
-    ( Map )
-import Data.Quantity
-    ( Quantity (..) )
-import Data.Word
-    ( Word16, Word32, Word64 )
+import Cardano.Api (
+    ShelleyEra,
+ )
+import Cardano.Api.Shelley (
+    fromShelleyMetadata,
+ )
+import Cardano.Ledger.Era (
+    Era (..),
+ )
+import Cardano.Wallet.Read.Eras (
+    inject,
+    shelley,
+ )
+import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates (
+    anyEraCerts,
+    fromStakeCredential,
+ )
+import Cardano.Wallet.Read.Tx (
+    Tx (..),
+ )
+import Cardano.Wallet.Read.Tx.CBOR (
+    renderTxToCBOR,
+ )
+import Cardano.Wallet.Read.Tx.Hash (
+    fromShelleyTxId,
+    shelleyTxHash,
+ )
+import Cardano.Wallet.Transaction (
+    TokenMapWithScripts (..),
+    ValidityIntervalExplicit (..),
+    emptyTokenMapWithScripts,
+ )
+import Data.Bifunctor (
+    bimap,
+ )
+import Data.Foldable (
+    toList,
+ )
+import Data.Map.Strict (
+    Map,
+ )
+import Data.Quantity (
+    Quantity (..),
+ )
+import Data.Word (
+    Word16,
+    Word32,
+    Word64,
+ )
 
 import qualified Cardano.Api as Cardano
 import qualified Cardano.Api.Shelley as Cardano
@@ -71,9 +87,9 @@ import qualified Cardano.Wallet.Primitive.Types.Tx as W
 import qualified Data.Map.Strict as Map
 import qualified Ouroboros.Network.Block as O
 
-fromShelleyTxIn
-    :: SL.TxIn crypto
-    -> W.TxIn
+fromShelleyTxIn ::
+    SL.TxIn crypto ->
+    W.TxIn
 fromShelleyTxIn (SL.TxIn txid (SL.TxIx ix)) =
     W.TxIn (W.Hash $ fromShelleyTxId txid) (unsafeCast ix)
   where
@@ -86,18 +102,19 @@ fromShelleyTxIn (SL.TxIn txid (SL.TxIx ix)) =
     unsafeCast :: Word64 -> Word32
     unsafeCast txIx =
         if txIx > fromIntegral (maxBound :: Word16)
-        then error $ "Value for wallet TxIx is out of a valid range: " <> show txIx
-        else fromIntegral txIx
+            then error $ "Value for wallet TxIx is out of a valid range: " <> show txIx
+            else fromIntegral txIx
 
-fromShelleyTxOut
-    :: ( Era era
-       , SL.Core.Value era ~ SL.Coin
-       )
-    => SLAPI.TxOut era
-    -> W.TxOut
-fromShelleyTxOut (SLAPI.TxOut addr amount) = W.TxOut
-    (fromShelleyAddress addr)
-    (TokenBundle.fromCoin $ fromShelleyCoin amount)
+fromShelleyTxOut ::
+    ( Era era
+    , SL.Core.Value era ~ SL.Coin
+    ) =>
+    SLAPI.TxOut era ->
+    W.TxOut
+fromShelleyTxOut (SLAPI.TxOut addr amount) =
+    W.TxOut
+        (fromShelleyAddress addr)
+        (TokenBundle.fromCoin $ fromShelleyCoin amount)
 
 fromShelleyAddress :: SL.Addr crypto -> W.Address
 fromShelleyAddress = W.Address . SL.serialiseAddr
@@ -106,14 +123,14 @@ fromShelleyCoin :: SL.Coin -> W.Coin
 fromShelleyCoin (SL.Coin c) = Coin.unsafeFromIntegral c
 
 -- NOTE: For resolved inputs we have to pass in a dummy value of 0.
-fromShelleyTx
-    :: SLAPI.Tx (Cardano.ShelleyLedgerEra ShelleyEra)
-    -> ( W.Tx
-       , [W.Certificate]
-       , TokenMapWithScripts
-       , TokenMapWithScripts
-       , Maybe ValidityIntervalExplicit
-       )
+fromShelleyTx ::
+    SLAPI.Tx (Cardano.ShelleyLedgerEra ShelleyEra) ->
+    ( W.Tx
+    , [W.Certificate]
+    , TokenMapWithScripts
+    , TokenMapWithScripts
+    , Maybe ValidityIntervalExplicit
+    )
 fromShelleyTx tx =
     ( W.Tx
         { txId =
@@ -147,9 +164,10 @@ fromShelleyTx tx =
     SL.Tx (SL.TxBody ins outs certs wdrls fee (O.SlotNo ttl) _ _) _ mmd = tx
 
 fromShelleyWdrl :: SL.Wdrl crypto -> Map W.RewardAccount W.Coin
-fromShelleyWdrl (SL.Wdrl wdrl) = Map.fromList $
-    bimap (fromStakeCredential . SL.getRwdCred) fromShelleyCoin
-        <$> Map.toList wdrl
+fromShelleyWdrl (SL.Wdrl wdrl) =
+    Map.fromList $
+        bimap (fromStakeCredential . SL.getRwdCred) fromShelleyCoin
+            <$> Map.toList wdrl
 
 fromShelleyMD :: SL.Metadata c -> Cardano.TxMetadata
 fromShelleyMD (SL.Metadata m) =

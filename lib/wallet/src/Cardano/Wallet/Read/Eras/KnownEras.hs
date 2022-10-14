@@ -5,23 +5,31 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- |
--- Copyright: © 2020-2022 IOHK
--- License: Apache-2.0
---
--- A type list of known eras, useful for indexed-by-era operations.
+{- |
+ Copyright: © 2020-2022 IOHK
+ License: Apache-2.0
 
-module Cardano.Wallet.Read.Eras.KnownEras
-    ( KnownEras
-    , knownEraIndices
-    ) where
+ A type list of known eras, useful for indexed-by-era operations.
+-}
+module Cardano.Wallet.Read.Eras.KnownEras (
+    KnownEras,
+    knownEraIndices,
+) where
 
 import Prelude
 
-import Cardano.Api
-    ( AllegraEra, AlonzoEra, BabbageEra, ByronEra, MaryEra, ShelleyEra )
-import Generics.SOP
-    ( Proxy (..), lengthSList )
+import Cardano.Api (
+    AllegraEra,
+    AlonzoEra,
+    BabbageEra,
+    ByronEra,
+    MaryEra,
+    ShelleyEra,
+ )
+import Generics.SOP (
+    Proxy (..),
+    lengthSList,
+ )
 
 -- | Known eras, for simplicity we reuse the types from 'Cardano.API'.
 type KnownEras =
