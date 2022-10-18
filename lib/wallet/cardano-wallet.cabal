@@ -19,6 +19,7 @@ common language
   default-extensions:
     NoImplicitPrelude
     OverloadedStrings
+    ImportQualifiedPost
 
 common opts-lib
   ghc-options: -Wall -Wcompat -fwarn-redundant-constraints
