@@ -104,7 +104,7 @@ spec = describe "COMMON_NETWORK" $ do
                         getFromResponse (#nodeTip . #absoluteSlotNumber) sync
 
                 res <- request @ApiByronWallet ctx
-                    (Link.getWallet @'Byron w) Default Empty
+                    (Link.getWallet @Byron w) Default Empty
                 verify res
                     [ expectField (#state . #getApiT) (`shouldBe` Ready)
                     , expectField (#tip . #slotId . #epochNumber . #getApiT) (`shouldBe` epochNum)

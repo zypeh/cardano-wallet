@@ -30,7 +30,7 @@
 --
 -- For examples:
 --
--- >>> Link.deleteWallet @'Shelley myWallet
+-- >>> Link.deleteWallet @Shelley myWallet
 -- ( "DELETE", "/v2/wallets/2512a00e9653fe49a44a5886202e24d77eeb998f" )
 --
 -- >>> Link.getWallet @('Byron 'Icarus) myWallet

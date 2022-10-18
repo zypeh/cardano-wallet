@@ -145,12 +145,12 @@ spec = describe "BYRON_TRANSACTIONS" $ do
         payload <- mkTxPayloadMA @n destination (minUTxOValue' * 2) [val] fixturePassphrase
 
         rtx <- request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Byron wSrc) Default payload
+            (Link.createTransactionOld @Byron wSrc) Default payload
         expectResponseCode HTTP.status202 rtx
 
         eventually "Payee wallet balance is as expected" $ do
             rb <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wDest) Default Empty
+                (Link.getWallet @Shelley wDest) Default Empty
             verify rb
                 [ expectField (#assets . #available . #getApiT)
                     (`shouldNotBe` TokenMap.empty)
@@ -177,7 +177,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
         payload <- mkTxPayloadMA @n destination minUTxOValue' [val] fixturePassphrase
 
         rtx <- request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Byron wSrc) Default payload
+            (Link.createTransactionOld @Byron wSrc) Default payload
         expectResponseCode HTTP.status403 rtx
         expectErrorMessage errMsg403MinUTxOValue rtx
 
@@ -199,12 +199,12 @@ spec = describe "BYRON_TRANSACTIONS" $ do
         payload <- mkTxPayloadMA @n destination 0 [val] fixturePassphrase
 
         rtx <- request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Byron wSrc) Default payload
+            (Link.createTransactionOld @Byron wSrc) Default payload
         expectResponseCode HTTP.status202 rtx
 
         eventually "Payee wallet balance is as expected" $ do
             rb <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wDest) Default Empty
+                (Link.getWallet @Shelley wDest) Default Empty
             verify rb
                 [ expectField (#assets . #available . #getApiT)
                     (`shouldNotBe` TokenMap.empty)
@@ -317,7 +317,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
             }|]
 
         rFeeEst <- request @ApiFee ctx
-            (Link.getTransactionFeeOld @'Byron wByron) Default payload
+            (Link.getTransactionFeeOld @Byron wByron) Default payload
         verify rFeeEst
             [ expectSuccess
             , expectResponseCode HTTP.status202
@@ -326,7 +326,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
         let (Quantity feeEstMax) = getFromResponse #estimatedMax rFeeEst
 
         r <- postTx @n ctx
-            (wByron, Link.createTransactionOld @'Byron, fixturePassphrase)
+            (wByron, Link.createTransactionOld @Byron, fixturePassphrase)
             wShelley
             amt
         verify r
@@ -338,7 +338,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
             , expectField (#status . #getApiT) (`shouldBe` Pending)
             ]
 
-        ra <- request @ApiByronWallet ctx (Link.getWallet @'Byron wByron) Default Empty
+        ra <- request @ApiByronWallet ctx (Link.getWallet @Byron wByron) Default Empty
         verify ra
             [ expectSuccess
             , expectField (#balance . #total) $
@@ -353,13 +353,13 @@ spec = describe "BYRON_TRANSACTIONS" $ do
 
         eventually "wa and wb balances are as expected" $ do
             rb <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wShelley) Default Empty
+                (Link.getWallet @Shelley wShelley) Default Empty
             expectField
                 (#balance . #available)
                 (`shouldBe` Quantity (faucetAmt + amt)) rb
 
             ra2 <- request @ApiByronWallet ctx
-                (Link.getWallet @'Byron wByron) Default Empty
+                (Link.getWallet @Byron wByron) Default Empty
             expectField
                 (#balance . #available)
                 (`shouldBe` Quantity (faucetAmt - feeEstMax - amt)) ra2
@@ -464,7 +464,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
     it "BYRON_TX_LIST_01 - 0 txs on empty Byron wallet"
         $ \ctx -> runResourceT @IO $ forM_ [emptyRandomWallet, emptyIcarusWallet] $ \emptyByronWallet -> do
             w <- emptyByronWallet ctx
-            let link = Link.listTransactions @'Byron w
+            let link = Link.listTransactions @Byron w
             r <- request @([ApiTransaction n]) ctx link Default Empty
             verify r
                 [ expectResponseCode HTTP.status200
@@ -473,7 +473,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
 
     it "BYRON_TX_LIST_01 - Can list transactions on Byron Wallet" $ \ctx -> runResourceT @IO $ do
         w <- fixtureRandomWallet ctx
-        let link = Link.listTransactions @'Byron w
+        let link = Link.listTransactions @Byron w
         r <- request @([ApiTransaction n]) ctx link Default Empty
         verify r
             [ expectResponseCode HTTP.status200
@@ -482,7 +482,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
 
     it "BYRON_TX_LIST_01 - Can list transactions on Icarus Wallet" $ \ctx -> runResourceT @IO $ do
         w <- fixtureIcarusWallet ctx
-        let link = Link.listTransactions @'Byron w
+        let link = Link.listTransactions @Byron w
         r <- request @([ApiTransaction n]) ctx link Default Empty
         verify r
             [ expectResponseCode HTTP.status200
@@ -561,7 +561,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
 
         forM_ queries $ \tc -> it (T.unpack $ query tc) $ \ctx -> runResourceT @IO $ do
             w <- emptyRandomWallet ctx
-            let link = withQuery (query tc) $ Link.listTransactions @'Byron w
+            let link = withQuery (query tc) $ Link.listTransactions @Byron w
             r <- request @([ApiTransaction n]) ctx link Default Empty
             liftIO $ verify r (assertions tc)
 
@@ -570,7 +570,7 @@ spec = describe "BYRON_TRANSACTIONS" $ do
             w <- emptyRandomWallet ctx
             let startTime = "2009-09-09T09:09:09Z"
             let endTime = "2001-01-01T01:01:01Z"
-            let link = Link.listTransactions' @'Byron w
+            let link = Link.listTransactions' @Byron w
                     Nothing
                     (either (const Nothing) Just $ fromText $ T.pack startTime)
                     (either (const Nothing) Just $ fromText $ T.pack endTime)
@@ -583,8 +583,8 @@ spec = describe "BYRON_TRANSACTIONS" $ do
     it "BYRON_TX_LIST_04 - Deleted wallet" $ \ctx -> runResourceT @IO $ do
         w <- emptyRandomWallet ctx
         _ <- request @ApiByronWallet ctx
-            (Link.deleteWallet @'Byron w) Default Empty
-        let link = Link.listTransactions @'Byron w
+            (Link.deleteWallet @Byron w) Default Empty
+        let link = Link.listTransactions @Byron w
         r <- request @([ApiTransaction n]) ctx link Default Empty
         expectResponseCode HTTP.status404 r
         expectErrorMessage (errMsg404NoWallet $ w ^. walletId) r

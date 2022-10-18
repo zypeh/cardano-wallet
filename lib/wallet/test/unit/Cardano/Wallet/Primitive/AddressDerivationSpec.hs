@@ -98,8 +98,8 @@ spec = do
             prop_predMinBoundSoftIx
 
     parallel $ describe "Enum Roundtrip" $ do
-        it "Index @'Hardened _" (property prop_roundtripEnumIndexHard)
-        it "Index @'Soft _" (property prop_roundtripEnumIndexSoft)
+        it "Index @Hardened _" (property prop_roundtripEnumIndexHard)
+        it "Index @Soft _" (property prop_roundtripEnumIndexSoft)
 
     parallel $ describe "Text Roundtrip" $ do
         textRoundtrip $ Proxy @DerivationIndex
@@ -111,7 +111,7 @@ spec = do
                 \-output-hk/cardano-wallet/tree/master/specifications/mnemonic/english.txt"
 
         it "early error reported first (Invalid Entropy)" $ do
-            let res = mkSomeMnemonic @'[15,18,21]
+            let res = mkSomeMnemonic @[15,18,21]
                         [ "glimpse", "paper", "toward", "fine", "alert"
                         , "baby", "pyramid", "alone", "shaft", "force"
                         , "circle", "fancy", "squeeze", "cannon", "toilet"
@@ -120,7 +120,7 @@ spec = do
                 \please double-check the last word of your mnemonic sentence.")
 
         it "early error reported first (Non-English Word)" $ do
-            let res = mkSomeMnemonic @'[15,18,21]
+            let res = mkSomeMnemonic @[15,18,21]
                         [ "baguette", "paper", "toward", "fine", "alert"
                         , "baby", "pyramid", "alone", "shaft", "force"
                         , "circle", "fancy", "squeeze", "cannon", "toilet"
@@ -128,7 +128,7 @@ spec = do
             res `shouldBe` Left (MkSomeMnemonicError noInDictErr)
 
         it "early error reported first (Wrong number of words - 1)" $ do
-            let res = mkSomeMnemonic @'[15,18,21]
+            let res = mkSomeMnemonic @[15,18,21]
                         ["mom", "unveil", "slim", "abandon"
                         , "nut", "cash", "laugh", "impact"
                         , "system", "split", "depth", "sun"
@@ -137,7 +137,7 @@ spec = do
                 \15, 18 or 21 words are expected.")
 
         it "early error reported first (Wrong number of words - 2)" $ do
-            let res = mkSomeMnemonic @'[15]
+            let res = mkSomeMnemonic @('[15])
                         ["mom", "unveil", "slim", "abandon"
                         , "nut", "cash", "laugh", "impact"
                         , "system", "split", "depth", "sun"
@@ -146,21 +146,21 @@ spec = do
                 \15 words are expected.")
 
         it "early error reported first (Error not in first constructor)" $ do
-            let res = mkSomeMnemonic @'[15,18,21,24]
+            let res = mkSomeMnemonic @('[15,18,21,24])
                         ["盗", "精", "序", "郎", "赋", "姿", "委", "善", "酵"
                         ,"祥", "赛", "矩", "蜡", "注", "韦", "效", "义", "冻"
                         ]
             res `shouldBe` Left (MkSomeMnemonicError noInDictErr)
 
         it "early error reported first (Error not in first constructor)" $ do
-            let res = mkSomeMnemonic @'[12,15,18]
+            let res = mkSomeMnemonic @('[12,15,18])
                         ["盗", "精", "序", "郎", "赋", "姿", "委", "善", "酵"
                         ,"祥", "赛", "矩", "蜡", "注", "韦", "效", "义", "冻"
                         ]
             res `shouldBe` Left (MkSomeMnemonicError noInDictErr)
 
         it "successfully parse 15 words in [15,18,21]" $ do
-            let res = mkSomeMnemonic @'[15,18,21]
+            let res = mkSomeMnemonic @[15,18,21]
                         ["cushion", "anxiety", "oval", "village", "choose"
                         , "shoot", "over", "behave", "category", "cruise"
                         , "track", "either", "maid", "organ", "sock"
@@ -168,7 +168,7 @@ spec = do
             res `shouldSatisfy` isRight
 
         it "successfully parse 15 words in [12,15,18]" $ do
-            let res = mkSomeMnemonic @'[12,15,18]
+            let res = mkSomeMnemonic @[12,15,18]
                         ["cushion", "anxiety", "oval", "village", "choose"
                         , "shoot", "over", "behave", "category", "cruise"
                         , "track", "either", "maid", "organ", "sock"
@@ -176,7 +176,7 @@ spec = do
             res `shouldSatisfy` isRight
 
         it "successfully parse 15 words in [9,12,15]" $ do
-            let res = mkSomeMnemonic @'[9,12,15]
+            let res = mkSomeMnemonic @[9,12,15]
                         ["cushion", "anxiety", "oval", "village", "choose"
                         , "shoot", "over", "behave", "category", "cruise"
                         , "track", "either", "maid", "organ", "sock"

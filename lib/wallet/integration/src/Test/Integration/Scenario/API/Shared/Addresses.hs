@@ -70,7 +70,7 @@ spec = describe "SHARED_ADDRESSES" $ do
         let (ApiSharedWallet (Right wal)) = getFromResponse id rPost
 
         r <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared wal) Default Empty
+            (Link.listAddresses @Shared wal) Default Empty
         expectResponseCode HTTP.status200 r
         let g = fromIntegral $ getAddressPoolGap defaultAddressPoolGap
         expectListSize g r
@@ -104,7 +104,7 @@ spec = describe "SHARED_ADDRESSES" $ do
         let (ApiSharedWallet (Left wal)) = getFromResponse id rPost
 
         r <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared wal) Default Empty
+            (Link.listAddresses @Shared wal) Default Empty
         expectResponseCode HTTP.status200 r
         expectListSize 0 r
   where

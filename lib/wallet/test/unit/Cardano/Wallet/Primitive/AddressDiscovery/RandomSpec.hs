@@ -224,7 +224,7 @@ data GoldenTest = GoldenTest
 
 -- An arbitrary mnemonic sentence for the tests
 arbitraryMnemonic :: SomeMnemonic
-arbitraryMnemonic = either (error . show) id $ mkSomeMnemonic @'[12]
+arbitraryMnemonic = either (error . show) id $ mkSomeMnemonic @('[12])
     [ "price", "whip", "bottom", "execute", "resist", "library"
     , "entire", "purse", "assist", "clock", "still", "noble" ]
 
@@ -249,7 +249,7 @@ checkIsOwned GoldenTest{..} = do
         else Nothing
 
 rndStateFromMnem :: SomeMnemonic -> (ByronKey 'RootK XPrv, RndState 'Mainnet)
-rndStateFromMnem mnemonic = (rootXPrv, mkRndState @'Mainnet rootXPrv 0)
+rndStateFromMnem mnemonic = (rootXPrv, mkRndState @Mainnet rootXPrv 0)
   where
     rootXPrv = generateKeyFromSeed mnemonic (Passphrase "")
 
@@ -294,11 +294,11 @@ prop_derivedKeysAreOwned
     -> Index 'WholeDomain 'CredFromKeyK
     -> Property
 prop_derivedKeysAreOwned (Rnd st rk pwd) (Rnd st' rk' pwd') addrIx =
-    isOwned @_ @_ @'CredFromKeyK st (rk, pwd) addr === Just (addrKey, pwd)
+    isOwned @_ @_ @CredFromKeyK st (rk, pwd) addr === Just (addrKey, pwd)
     .&&.
-    isOwned @_ @_ @'CredFromKeyK st' (rk', pwd') addr === Nothing
+    isOwned @_ @_ @CredFromKeyK st' (rk', pwd') addr === Nothing
   where
-    addr = paymentAddress @'Mainnet (publicKey addrKey)
+    addr = paymentAddress @Mainnet (publicKey addrKey)
     addrKey = deriveAddressPrivateKey pwd acctKey addrIx
     acctKey = deriveAccountPrivateKey pwd rk (liftIndex $ accountIndex st)
 
@@ -370,4 +370,4 @@ mkAddress (Rnd (RndState _ accIx _ _ _) rk pwd) addrIx =
         acctKey = deriveAccountPrivateKey pwd rk (liftIndex accIx)
         addrKey = deriveAddressPrivateKey pwd acctKey addrIx
     in
-        paymentAddress @'Mainnet (publicKey addrKey)
+        paymentAddress @Mainnet (publicKey addrKey)

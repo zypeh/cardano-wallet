@@ -185,7 +185,7 @@ parseGenesisData = \case
         let nm = NetworkMagic $ fromIntegral $ W.getProtocolMagic W.mainnetMagic
         let mainnetVersionData = NodeToClientVersionData nm
         pure
-            ( SomeNetworkDiscriminant $ Proxy @'Mainnet
+            ( SomeNetworkDiscriminant $ Proxy @Mainnet
             , Byron.mainnetNetworkParameters
             , mainnetVersionData
             , Byron.emptyGenesis (genesisParameters Byron.mainnetNetworkParameters)

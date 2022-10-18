@@ -188,7 +188,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
         w <- emptyWallet ctx
         let wid = w ^. walletId
         _ <- request @ApiWallet ctx
-            (Link.deleteWallet @'Shelley w) Default Empty
+            (Link.deleteWallet @Shelley w) Default Empty
         let poolIdAbsent = PoolId $ BS.pack $ replicate 32 1
         r <- joinStakePool @n ctx (ApiT poolIdAbsent) (w, fixturePassphrase)
         expectResponseCode HTTP.status404 r
@@ -233,7 +233,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
             ]
         eventually "Wallet has joined pool and deposit info persists" $ do
             rJoin' <- request @(ApiTransaction n) ctx
-                (Link.getTransaction @'Shelley src
+                (Link.getTransaction @Shelley src
                     (getFromResponse Prelude.id rJoin))
                 Default Empty
             verify rJoin'
@@ -245,7 +245,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ]
 
         let txId = getFromResponse #id rJoin
-        let link = Link.getTransaction @'Shelley src (ApiTxId txId)
+        let link = Link.getTransaction @Shelley src (ApiTxId txId)
         eventually "delegation transaction is in ledger" $ do
             rSrc <- request @(ApiTransaction n) ctx link Default Empty
             verify rSrc
@@ -262,7 +262,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
         waitForNextEpoch ctx
         (previousBalance, walletRewards) <-
             liftIO $ eventually "Wallet gets rewards" $ do
-                r <- request @ApiWallet ctx (Link.getWallet @'Shelley src)
+                r <- request @ApiWallet ctx (Link.getWallet @Shelley src)
                     Default Empty
                 verify r
                     [ expectField
@@ -293,18 +293,18 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- cannot use rewards by default
         r1 <- request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley src)
+            (Link.createTransactionOld @Shelley src)
             Default (Json payload)
         expectResponseCode HTTP.status202 r1
         eventually "Wallet has not consumed rewards" $ do
-          let linkSrc = Link.getTransaction @'Shelley
+          let linkSrc = Link.getTransaction @Shelley
                   src (getFromResponse Prelude.id r1)
           request @(ApiTransaction n) ctx linkSrc Default Empty
               >>= flip verify
                   [ expectField
                       (#status . #getApiT) (`shouldBe` InLedger)
                   ]
-          request @ApiWallet ctx (Link.getWallet @'Shelley src) Default Empty
+          request @ApiWallet ctx (Link.getWallet @Shelley src) Default Empty
               >>= flip verify
                   [ expectField
                       (#balance . #reward) (`shouldBe` walletRewards)
@@ -329,7 +329,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- there's currently no withdrawals in the wallet
         rw1 <- request @[ApiTransaction n] ctx
-            (Link.listTransactions' @'Shelley src (Just 1)
+            (Link.listTransactions' @Shelley src (Just 1)
                 Nothing Nothing Nothing)
             Default Empty
         verify rw1 [ expectListSize 0 ]
@@ -350,7 +350,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         waitForNextEpoch ctx
         rTx <- request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley src)
+            (Link.createTransactionOld @Shelley src)
             Default (Json payloadWithdrawal)
         verify rTx
             [ expectField #amount (.> (Quantity coin))
@@ -360,7 +360,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- Rewards are have been consumed.
         eventually "Wallet has consumed rewards" $ do
-            request @ApiWallet ctx (Link.getWallet @'Shelley src) Default Empty
+            request @ApiWallet ctx (Link.getWallet @Shelley src) Default Empty
                 >>= flip verify
                     [ expectField
                         (#balance . #reward)
@@ -372,7 +372,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         eventually "There's at least one outgoing transaction with a withdrawal" $ do
             rWithdrawal <- request @(ApiTransaction n) ctx
-                (Link.getTransaction @'Shelley src
+                (Link.getTransaction @Shelley src
                     (getFromResponse Prelude.id rTx))
                 Default Empty
             verify rWithdrawal
@@ -381,13 +381,13 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 , expectField #amount (`shouldBe` txAmount)
                 ]
             rw2 <- request @[ApiTransaction n] ctx
-                (Link.listTransactions' @'Shelley src (Just 1)
+                (Link.listTransactions' @Shelley src (Just 1)
                     Nothing Nothing Nothing)
                 Default Empty
             verify rw2 [ expectListSize 1 ]
 
         eventually "There's one incoming transaction with correct amount" $ do
-            request @[ApiTransaction n] ctx (Link.listTransactions @'Shelley dest)
+            request @[ApiTransaction n] ctx (Link.listTransactions @Shelley dest)
                 Default Empty >>= flip verify
                 [ expectListSize 2
                 , expectListField 0 (#amount . #getQuantity) (`shouldBe` coin)
@@ -409,7 +409,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
         let quitFeeAmt = getFromResponse #amount rq
 
         eventually "Certificates are inserted after quitting a pool" $ do
-            let epg = Link.getTransaction @'Shelley src txid
+            let epg = Link.getTransaction @Shelley src txid
             rlg <- request @(ApiTransaction n) ctx epg Default Empty
             verify rlg
                 [ expectField
@@ -422,7 +422,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 , expectField #depositReturned (`shouldBe` Quantity 1000000)
                 ]
 
-            let epl = Link.listTransactions @'Shelley src
+            let epl = Link.listTransactions @Shelley src
             rlq <- request @[ApiTransaction n] ctx epl Default Empty
             verify rlq
                 [ expectListField 0
@@ -455,7 +455,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- Wait for the certificate to be inserted
         eventually "Certificates are inserted" $ do
-            let ep = Link.listTransactions @'Shelley w
+            let ep = Link.listTransactions @Shelley w
             request @[ApiTransaction n] ctx ep Default Empty >>= flip verify
                 [ expectListField 0
                     (#direction . #getApiT) (`shouldBe` Outgoing)
@@ -505,7 +505,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- Wait for the certificate to be inserted
         eventually "Certificates are inserted" $ do
-            let ep = Link.listTransactions @'Shelley w
+            let ep = Link.listTransactions @Shelley w
             request @[ApiTransaction n] ctx ep Default Empty >>= flip verify
                 [ expectListField 0
                     (#direction . #getApiT) (`shouldBe` Outgoing)
@@ -565,7 +565,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- Wait for the certificate to be inserted
         eventually "Certificates are inserted" $ do
-            let ep = Link.listTransactions @'Shelley w
+            let ep = Link.listTransactions @Shelley w
             request @[ApiTransaction n] ctx ep Default Empty >>= flip verify
                  [ expectListField 0
                      (#direction . #getApiT) (`shouldBe` Outgoing)
@@ -573,7 +573,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                      (#status . #getApiT) (`shouldBe` InLedger)
                  ]
 
-        request @ApiWallet ctx (Link.getWallet @'Shelley w) Default Empty
+        request @ApiWallet ctx (Link.getWallet @Shelley w) Default Empty
             >>= flip verify
                 [ expectField (#delegation . #next)
                     (\case
@@ -590,7 +590,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ]
 
         eventually "Wallet is delegating to p1" $ do
-            request @ApiWallet ctx (Link.getWallet @'Shelley w) Default Empty
+            request @ApiWallet ctx (Link.getWallet @Shelley w) Default Empty
                 >>= flip verify
                     [ expectField #delegation (`shouldBe` delegating pool1 [])
                     ]
@@ -604,7 +604,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- Wait for the certificate to be inserted
         eventually "Certificates are inserted" $ do
-            let ep = Link.listTransactions @'Shelley w
+            let ep = Link.listTransactions @Shelley w
             request @[ApiTransaction n] ctx ep Default Empty >>= flip verify
                 [ expectListField 1
                     (#direction . #getApiT) (`shouldBe` Outgoing)
@@ -613,7 +613,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ]
 
         eventually "Wallet is delegating to p2" $ do
-            request @ApiWallet ctx (Link.getWallet @'Shelley w) Default Empty
+            request @ApiWallet ctx (Link.getWallet @Shelley w) Default Empty
                 >>= flip verify
                     [ expectField #delegation (`shouldBe` delegating pool2 [])
                     ]
@@ -630,7 +630,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
             , expectField (#direction . #getApiT) (`shouldBe` Outgoing)
             ]
         eventually "Certificates are inserted" $ do
-            let ep = Link.listTransactions @'Shelley w
+            let ep = Link.listTransactions @Shelley w
             request @[ApiTransaction n] ctx ep Default Empty >>= flip verify
                 [ expectListField 0
                     (#direction . #getApiT) (`shouldBe` Outgoing)
@@ -643,7 +643,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
 
         -- Wait for money to flow
         eventually "Wallet gets rewards" $ do
-            request @ApiWallet ctx (Link.getWallet @'Shelley w) Default Empty
+            request @ApiWallet ctx (Link.getWallet @Shelley w) Default Empty
                 >>= flip verify
                     [ expectField (#balance . #reward)
                         (.> (Quantity 0))
@@ -711,7 +711,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
             -- Join Pool
             w <- fixtureWallet ctx
             liftIO $ joinStakePoolUnsigned
-                @n @'Shelley ctx w nonRetiringPoolId >>= \o -> do
+                @n @Shelley ctx w nonRetiringPoolId >>= \o -> do
                 verify o
                     [ expectResponseCode HTTP.status200
                     , expectField #inputs
@@ -745,7 +745,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                     $ nonRetiredPools
             -- Join Pool
             w <- fixtureWallet ctx
-            liftIO $ joinStakePoolUnsigned @n @'Shelley ctx w retiringPoolId >>= \o -> do
+            liftIO $ joinStakePoolUnsigned @n @Shelley ctx w retiringPoolId >>= \o -> do
                 verify o
                     [ expectResponseCode HTTP.status200
                     , expectField #inputs
@@ -781,7 +781,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                     fromMaybe reportError $ listToMaybe $
                         Set.toList retiredPoolIds
             w <- fixtureWallet ctx
-            r <- liftIO $ joinStakePoolUnsigned @n @'Shelley ctx w (ApiT retiredPoolId)
+            r <- liftIO $ joinStakePoolUnsigned @n @Shelley ctx w (ApiT retiredPoolId)
             expectResponseCode HTTP.status404 r
             expectErrorMessage (errMsg404NoSuchPool (toText retiredPoolId)) r
 
@@ -791,7 +791,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 "pool1y25deq9kldy9y9gfvrpw8zt05zsrfx84zjhugaxrx9ftvwdpua2"
             w <- fixtureWallet ctx
             r <- liftIO $ joinStakePoolUnsigned
-                @n @'Shelley ctx w (ApiT non_existing_pool_id)
+                @n @Shelley ctx w (ApiT non_existing_pool_id)
             expectResponseCode HTTP.status404 r
             expectErrorMessage
                 (errMsg404NoSuchPool (toText non_existing_pool_id)) r
@@ -811,14 +811,14 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ]
 
             eventually "Wallet is delegating to p1" $ do
-                request @ApiWallet ctx (Link.getWallet @'Shelley w)
+                request @ApiWallet ctx (Link.getWallet @Shelley w)
                     Default Empty >>= flip verify
                     [ expectField #delegation (`shouldBe` delegating pool1 [])
                     ]
 
             -- Cannot join the same pool
             let pid = toText $ pool1 ^. #getApiT
-            liftIO $ joinStakePoolUnsigned @n @'Shelley ctx w pool1 >>= \o -> do
+            liftIO $ joinStakePoolUnsigned @n @Shelley ctx w pool1 >>= \o -> do
                 verify o
                     [ expectResponseCode HTTP.status403
                     , expectErrorMessage (errMsg403PoolAlreadyJoined pid)
@@ -827,7 +827,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
             -- Can join another pool
             let isValidCertsJoin (Just (JoinPool{}:|[])) = True
                 isValidCertsJoin _ = False
-            liftIO $ joinStakePoolUnsigned @n @'Shelley ctx w pool2 >>= \o -> do
+            liftIO $ joinStakePoolUnsigned @n @Shelley ctx w pool2 >>= \o -> do
                 verify o
                     [ expectResponseCode HTTP.status200
                     , expectField #inputs
@@ -839,7 +839,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
             -- Can quit pool
             let isValidCertsQuit (Just (QuitPool{}:|[])) = True
                 isValidCertsQuit _ = False
-            liftIO $ quitStakePoolUnsigned @n @'Shelley ctx w >>= \o -> do
+            liftIO $ quitStakePoolUnsigned @n @Shelley ctx w >>= \o -> do
                 verify o
                     [ expectResponseCode HTTP.status200
                     , expectField #inputs
@@ -858,7 +858,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
         $ it "Cannot quit if not delegating" $ \ctx -> runResourceT $ do
             w <- fixtureWallet ctx
 
-            quitStakePoolUnsigned @n @'Shelley ctx w >>= \r -> do
+            quitStakePoolUnsigned @n @Shelley ctx w >>= \r -> do
                 expectResponseCode HTTP.status403 r
                 flip expectErrorMessage r $ mconcat
                     [ "It seems that you're trying to retire from delegation "
@@ -915,7 +915,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ]
 
             eventually "Wallet is delegating to p1" $ do
-                request @ApiWallet ctx (Link.getWallet @'Shelley w)
+                request @ApiWallet ctx (Link.getWallet @Shelley w)
                     Default Empty >>= flip verify
                     [ expectField #delegation (`shouldBe` delegating pool [])
                     ]
@@ -930,7 +930,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ]
 
             let txId = getFromResponse #id rQuit
-            let link = Link.getTransaction @'Shelley w (ApiTxId txId)
+            let link = Link.getTransaction @Shelley w (ApiTxId txId)
             eventually "quit transaction is in ledger" $ do
                 rSrc <- request @(ApiTransaction n) ctx link Default Empty
                 verify rSrc
@@ -943,7 +943,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                     ]
 
             eventually "Wallet is not delegating and it got his deposit back" $ do
-                request @ApiWallet ctx (Link.getWallet @'Shelley w)
+                request @ApiWallet ctx (Link.getWallet @Shelley w)
                     Default Empty >>= flip verify
                     [ expectField #delegation (`shouldBe` notDelegating [])
                     , expectField (#balance . #total)
@@ -968,7 +968,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ]
 
             eventually "Wallet is delegating to p1" $ do
-                request @ApiWallet ctx (Link.getWallet @'Shelley w)
+                request @ApiWallet ctx (Link.getWallet @Shelley w)
                     Default Empty >>= flip verify
                     [ expectField #delegation (`shouldBe` delegating pool [])
                     ]
@@ -1322,7 +1322,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 }|]
 
         request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley w)
+            (Link.createTransactionOld @Shelley w)
             Default (Json payload)
             >>= flip verify
                 [ expectResponseCode HTTP.status202 ]
@@ -1363,7 +1363,7 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 , "passphrase": #{fixturePassphrase}
                 }|]
         request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley w)
+            (Link.createTransactionOld @Shelley w)
             Default (Json payload)
             >>= flip verify
                 [ expectResponseCode HTTP.status202 ]

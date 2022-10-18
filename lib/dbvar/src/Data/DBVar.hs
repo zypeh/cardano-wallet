@@ -58,7 +58,7 @@ import Data.Delta
 -------------------------------------------------------------------------------}
 -- | A 'DBVar'@ m delta@ is a mutable reference to a Haskell value of type @a@.
 -- The type @delta@ is a delta encoding for this value type @a@,
--- that is we have @a ~ @'Base'@ delta@.
+-- that is we have @a ~ @Base'@ delta@.
 --
 -- The Haskell value is cached in memory, in weak head normal form (WHNF).
 -- However, whenever the value is updated, a copy of will be written
@@ -198,7 +198,7 @@ A 'Store' is characterized by the following properties:
     For example, if the 'Store' represents
     a file on disk, then the file may corrupted or in an incompatible
     file format when first opened.
-    In such a case of failure, the result 'Left'@ (e :: @'SomeException'@)@
+    In such a case of failure, the result 'Left'@ (e :: @SomeException'@)@
     is returned, where the exception @e@ gives more information
     about the failure.
 
@@ -413,7 +413,7 @@ embedStore' Embedding'{load,write,update} Store{loadS,writeS,updateS} = Store
 -- in the presence of asynchronous exceptions.
 -- For example, the update of the first store may succeed while the update of
 -- the second store may fail.
--- In other words, this combinator works for some monads, such as @m = @'STM',
+-- In other words, this combinator works for some monads, such as @m = @STM',
 -- but fails for others, such as @m = 'IO'@.
 pairStores :: Monad m => Store m da -> Store m db -> Store m (da, db)
 pairStores sa sb = Store

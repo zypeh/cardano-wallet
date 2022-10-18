@@ -314,9 +314,9 @@ stateMachineSpec = describe ("State machine test (" ++ showState @s ++ ")") $ do
     xit "Parallel" $ prop_parallel newDB
 
 stateMachineSpecSeq, stateMachineSpecRnd, stateMachineSpecShared :: Spec
-stateMachineSpecSeq = stateMachineSpec @ShelleyKey @(SeqState 'Mainnet ShelleyKey) @'CredFromKeyK
-stateMachineSpecRnd = stateMachineSpec @ByronKey @(RndState 'Mainnet) @'CredFromKeyK
-stateMachineSpecShared = stateMachineSpec @SharedKey @(SharedState 'Mainnet SharedKey) @'CredFromScriptK
+stateMachineSpecSeq = stateMachineSpec @ShelleyKey @(SeqState 'Mainnet ShelleyKey) @CredFromKeyK
+stateMachineSpecRnd = stateMachineSpec @ByronKey @(RndState 'Mainnet) @CredFromKeyK
+stateMachineSpecShared = stateMachineSpec @SharedKey @(SharedState 'Mainnet SharedKey) @CredFromScriptK
 
 instance PaymentAddress 'Mainnet SharedKey 'CredFromScriptK where
     paymentAddress _ = error "does not make sense for SharedKey but want to use stateMachineSpec"

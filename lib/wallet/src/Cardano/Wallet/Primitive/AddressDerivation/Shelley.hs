@@ -373,7 +373,7 @@ instance IsOurs (SeqState n ShelleyKey) RewardAccount
                 , DerivationIndex $ getIndex coinType
                 , DerivationIndex $ getIndex accountIx
                 , DerivationIndex $ getIndex mutableAccount
-                , DerivationIndex $ getIndex @'Soft minBound
+                , DerivationIndex $ getIndex @Soft minBound
                 ]
         in
             (guard (account == ourAccount) *> Just path, state)
@@ -389,9 +389,9 @@ instance ToRewardAccount ShelleyKey where
             path = NE.fromList
                 [ DerivationIndex $ getIndex purposeBIP44
                 , DerivationIndex $ getIndex coinTypeAda
-                , DerivationIndex $ getIndex @'Hardened minBound
+                , DerivationIndex $ getIndex @Hardened minBound
                 , DerivationIndex $ getIndex mutableAccount
-                , DerivationIndex $ getIndex @'Soft minBound
+                , DerivationIndex $ getIndex @Soft minBound
                 ]
         in
             (getRawKey stakK, toRewardAccount (publicKey stakK), path)

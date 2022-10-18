@@ -707,7 +707,7 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
 keyToAddress :: (XPrv, Passphrase "encryption") -> Address
 keyToAddress (xprv, _pwd) =
     -- TODO, decrypt?
-    paymentAddress @'Mainnet @ShelleyKey @'CredFromKeyK .
+    paymentAddress @Mainnet @ShelleyKey @CredFromKeyK .
     publicKey .
     liftRawKey @ShelleyKey $ xprv
 
@@ -2595,7 +2595,7 @@ balanceTransactionSpec = describe "balanceTransaction" $ do
     balanceTx tx = flip evalRand (stdGenFromSeed testStdGenSeed) $ runExceptT $
         balanceTransaction @_ @(Rand StdGen)
             (Ctx @(Rand StdGen) nullTracer testTxLayer)
-            (delegationAddress @'Mainnet)
+            (delegationAddress @Mainnet)
             mockProtocolParametersForBalancing
             (dummyTimeInterpreterWithHorizon horizon)
             (u, wal, pending)
@@ -3473,7 +3473,7 @@ balanceTransaction' (Wallet' utxo wal pending) seed tx  =
     flip evalRand (stdGenFromSeed seed) $ runExceptT $
         balanceTransaction @_ @(Rand StdGen)
             (Ctx @(Rand StdGen) nullTracer testTxLayer)
-            (delegationAddress @'Mainnet)
+            (delegationAddress @Mainnet)
             mockProtocolParametersForBalancing
             dummyTimeInterpreter
             (utxo, wal, pending)

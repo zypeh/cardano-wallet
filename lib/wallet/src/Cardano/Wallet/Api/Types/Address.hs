@@ -35,7 +35,7 @@ class EncodeAddress (n :: NetworkDiscriminant) where
     encodeAddress :: Address -> Text
 
 instance EncodeAddress 'Mainnet => EncodeAddress ('Staging pm) where
-    encodeAddress = encodeAddress @'Mainnet
+    encodeAddress = encodeAddress @Mainnet
 
 -- | An abstract class to allow decoding of addresses depending on the target
 -- backend used.
@@ -43,16 +43,16 @@ class DecodeAddress (n :: NetworkDiscriminant) where
     decodeAddress :: Text -> Either TextDecodingError Address
 
 instance DecodeAddress 'Mainnet => DecodeAddress ('Staging pm) where
-    decodeAddress = decodeAddress @'Mainnet
+    decodeAddress = decodeAddress @Mainnet
 
 class EncodeStakeAddress (n :: NetworkDiscriminant) where
     encodeStakeAddress :: W.RewardAccount -> Text
 
 instance EncodeStakeAddress 'Mainnet => EncodeStakeAddress ('Staging pm) where
-    encodeStakeAddress = encodeStakeAddress @'Mainnet
+    encodeStakeAddress = encodeStakeAddress @Mainnet
 
 class DecodeStakeAddress (n :: NetworkDiscriminant) where
     decodeStakeAddress :: Text -> Either TextDecodingError W.RewardAccount
 
 instance DecodeStakeAddress 'Mainnet => DecodeStakeAddress ('Staging pm) where
-    decodeStakeAddress = decodeStakeAddress @'Mainnet
+    decodeStakeAddress = decodeStakeAddress @Mainnet

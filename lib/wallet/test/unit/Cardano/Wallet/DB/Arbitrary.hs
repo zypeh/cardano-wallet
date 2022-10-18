@@ -569,7 +569,7 @@ instance Arbitrary (PendingIxs 'CredFromKeyK) where
 instance ( Typeable ( c :: Role ) )
     => Arbitrary (Seq.SeqAddressPool c ShelleyKey)
   where
-    arbitrary = pure $ Seq.newSeqAddressPool @'Mainnet
+    arbitrary = pure $ Seq.newSeqAddressPool @Mainnet
         arbitrarySeqAccount defaultAddressPoolGap
 
 -- Properties are quite heavy on the generation of values, although for
@@ -667,8 +667,8 @@ instance Arbitrary (SharedState 'Mainnet SharedKey) where
             Nothing
             defaultAddressPoolGap
             (Shared.Active $ SharedAddressPools
-                (Shared.newSharedAddressPool @'Mainnet defaultAddressPoolGap pt Nothing)
-                (Shared.newSharedAddressPool @'Mainnet defaultAddressPoolGap pt Nothing)
+                (Shared.newSharedAddressPool @Mainnet defaultAddressPoolGap pt Nothing)
+                (Shared.newSharedAddressPool @Mainnet defaultAddressPoolGap pt Nothing)
                 emptyPendingIxs
             )
 

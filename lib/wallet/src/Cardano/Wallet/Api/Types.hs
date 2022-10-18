@@ -2535,11 +2535,11 @@ instance (HasBase base, ByteArrayAccess bs) => ToJSON (ApiBytesT base bs) where
 
 instance FromJSON (ApiT SealedTx) where
     parseJSON v = do
-        tx <- parseSealedTxBytes @'Base16 v <|> parseSealedTxBytes @'Base64 v
+        tx <- parseSealedTxBytes @Base16 v <|> parseSealedTxBytes @Base64 v
         pure $ ApiT tx
 
 instance ToJSON (ApiT SealedTx) where
-    toJSON = sealedTxBytesValue @'Base64 . getApiT
+    toJSON = sealedTxBytesValue @Base64 . getApiT
 
 parseSealedTxBytes
     :: forall (base :: Base). HasBase base => Value -> Parser SealedTx
@@ -2553,17 +2553,17 @@ sealedTxBytesValue = toJSON . ApiBytesT @base . view #serialisedTx
 instance FromJSON ApiSerialisedTransaction where
     parseJSON = withObject "ApiSerialisedTransaction object" $ \o -> do
         txTxt <- o .: "transaction"
-        (tx, enc) <- (,HexEncoded) <$> parseSealedTxBytes @'Base16 txTxt <|>
-              (,Base64Encoded) <$> parseSealedTxBytes @'Base64 txTxt
+        (tx, enc) <- (,HexEncoded) <$> parseSealedTxBytes @Base16 txTxt <|>
+              (,Base64Encoded) <$> parseSealedTxBytes @Base64 txTxt
         pure $ ApiSerialisedTransaction (ApiT tx) enc
 
 instance ToJSON ApiSerialisedTransaction where
     toJSON (ApiSerialisedTransaction tx encoding) =
         object [ "transaction" .= case encoding of
                        HexEncoded ->
-                           sealedTxBytesValue @'Base16 . getApiT $ tx
+                           sealedTxBytesValue @Base16 . getApiT $ tx
                        Base64Encoded ->
-                           sealedTxBytesValue @'Base64 . getApiT $ tx
+                           sealedTxBytesValue @Base64 . getApiT $ tx
                ]
 
 instance FromJSON ApiSignTransactionPostData where
@@ -2666,8 +2666,8 @@ instance FromJSON ApiValidityInterval where
 instance (DecodeAddress t, DecodeStakeAddress t) => FromJSON (ApiConstructTransaction t) where
     parseJSON = withObject "ApiConstructTransaction object" $ \o -> do
         txTxt <- o .: "transaction"
-        (tx, enc) <- (,HexEncoded) <$> parseSealedTxBytes @'Base16 txTxt <|>
-            (,Base64Encoded) <$> parseSealedTxBytes @'Base64 txTxt
+        (tx, enc) <- (,HexEncoded) <$> parseSealedTxBytes @Base16 txTxt <|>
+            (,Base64Encoded) <$> parseSealedTxBytes @Base64 txTxt
         sel <- o .: "coin_selection"
         fee <- o .: "fee"
         pure $ ApiConstructTransaction (ApiSerialisedTransaction (ApiT tx) enc) sel fee
@@ -2676,9 +2676,9 @@ instance (EncodeAddress t, EncodeStakeAddress t) => ToJSON (ApiConstructTransact
     toJSON (ApiConstructTransaction (ApiSerialisedTransaction tx encoding) sel fee) =
         object [ "transaction" .= case encoding of
                        HexEncoded ->
-                           sealedTxBytesValue @'Base16 . getApiT $ tx
+                           sealedTxBytesValue @Base16 . getApiT $ tx
                        Base64Encoded ->
-                           sealedTxBytesValue @'Base64 . getApiT $ tx
+                           sealedTxBytesValue @Base64 . getApiT $ tx
                , "coin_selection" .= toJSON sel
                , "fee" .= toJSON fee
                ]

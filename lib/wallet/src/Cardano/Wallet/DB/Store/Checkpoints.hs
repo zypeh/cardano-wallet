@@ -513,7 +513,7 @@ insertSeqAddressMap
     =>  W.WalletId -> W.SlotNo -> SeqAddressMap c key -> SqlPersistT IO ()
 insertSeqAddressMap wid sl (SeqAddressMap pool) = void $
     dbChunked insertMany_
-        [ SeqStateAddress wid sl (liftPaymentAddress @n @key @'CredFromKeyK addr)
+        [ SeqStateAddress wid sl (liftPaymentAddress @n @key @CredFromKeyK addr)
             (W.getIndex ix) (roleVal @c) status
         | (addr, (ix, status)) <- Map.toList pool
         ]
@@ -611,8 +611,8 @@ instance
         prologue <- lift $ multisigPoolAbsent wid <&> \case
             True ->  mkSharedState Shared.Pending
             False -> mkSharedState $ Shared.Active $ Shared.SharedAddressPools
-                (Shared.newSharedAddressPool @n @'UtxoExternal gap pTemplate dTemplateM)
-                (Shared.newSharedAddressPool @n @'UtxoInternal gap pTemplate dTemplateM)
+                (Shared.newSharedAddressPool @n @UtxoExternal gap pTemplate dTemplateM)
+                (Shared.newSharedAddressPool @n @UtxoInternal gap pTemplate dTemplateM)
                 pendingIxs
         pure $ SharedPrologue prologue
       where
@@ -625,8 +625,8 @@ instance
               fromRes = fmap (W.Index . sharedStatePendingIxIndex . entityVal)
 
     loadDiscoveries wid sl = do
-        extAddrMap <- loadAddresses @'UtxoExternal
-        intAddrMap <- loadAddresses @'UtxoInternal
+        extAddrMap <- loadAddresses @UtxoExternal
+        intAddrMap <- loadAddresses @UtxoInternal
         pure $ SharedDiscoveries extAddrMap intAddrMap
       where
         loadAddresses

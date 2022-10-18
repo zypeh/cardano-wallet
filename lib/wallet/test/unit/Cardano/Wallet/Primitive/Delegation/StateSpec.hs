@@ -467,7 +467,7 @@ stepCmd CmdOldWalletToggleFirstKey env =
             in tryApplyTx tx env
 stepCmd (CmdMimicPointerOutput (RewardAccount acc)) env =
             let
-                addr = liftPaymentAddress @'Mainnet @StakeKey' @'CredFromKeyK $
+                addr = liftPaymentAddress @Mainnet @StakeKey' @CredFromKeyK $
                     KeyFingerprint acc
                 c = Coin 1
                 out = TxOut addr (TB.fromCoin c)

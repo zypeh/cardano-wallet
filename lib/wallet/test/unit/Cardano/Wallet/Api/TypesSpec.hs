@@ -639,13 +639,13 @@ spec = parallel $ do
 
         it "can decode from base-16 encoded string" $
             forAll selectFromPreparedBinaries $ \ bs ->
-                 let result = parseJSONSealedTx $ Aeson.encode $ ApiBytesT @'Base16 bs
+                 let result = parseJSONSealedTx $ Aeson.encode $ ApiBytesT @Base16 bs
                   in result == Right bs &
                      counterexample ("Parse result: " <> show result)
 
         it "can decode from base-64 encoded string" $
             forAll selectFromPreparedBinaries $ \ bs ->
-                 let result = parseJSONSealedTx $ Aeson.encode $ ApiBytesT @'Base64 bs
+                 let result = parseJSONSealedTx $ Aeson.encode $ ApiBytesT @Base64 bs
                   in result == Right bs &
                      counterexample ("Parse result: " <> show result)
 
@@ -753,15 +753,15 @@ spec = parallel $ do
             let message = unwords
                   [ "Error in $:"
                   , "A derivation index must be a natural number between"
-                  , show (getIndex @'Soft minBound)
+                  , show (getIndex @Soft minBound)
                   , "and"
-                  , show (getIndex @'Soft maxBound)
+                  , show (getIndex @Soft maxBound)
                   , "with an optional 'H' suffix (e.g. '1815H' or '44')."
                   , "Indexes without suffixes are called 'Soft'"
                   , "Indexes with suffixes are called 'Hardened'."
                   ]
 
-            let value = show $ pred $ toInteger $ getIndex @'Soft minBound
+            let value = show $ pred $ toInteger $ getIndex @Soft minBound
             Aeson.parseEither parseJSON [aesonQQ|#{value}|]
                 `shouldBe` Left @String @(ApiT DerivationIndex) message
 
@@ -769,15 +769,15 @@ spec = parallel $ do
             let message = unwords
                   [ "Error in $:"
                   , "A derivation index must be a natural number between"
-                  , show (getIndex @'Soft minBound)
+                  , show (getIndex @Soft minBound)
                   , "and"
-                  , show (getIndex @'Soft maxBound)
+                  , show (getIndex @Soft maxBound)
                   , "with an optional 'H' suffix (e.g. '1815H' or '44')."
                   , "Indexes without suffixes are called 'Soft'"
                   , "Indexes with suffixes are called 'Hardened'."
                   ]
 
-            let value = show $ succ $ toInteger $ getIndex @'Soft maxBound
+            let value = show $ succ $ toInteger $ getIndex @Soft maxBound
             Aeson.parseEither parseJSON [aesonQQ|#{value}|]
                 `shouldBe` Left @String @(ApiT DerivationIndex) message
 

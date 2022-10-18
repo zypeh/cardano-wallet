@@ -241,7 +241,7 @@ walletApiBench capture ctx = do
 
         eventually "Wallet balance is as expected" $ do
             rWal1 <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wal1) Default Empty
+                (Link.getWallet @Shelley wal1) Default Empty
             verify rWal1
                 [ expectSuccess
                 , expectField
@@ -250,7 +250,7 @@ walletApiBench capture ctx = do
                 ]
 
         rStat <- request @ApiUtxoStatistics ctx
-                (Link.getUTxOsStatistics @'Shelley wal1) Default Empty
+                (Link.getUTxOsStatistics @Shelley wal1) Default Empty
         expectResponseCode HTTP.status200 rStat
         expectWalletUTxO (fromIntegral <$> utxoExp) (snd rStat)
         pure (wal1, wal2, walMA, maWalletToMigrate)
@@ -258,22 +258,22 @@ walletApiBench capture ctx = do
     repeatPostTx wDest amtToSend batchSize amtExp = do
         wSrc <- fixtureWallet ctx
         replicateM_ batchSize
-            (postTx (wSrc, Link.createTransactionOld @'Shelley, fixturePassphrase) wDest amtToSend)
+            (postTx (wSrc, Link.createTransactionOld @Shelley, fixturePassphrase) wDest amtToSend)
         eventually "repeatPostTx: wallet balance is as expected" $ do
-            rWal1 <- request @ApiWallet  ctx (Link.getWallet @'Shelley wDest) Default Empty
+            rWal1 <- request @ApiWallet  ctx (Link.getWallet @Shelley wDest) Default Empty
             verify rWal1
                 [ expectSuccess
                 , expectField
                     (#balance . #available . #getQuantity)
                     (`shouldBe` amtExp)
                 ]
-        rDel <- request @ApiWallet  ctx (Link.deleteWallet @'Shelley wSrc) Default Empty
+        rDel <- request @ApiWallet  ctx (Link.deleteWallet @Shelley wSrc) Default Empty
         expectResponseCode HTTP.status204 rDel
         pure ()
 
     postTx (wSrc, postTxEndp, pass) wDest amt = do
         (_, addrs) <- unsafeRequest @[ApiAddress n] ctx
-            (Link.listAddresses @'Shelley wDest) Empty
+            (Link.listAddresses @Shelley wDest) Empty
         let destination = (addrs !! 1) ^. #id
         let payload = Json [json|{
                 "payments": [{
@@ -291,35 +291,35 @@ walletApiBench capture ctx = do
 
     runScenario scenario = runResourceT $ scenario >>= \(wal1, wal2, walMA, maWalletToMigrate) -> liftIO $ do
         t1 <- measureApiLogs capture
-            (request @[ApiWallet] ctx (Link.listWallets @'Shelley) Default Empty)
+            (request @[ApiWallet] ctx (Link.listWallets @Shelley) Default Empty)
         fmtResult "listWallets        " t1
 
         t2 <- measureApiLogs capture
-            (request @ApiWallet  ctx (Link.getWallet @'Shelley wal1) Default Empty)
+            (request @ApiWallet  ctx (Link.getWallet @Shelley wal1) Default Empty)
         fmtResult "getWallet          " t2
 
         t3 <- measureApiLogs capture
-            (request @ApiUtxoStatistics ctx (Link.getUTxOsStatistics @'Shelley wal1) Default Empty)
+            (request @ApiUtxoStatistics ctx (Link.getUTxOsStatistics @Shelley wal1) Default Empty)
         fmtResult "getUTxOsStatistics " t3
 
         t4 <- measureApiLogs capture
-            (request @[ApiAddress n] ctx (Link.listAddresses @'Shelley wal1) Default Empty)
+            (request @[ApiAddress n] ctx (Link.listAddresses @Shelley wal1) Default Empty)
         fmtResult "listAddresses      " t4
 
         t5 <- measureApiLogs capture
-            (request @[ApiTransaction n] ctx (Link.listTransactions @'Shelley wal1) Default Empty)
+            (request @[ApiTransaction n] ctx (Link.listTransactions @Shelley wal1) Default Empty)
         fmtResult "listTransactions   " t5
 
-        (_, txs) <- unsafeRequest @[ApiTransaction n] ctx (Link.listTransactions @'Shelley wal1) Empty
+        (_, txs) <- unsafeRequest @[ApiTransaction n] ctx (Link.listTransactions @Shelley wal1) Empty
         let txid = (head txs) ^. #id
         t5a <- measureApiLogs capture $
             request @[ApiTransaction n]
-                ctx (Link.getTransaction @'Shelley wal1 (ApiTxId txid))
+                ctx (Link.getTransaction @Shelley wal1 (ApiTxId txid))
                 Default
                 Empty
         fmtResult "getTransaction     " t5a
 
-        (_, addrs) <- unsafeRequest @[ApiAddress n] ctx (Link.listAddresses @'Shelley wal2) Empty
+        (_, addrs) <- unsafeRequest @[ApiAddress n] ctx (Link.listAddresses @Shelley wal2) Empty
         let amt = minUTxOValue era
         let destination = (addrs !! 1) ^. #id
         let payload = Json [json|{
@@ -332,7 +332,7 @@ walletApiBench capture ctx = do
                 }]
             }|]
         t6 <- measureApiLogs capture $ request @ApiFee ctx
-            (Link.getTransactionFeeOld @'Shelley wal1) Default payload
+            (Link.getTransactionFeeOld @Shelley wal1) Default payload
         fmtResult "postTransactionFee " t6
 
         let payloadTx = Json [json|{
@@ -346,7 +346,7 @@ walletApiBench capture ctx = do
                 "passphrase": #{fixturePassphrase}
             }|]
         t7 <- measureApiLogs capture $ request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley wal1) Default payloadTx
+            (Link.createTransactionOld @Shelley wal1) Default payloadTx
         fmtResult "postTransaction    " t7
 
         let addresses = replicate 5 destination
@@ -364,14 +364,14 @@ walletApiBench capture ctx = do
             }|]
 
         t7a <- measureApiLogs capture $ request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley wal2) Default payloadTxTo5Addr
+            (Link.createTransactionOld @Shelley wal2) Default payloadTxTo5Addr
         fmtResult "postTransTo5Addrs  " t7a
 
         let assetsToSend = walMA ^. #assets . #total . #getApiT
         let val = minUTxOValue era <$ pickAnAsset assetsToSend
         payloadMA <- mkTxPayloadMA @n destination (2 * minUTxOValue era) [val] fixturePassphrase
         t7b <- measureApiLogs capture $ request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley walMA) Default payloadMA
+            (Link.createTransactionOld @Shelley walMA) Default payloadMA
         fmtResult "postTransactionMA  " t7b
 
         t8 <- measureApiLogs capture $ request @[ApiStakePool] ctx
@@ -394,14 +394,14 @@ walletApiBench capture ctx = do
         fmtResult "getMultiAsset      " t11
 
         -- Create a migration plan:
-        let endpointPlan = (Link.createMigrationPlan @'Shelley maWalletToMigrate)
+        let endpointPlan = (Link.createMigrationPlan @Shelley maWalletToMigrate)
         t12a <- measureApiLogs capture $ request @(ApiWalletMigrationPlan n)
             ctx endpointPlan Default $
             Json [json|{addresses: #{addresses}}|]
         fmtResult "postMigrationPlan  " t12a
 
         -- Perform a migration:
-        let endpointMigrate = Link.migrateWallet @'Shelley maWalletToMigrate
+        let endpointMigrate = Link.migrateWallet @Shelley maWalletToMigrate
         t12b <- measureApiLogs capture $ request @[ApiTransaction n]
             ctx endpointMigrate Default $
             Json [json|
@@ -485,7 +485,7 @@ withShelleyServer tracers action = do
             (NodeSource conn vData (SyncTolerance 10))
             np
             tunedForMainnetPipeliningStrategy
-            (SomeNetworkDiscriminant $ Proxy @'Mainnet)
+            (SomeNetworkDiscriminant $ Proxy @Mainnet)
             []
             tracers
             (Just db)

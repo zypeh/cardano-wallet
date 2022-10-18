@@ -174,7 +174,7 @@ import qualified Data.Set as Set
 --
 -- - @s@ is a /state/ used to keep track of known addresses.
 --   Typically, this state will be an instance of the 'IsOurs' class,
---   e.g. @'IsOurs' s 'Address'@.
+--   e.g. @IsOurs' s 'Address'@.
 --
 -- A few examples to make it concrete:
 --

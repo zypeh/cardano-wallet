@@ -2233,12 +2233,12 @@ byronAddresses mw =
         rootXPrv =
             Byron.generateKeyFromSeed seed pwd
         accXPrv =
-            Byron.deriveAccountPrivateKey pwd rootXPrv (liftIndex @'Hardened minBound)
+            Byron.deriveAccountPrivateKey pwd rootXPrv (liftIndex @Hardened minBound)
         addrXPrv =
             Byron.deriveAddressPrivateKey pwd accXPrv
     in
-        [ paymentAddress @'Mainnet
-            $ publicKey $ addrXPrv $ liftIndex @'Hardened ix
+        [ paymentAddress @Mainnet
+            $ publicKey $ addrXPrv $ liftIndex @Hardened ix
         | ix <- [minBound..maxBound]
         ]
 
@@ -2254,7 +2254,7 @@ icaAddresses mw =
         addrXPrv =
             deriveAddressPrivateKey pwd accXPrv UtxoExternal
     in
-        [ paymentAddress @'Mainnet $ publicKey $ addrXPrv ix
+        [ paymentAddress @Mainnet $ publicKey $ addrXPrv ix
         | ix <- [minBound..maxBound]
         ]
 
@@ -2286,7 +2286,7 @@ genShelleyAddresses mw =
         addrXPrv =
             deriveAddressPrivateKey pwd accXPrv UtxoExternal
     in
-        [ paymentAddress @'Mainnet $ publicKey $ addrXPrv ix
+        [ paymentAddress @Mainnet $ publicKey $ addrXPrv ix
         | ix <- [minBound..maxBound]
         ]
 

@@ -580,14 +580,14 @@ applyValidator validate = either fail pure . validate
 
 instance FromJSON Signature where
     parseJSON = withObject "Signature" $ \o -> Signature
-        <$> fmap (raw @'Base16) (o .: "signature")
-        <*> fmap (raw @'Base16) (o .: "publicKey")
+        <$> fmap (raw @Base16) (o .: "signature")
+        <*> fmap (raw @Base16) (o .: "publicKey")
 
 instance FromJSON AssetURL where
     parseJSON = parseJSON >=> applyValidator validateMetadataURL
 
 instance FromJSON AssetLogo where
-    parseJSON = fmap (AssetLogo . raw @'Base64) . parseJSON
+    parseJSON = fmap (AssetLogo . raw @Base64) . parseJSON
 
 instance FromJSON AssetDecimals where
     parseJSON = fmap AssetDecimals . parseJSON

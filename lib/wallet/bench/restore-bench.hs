@@ -533,7 +533,7 @@ benchmarksRnd _ w wid wname benchname restoreTime = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         let runSelection =
-                W.selectAssets @_ @_ @s @k @'CredFromKeyK w era pp selectAssetsParams getFee
+                W.selectAssets @_ @_ @s @k @CredFromKeyK w era pp selectAssetsParams getFee
         runExceptT $ withExceptT show $ W.estimateFee runSelection
 
     oneAddress <- genAddresses 1 cp
@@ -637,7 +637,7 @@ benchmarksSeq _ w wid _wname benchname restoreTime = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         let runSelection =
-                W.selectAssets @_ @_ @s @k @'CredFromKeyK w era pp selectAssetsParams getFee
+                W.selectAssets @_ @_ @s @k @CredFromKeyK w era pp selectAssetsParams getFee
         runExceptT $ withExceptT show $ W.estimateFee runSelection
 
     let walletOverview = WalletOverview{utxo,addresses,transactions}
@@ -866,7 +866,7 @@ dummyAddress
     :: forall (n :: NetworkDiscriminant). NetworkDiscriminantVal n
     => Address
 dummyAddress
-    | networkDiscriminantVal @n == networkDiscriminantVal @'Mainnet =
+    | networkDiscriminantVal @n == networkDiscriminantVal @Mainnet =
         Address $ BS.pack $ 0 : replicate 56 0
     | otherwise =
         Address $ BS.pack $ 1 : replicate 56 0

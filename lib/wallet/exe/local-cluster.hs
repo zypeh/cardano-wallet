@@ -215,7 +215,7 @@ main = withLocalClusterSetup $ \dir clusterLogs walletLogs ->
         withCluster tr' dir clusterCfg faucetFunds
             (whenReady dir (trMessageText trCluster) walletLogs)
   where
-    unsafeDecodeAddr = either (error . show) id . decodeAddress @'Mainnet
+    unsafeDecodeAddr = either (error . show) id . decodeAddress @Mainnet
 
     faucetFunds = FaucetFunds
         { pureAdaFunds =
@@ -253,7 +253,7 @@ main = withLocalClusterSetup $ \dir clusterLogs walletLogs ->
                 (NodeSource socketPath vData (SyncTolerance 10))
                 gp
                 tunedForMainnetPipeliningStrategy
-                (SomeNetworkDiscriminant $ Proxy @'Mainnet)
+                (SomeNetworkDiscriminant $ Proxy @Mainnet)
                 []
                 tracers
                 (Just db)

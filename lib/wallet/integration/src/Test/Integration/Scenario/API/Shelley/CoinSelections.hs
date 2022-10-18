@@ -114,7 +114,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
             let amount = Quantity . minUTxOValue $ _mainEra ctx
             let payment = AddressAmount targetAddress amount mempty
             let output = ApiCoinSelectionOutput targetAddress amount mempty
-            selectCoins @_ @'Shelley ctx source (payment :| []) >>= flip verify
+            selectCoins @_ @Shelley ctx source (payment :| []) >>= flip verify
                 [ expectResponseCode HTTP.status200
                 , expectField #inputs
                     (`shouldSatisfy` (not . null))
@@ -149,7 +149,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
                     $ zipWith AddressAmount targetAddresses amounts
             let outputs = take paymentCount $ zipWith3 ApiCoinSelectionOutput
                     targetAddresses amounts assets
-            selectCoins @_ @'Shelley ctx source payments >>= flip verify
+            selectCoins @_ @Shelley ctx source payments >>= flip verify
                 [ expectResponseCode HTTP.status200
                 , expectField #inputs (`shouldSatisfy` (not . null))
                 , expectField #change (`shouldSatisfy` (not . null))
@@ -165,8 +165,8 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
         (addr:_) <- fmap (view #id) <$> listAddresses @n ctx w
         let minUTxOValue' = Quantity . minUTxOValue $ _mainEra ctx
         let payments = NE.fromList [ AddressAmount addr minUTxOValue' mempty ]
-        _ <- request @ApiWallet ctx (Link.deleteWallet @'Shelley w) Default Empty
-        selectCoins @_ @'Shelley ctx w payments >>= flip verify
+        _ <- request @ApiWallet ctx (Link.deleteWallet @Shelley w) Default Empty
+        selectCoins @_ @Shelley ctx w payments >>= flip verify
             [ expectResponseCode HTTP.status404
             , expectErrorMessage (errMsg404NoWallet $ w ^. walletId)
             ]
@@ -228,7 +228,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
             let payments = NE.fromList [ AddressAmount addr amt mempty ]
             let payload = Json [json| { "payments": #{payments} } |]
             r <- request @(ApiCoinSelection n) ctx
-                (Link.selectCoins @'Shelley w) headers payload
+                (Link.selectCoins @Shelley w) headers payload
             verify r expectations
 
     it "WALLETS_COIN_SELECTION_05a - can include metadata" $ \ctx -> runResourceT $ do
@@ -240,7 +240,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
         let transform = addField "metadata"
                 [json|{ "1": { "string": "hello" } }|]
 
-        selectCoinsWith @_ @'Shelley ctx source (payment :| []) transform >>= flip verify
+        selectCoinsWith @_ @Shelley ctx source (payment :| []) transform >>= flip verify
             [ expectResponseCode HTTP.status200
             , expectField #metadata (`shouldSatisfy` isJust)
             ]
@@ -254,7 +254,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
         let transform = addField "metadata"
                 [json|{ "1": { "string": #{T.replicate 65 "a"} } }|]
 
-        selectCoinsWith @_ @'Shelley ctx source (payment :| []) transform >>= flip verify
+        selectCoinsWith @_ @Shelley ctx source (payment :| []) transform >>= flip verify
             [ expectResponseCode HTTP.status400
             , expectErrorMessage errMsg400TxMetadataStringTooLong
             ]
@@ -267,7 +267,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
         let payment = AddressAmount addr amount mempty
         let transform = addField "withdrawal" ("self" :: String)
 
-        selectCoinsWith @_ @'Shelley ctx source (payment :| []) transform >>= flip verify
+        selectCoinsWith @_ @Shelley ctx source (payment :| []) transform >>= flip verify
             [ expectResponseCode HTTP.status200
             , expectField #withdrawals
                 (`shouldSatisfy` ((== 1) . length))
@@ -285,7 +285,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
         let payment = AddressAmount addr amount mempty
         let transform = addField "withdrawal" (mnemonicToText mnemonic)
 
-        selectCoinsWith @_ @'Shelley ctx source (payment :| []) transform >>= flip verify
+        selectCoinsWith @_ @Shelley ctx source (payment :| []) transform >>= flip verify
             [ expectResponseCode HTTP.status200
             , expectField #withdrawals
                 (`shouldSatisfy` ((== 1) . length))
@@ -313,7 +313,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
             let payment = AddressAmount
                     targetAddress adaQuantity (ApiT nonAdaQuantities)
             let makeRequest = selectCoins
-                    @_ @'Shelley ctx sourceWallet (payment :| [])
+                    @_ @Shelley ctx sourceWallet (payment :| [])
             makeRequest >>= flip verify
                 [ expectResponseCode HTTP.status403
                 , expectErrorMessage $ errMsg403OutputTokenQuantityExceedsLimit
@@ -346,7 +346,7 @@ spec = describe "SHELLEY_COIN_SELECTION" $ do
             let payment = AddressAmount
                     targetAddress adaQuantity (ApiT nonAdaQuantities)
             let makeRequest = selectCoins
-                    @_ @'Shelley ctx sourceWallet (payment :| [])
+                    @_ @Shelley ctx sourceWallet (payment :| [])
             makeRequest >>= flip verify
                 [ expectResponseCode HTTP.status403
                 , expectErrorMessage $ errMsg403OutputTokenBundleSizeExceedsLimit

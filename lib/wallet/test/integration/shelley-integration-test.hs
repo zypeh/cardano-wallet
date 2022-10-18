@@ -328,7 +328,7 @@ specWithServer testDir (tr, tracers) = aroundAll withContext
                 $ onClusterStart (onReady $ T.pack smashUrl) dbDecorator
 
     tr' = contramap MsgCluster tr
-    encodeAddresses = map (first (T.unpack . encodeAddress @'Mainnet))
+    encodeAddresses = map (first (T.unpack . encodeAddress @Mainnet))
 
     faucetFunds = FaucetFunds
         { pureAdaFunds =
@@ -343,7 +343,7 @@ specWithServer testDir (tr, tracers) = aroundAll withContext
             <$> concatMap genRewardAccounts mirMnemonics
         }
 
-    unsafeDecodeAddr = either (error . show) id . decodeAddress @'Mainnet
+    unsafeDecodeAddr = either (error . show) id . decodeAddress @Mainnet
 
     onClusterStart action dbDecorator (RunningNode conn block0 (gp, vData) genesisPools) = do
         let db = testDir </> "wallets"
@@ -355,7 +355,7 @@ specWithServer testDir (tr, tracers) = aroundAll withContext
                 (NodeSource conn vData (SyncTolerance 10))
                 gp
                 tunedForMainnetPipeliningStrategy
-                (SomeNetworkDiscriminant $ Proxy @'Mainnet)
+                (SomeNetworkDiscriminant $ Proxy @Mainnet)
                 genesisPools
                 tracers
                 (Just db)

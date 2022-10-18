@@ -331,7 +331,7 @@ server byron icarus shelley multisig spl ntp blockchainSource =
     shelleyTransactions :: Server (ShelleyTransactions n)
     shelleyTransactions =
              constructTransaction shelley (delegationAddress @n) (knownPools spl) (getPoolLifeCycleStatus spl)
-        :<|> signTransaction @_ @_ @_ @'CredFromKeyK shelley
+        :<|> signTransaction @_ @_ @_ @CredFromKeyK shelley
         :<|>
             (\wid mMinWithdrawal mStart mEnd mOrder simpleMetadataFlag ->
                 listTransactions shelley wid mMinWithdrawal mStart mEnd mOrder
@@ -601,7 +601,7 @@ server byron icarus shelley multisig spl ntp blockchainSource =
     sharedTransactions apilayer =
         constructSharedTransaction apilayer (constructAddressFromIx @n UtxoInternal)
             (knownPools spl) (getPoolLifeCycleStatus spl)
-        :<|> signTransaction @_ @_ @_ @'CredFromScriptK apilayer
+        :<|> signTransaction @_ @_ @_ @CredFromScriptK apilayer
         :<|> decodeSharedTransaction apilayer
         :<|> submitSharedTransaction @_ @_ @_ apilayer
 

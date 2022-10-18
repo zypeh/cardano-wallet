@@ -1204,7 +1204,7 @@ withCluster tr dir LocalClusterConfig{..} faucetFunds onClusterStart = bracketTr
     rotate :: Ord a => [a] -> [(a, [a])]
     rotate = nub . fmap (\(x:xs) -> (x, sort xs)) . permutations
 
-    encodeAddresses = map (first (T.unpack . encodeAddress @'W.Mainnet))
+    encodeAddresses = map (first (T.unpack . encodeAddress @W.Mainnet))
 
 data LogFileConfig = LogFileConfig
     { minSeverityTerminal :: Severity
@@ -2324,7 +2324,7 @@ internalFaucetFunds = map
   , "Ae2tdPwUPEZEAQJxUj5Xkcukd5mvCwrMuicspyAiDuPkxA598NJGrpRdnG2"
   ]
   where
-    unsafeDecodeAddr = either (error . show) id . decodeAddress @'W.Mainnet
+    unsafeDecodeAddr = either (error . show) id . decodeAddress @W.Mainnet
 
 
 -- | Allow running the test cluster a second time in the same process.

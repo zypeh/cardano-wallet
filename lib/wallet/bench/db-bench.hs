@@ -368,13 +368,13 @@ benchPutSeqState :: DBLayerBench -> [WalletBench] -> IO ()
 benchPutSeqState DBLayer{..} cps = do
     unsafeRunExceptT $ mapExceptT atomically $ mapM_ (putCheckpoint testWid) cps
 
-mkSeqState :: Int -> Int -> SeqState 'Mainnet ShelleyKey
+mkSeqState :: Int -> Int -> SeqState Mainnet ShelleyKey
 mkSeqState numAddrs _ = s
     { internalPool = fillPool (internalPool s)
     , externalPool = fillPool (externalPool s)
     }
   where
-    s = mkSeqStateFromAccountXPub @'Mainnet
+    s = mkSeqStateFromAccountXPub @Mainnet
         ourAccount Nothing purposeCIP1852 defaultAddressPoolGap
     fillPool (SeqAddressPool pool0) = SeqAddressPool $
         foldl' (\p ix -> AddressPool.update (gen ix) p) pool0 [0 .. numAddrs-1]
@@ -405,7 +405,7 @@ bgroupWriteRndState db = bgroup "RndState"
         fixture db_ = do
             walletFixtureByron db_
             pure cps
-        cps :: [Wallet (RndState 'Mainnet)]
+        cps :: [Wallet (RndState Mainnet)]
         cps =
             [ snd $ initWallet (withMovingSlot i block0) $
                 RndState
@@ -420,7 +420,7 @@ bgroupWriteRndState db = bgroup "RndState"
 
 benchPutRndState
     :: DBLayerBenchByron
-    -> [Wallet (RndState 'Mainnet)]
+    -> [Wallet (RndState Mainnet)]
     -> IO ()
 benchPutRndState DBLayer{..} cps =
     unsafeRunExceptT $ mapExceptT atomically $ mapM_ (putCheckpoint testWid) cps
@@ -828,10 +828,10 @@ benchDiskSize tr action = bracket (setupDB tr) cleanupDB
 ----------------------------------------------------------------------------
 -- Mock data to use for benchmarks
 
-type DBLayerBench = DBLayer IO (SeqState 'Mainnet ShelleyKey) ShelleyKey
-type DBLayerBenchByron = DBLayer IO (RndState 'Mainnet) ByronKey
-type WalletBench = Wallet (SeqState 'Mainnet ShelleyKey)
-type WalletBenchByron = Wallet (RndState 'Mainnet)
+type DBLayerBench = DBLayer IO (SeqState Mainnet ShelleyKey) ShelleyKey
+type DBLayerBenchByron = DBLayer IO (RndState Mainnet) ByronKey
+type WalletBench = Wallet (SeqState Mainnet ShelleyKey)
+type WalletBenchByron = Wallet (RndState Mainnet)
 
 instance NFData (DBLayer m s k) where
     rnf _ = ()
@@ -849,7 +849,7 @@ testCpByron :: WalletBenchByron
 testCpByron = snd $ initWallet block0 initDummyRndState
 
 {-# NOINLINE initDummySeqState #-}
-initDummySeqState :: SeqState 'Mainnet ShelleyKey
+initDummySeqState :: SeqState Mainnet ShelleyKey
 initDummySeqState =
     mkSeqStateFromRootXPrv (xprv, mempty) purposeCIP1852 defaultAddressPoolGap
   where
@@ -859,7 +859,7 @@ initDummySeqState =
     xprv = generateKeyFromSeed (mnemonic, Nothing) mempty
 
 {-# NOINLINE initDummyRndState #-}
-initDummyRndState :: RndState 'Mainnet
+initDummyRndState :: RndState Mainnet
 initDummyRndState =
     mkRndState rootK 42
   where
@@ -890,7 +890,7 @@ ourAccount = publicKey $ unsafeGenerateKeyFromSeed (seed, Nothing) mempty
   where
     seed = someDummyMnemonic (Proxy @15)
 
-rewardAccount :: ShelleyKey 'CredFromKeyK XPub
+rewardAccount :: ShelleyKey CredFromKeyK XPub
 rewardAccount = publicKey $ unsafeGenerateKeyFromSeed (seed, Nothing) mempty
   where
     seed = someDummyMnemonic (Proxy @15)
@@ -913,7 +913,7 @@ withMovingSlot i b@(Block h _ _) = b
 
 mkAddress :: Int -> Int -> Address
 mkAddress i j =
-    delegationAddress @'Mainnet
+    delegationAddress @Mainnet
         (ShelleyKey $ unsafeXPub $ B8.pack $ take 64 $ randoms $ mkStdGen seed)
         rewardAccount
   where
@@ -924,7 +924,7 @@ mkAddress i j =
 
 mkByronAddress :: Int -> Int -> Address
 mkByronAddress i j =
-    paymentAddress @'Mainnet @ByronKey @'CredFromKeyK
+    paymentAddress @Mainnet @ByronKey @CredFromKeyK
         (ByronKey
             (unsafeXPub (B8.pack $ take 64 $ randoms g))
             (Index acctIx, Index addrIx)

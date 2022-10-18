@@ -161,6 +161,6 @@ replaceCosignersWithVerKeys role' (ScriptTemplate xpubs scriptTemplate) ix =
 -- | Convert 'NetworkDiscriminant type parameter to
 -- 'Cardano.Address.NetworkTag'.
 toNetworkTag :: forall (n :: NetworkDiscriminant). Typeable n => CA.NetworkTag
-toNetworkTag = case testEquality (typeRep @n) (typeRep @'Mainnet) of
+toNetworkTag = case testEquality (typeRep @n) (typeRep @Mainnet) of
     Just Refl -> CA.NetworkTag 1
     Nothing -> CA.NetworkTag 0 -- fixme: Not all testnets have NetworkTag=0

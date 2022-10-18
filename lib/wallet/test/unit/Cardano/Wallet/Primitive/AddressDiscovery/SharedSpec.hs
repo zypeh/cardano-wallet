@@ -89,21 +89,21 @@ spec :: Spec
 spec = do
     describe "isShared for Catalyst" $ do
         it "address composed with our verification key should be discoverable if within pool gap"
-            (property (prop_addressWithScriptFromOurVerKeyIxIn @'Mainnet))
+            (property (prop_addressWithScriptFromOurVerKeyIxIn @Mainnet))
         it "address composed with our verification key must not be discoverable if beyond pool gap"
-            (property (prop_addressWithScriptFromOurVerKeyIxBeyond @'Mainnet))
+            (property (prop_addressWithScriptFromOurVerKeyIxBeyond @Mainnet))
         it "first discovery enlarges ourAddresses and marks the address Used"
-            (property (prop_addressDiscoveryMakesAddressUsed @'Mainnet))
+            (property (prop_addressDiscoveryMakesAddressUsed @Mainnet))
         it "multiple discovery of the same address is idempotent for state"
-            (property (prop_addressDoubleDiscovery @'Mainnet))
+            (property (prop_addressDoubleDiscovery @Mainnet))
         it "address composed with our verification key must not be discoverable with other account public key for the same key index"
-            (property (prop_addressDiscoveryImpossibleFromOtherAccXPub @'Mainnet))
+            (property (prop_addressDiscoveryImpossibleFromOtherAccXPub @Mainnet))
         it "address composed with our verification key must not be discoverable within the same mnemonic when other of its account is used"
-            (property (prop_addressDiscoveryImpossibleFromOtherAccountOfTheSameRootXPrv @'Mainnet))
+            (property (prop_addressDiscoveryImpossibleFromOtherAccountOfTheSameRootXPrv @Mainnet))
         it "address composed with our verification key must not be discoverable within proper account is script changes structure"
-            (property (prop_addressDiscoveryImpossibleWithinAccountButDifferentScript @'Mainnet))
+            (property (prop_addressDiscoveryImpossibleWithinAccountButDifferentScript @Mainnet))
         it "upon address discovery there is exact and consecutive number of Unused indices that amounts to the address pool gap number"
-            (property (prop_addressDiscoveryDoesNotChangeGapInvariance @'Mainnet))
+            (property (prop_addressDiscoveryDoesNotChangeGapInvariance @Mainnet))
 
 prop_addressWithScriptFromOurVerKeyIxIn
     :: forall (n :: NetworkDiscriminant). Typeable n

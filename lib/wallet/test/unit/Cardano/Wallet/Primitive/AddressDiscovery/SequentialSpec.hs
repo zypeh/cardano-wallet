@@ -298,7 +298,7 @@ prop_lookupDiscovered (s0, addr) =
     mw = someDummyMnemonic (Proxy @12)
     key = Shelley.unsafeGenerateKeyFromSeed (mw, Nothing) mempty
     prop s = monadicIO $ liftIO $ do
-        unless (isJust $ isOwned @_ @_ @'CredFromKeyK s (key, mempty) addr) $ do
+        unless (isJust $ isOwned @_ @_ @CredFromKeyK s (key, mempty) addr) $ do
             expectationFailure "couldn't find private key corresponding to addr"
 
 
@@ -367,7 +367,7 @@ prop_changeIsOnlyKnownAfterGeneration (intPool, extPool) =
         s0 = SeqState intPool extPool emptyPendingIxs ourAccount
              Nothing rewardAccount defaultPrefix
         addrs0 = pair' <$> knownAddresses s0
-        (change, s1) = genChange (\k _ -> paymentAddress @'Mainnet k) s0
+        (change, s1) = genChange (\k _ -> paymentAddress @Mainnet k) s0
         addrs1 = fst' <$> knownAddresses s1
     in conjoin
         [ prop_addrsNotInInternalPool addrs0
@@ -425,7 +425,7 @@ instance AddressPoolTest IcarusKey where
     ourAddresses _proxy cc =
         mkAddress . deriveAddressPublicKey ourAccount cc <$> [minBound..maxBound]
       where
-        mkAddress = paymentAddress @'Mainnet @IcarusKey
+        mkAddress = paymentAddress @Mainnet @IcarusKey
 
 instance AddressPoolTest ShelleyKey where
     ourAccount = publicKey $
@@ -436,7 +436,7 @@ instance AddressPoolTest ShelleyKey where
     ourAddresses _proxy cc =
         mkAddress . deriveAddressPublicKey ourAccount cc <$> [minBound..maxBound]
       where
-        mkAddress k = delegationAddress @'Mainnet k rewardAccount
+        mkAddress k = delegationAddress @Mainnet k rewardAccount
 
 rewardAccount
     :: ShelleyKey 'CredFromKeyK XPub
@@ -450,7 +450,7 @@ changeAddresses
     -> SeqState 'Mainnet ShelleyKey
     -> ([Address], SeqState 'Mainnet ShelleyKey)
 changeAddresses as s =
-    let (a, s') = genChange (\k _ -> paymentAddress @'Mainnet k) s
+    let (a, s') = genChange (\k _ -> paymentAddress @Mainnet k) s
     in if a `elem` as then (as, s) else changeAddresses (a:as) s'
 
 unsafeMkAddressPoolGap :: (Integral a, Show a) => a -> AddressPoolGap
@@ -518,7 +518,7 @@ instance
     arbitrary = do
         gap <- unsafeMkAddressPoolGap <$> choose
             (getAddressPoolGap minBound, 2 * getAddressPoolGap minBound)
-        let SeqAddressPool pool = newSeqAddressPool @'Mainnet @c ourAccount gap
+        let SeqAddressPool pool = newSeqAddressPool @Mainnet @c ourAccount gap
         SeqAddressPool <$> genPool pool
 
 instance Arbitrary (SeqState 'Mainnet ShelleyKey) where

@@ -172,7 +172,7 @@ decodeDerivationPathTest DecodeDerivationPath{..} =
     payload = unsafeDeserialiseCbor decodeAddressPayload $
         BL.fromStrict (unsafeFromHex addr)
     decoded = deserialiseCbor (decodeAddressDerivationPath pwd) payload
-    Right seed = mkSomeMnemonic @'[12] mnem
+    Right seed = mkSomeMnemonic @('[12]) mnem
     key = generateKeyFromSeed seed mempty
     pwd = payloadPassphrase key
 

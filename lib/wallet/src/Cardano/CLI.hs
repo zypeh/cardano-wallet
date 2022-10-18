@@ -513,7 +513,7 @@ getMnemonics :: IO (SomeMnemonic, Maybe SomeMnemonic)
 getMnemonics  = do
     wSeed <- do
         let prompt = "Please enter the 15–24 word recovery phrase: "
-        let parser = mkSomeMnemonic @'[15,18,21,24] . T.words
+        let parser = mkSomeMnemonic @[15,18,21,24] . T.words
         fst <$> getLine @SomeMnemonic prompt (left show . parser)
     wSndFactor <- do
         let prompt =
@@ -521,7 +521,7 @@ getMnemonics  = do
                 "factor.)\n" <>
                 "Please enter a 9–12 word second factor: "
         let parser =
-                optionalE (mkSomeMnemonic @'[9,12]) . T.words
+                optionalE (mkSomeMnemonic @[9,12]) . T.words
         fst <$> getLine @(Maybe SomeMnemonic) prompt (left show . parser)
     pure (wSeed, wSndFactor)
 

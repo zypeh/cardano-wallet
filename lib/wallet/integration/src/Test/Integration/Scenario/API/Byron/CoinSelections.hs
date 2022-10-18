@@ -78,7 +78,7 @@ spec = describe "BYRON_COIN_SELECTION" $ do
         (addr:_) <- fmap (view #id) <$> listAddresses @n ctx shW
         let amt = Quantity . minUTxOValue . _mainEra $ ctx
         let payments = NE.fromList [ AddressAmount addr amt mempty ]
-        selectCoins @_ @'Byron ctx rnW payments >>= flip verify
+        selectCoins @_ @Byron ctx rnW payments >>= flip verify
             [ expectResponseCode HTTP.status403
             , expectErrorMessage errMsg403NotAnIcarusWallet
             ]
@@ -92,7 +92,7 @@ spec = describe "BYRON_COIN_SELECTION" $ do
             let amt = Quantity . minUTxOValue $ _mainEra ctx
             let payment = AddressAmount targetAddress amt mempty
             let output = ApiCoinSelectionOutput targetAddress amt mempty
-            selectCoins @_ @'Byron ctx source (payment :| []) >>= flip verify
+            selectCoins @_ @Byron ctx source (payment :| []) >>= flip verify
                 [ expectResponseCode HTTP.status200
                 , expectField #inputs
                     (`shouldSatisfy` (not . null))
@@ -123,7 +123,7 @@ spec = describe "BYRON_COIN_SELECTION" $ do
                     $ zipWith AddressAmount targetAddresses amounts
             let outputs = take paymentCount $ zipWith3 ApiCoinSelectionOutput
                     targetAddresses amounts targetAssets
-            selectCoins @_ @'Byron ctx source payments >>= flip verify
+            selectCoins @_ @Byron ctx source payments >>= flip verify
                 [ expectResponseCode HTTP.status200
                 , expectField #inputs (`shouldSatisfy` (not . null))
                 , expectField #change (`shouldSatisfy` (not . null))
@@ -138,8 +138,8 @@ spec = describe "BYRON_COIN_SELECTION" $ do
         (addr:_) <- fmap (view #id) <$> listAddresses @n ctx shW
         let minUTxOValue' = Quantity . minUTxOValue $ _mainEra ctx
         let payments = NE.fromList [ AddressAmount addr minUTxOValue' mempty ]
-        _ <- request @ApiByronWallet ctx (Link.deleteWallet @'Byron icW) Default Empty
-        selectCoins @_ @'Byron ctx icW payments >>= flip verify
+        _ <- request @ApiByronWallet ctx (Link.deleteWallet @Byron icW) Default Empty
+        selectCoins @_ @Byron ctx icW payments >>= flip verify
             [ expectResponseCode HTTP.status404
             , expectErrorMessage (errMsg404NoWallet $ icW ^. walletId)
             ]

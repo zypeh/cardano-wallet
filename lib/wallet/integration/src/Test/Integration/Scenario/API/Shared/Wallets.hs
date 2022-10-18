@@ -146,8 +146,8 @@ spec = describe "SHARED_WALLETS" $ do
     it "SHARED_WALLETS_CREATE_01 - Create an active shared wallet from root xprv" $ \ctx -> runResourceT $ do
         m15txt <- liftIO $ genMnemonics M15
         m12txt <- liftIO $ genMnemonics M12
-        let (Right m15) = mkSomeMnemonic @'[ 15 ] m15txt
-        let (Right m12) = mkSomeMnemonic @'[ 12 ] m12txt
+        let (Right m15) = mkSomeMnemonic @('[15]) m15txt
+        let (Right m12) = mkSomeMnemonic @('[12]) m12txt
         let passphrase = Passphrase $ BA.convert $ T.encodeUtf8 fixturePassphrase
         let index = 30
         let accXPubDerived = accPubKeyFromMnemonics m15 (Just m12) index passphrase
@@ -200,8 +200,8 @@ spec = describe "SHARED_WALLETS" $ do
     it "SHARED_WALLETS_CREATE_01 - Compare wallet ids" $ \ctx -> runResourceT $ do
         m15txt <- liftIO $ genMnemonics M15
         m12txt <- liftIO $ genMnemonics M12
-        let (Right m15) = mkSomeMnemonic @'[ 15 ] m15txt
-        let (Right m12) = mkSomeMnemonic @'[ 12 ] m12txt
+        let (Right m15) = mkSomeMnemonic @('[15]) m15txt
+        let (Right m12) = mkSomeMnemonic @('[12]) m12txt
         let passphrase = Passphrase $ BA.convert $ T.encodeUtf8 fixturePassphrase
         let index = 30
         let accXPubDerived = accPubKeyFromMnemonics m15 (Just m12) index passphrase
@@ -255,7 +255,7 @@ spec = describe "SHARED_WALLETS" $ do
         let (ApiSharedWallet (Right walActive)) = wal
 
         rDel <- request @ApiActiveSharedWallet ctx
-                (Link.deleteWallet @'Shared walActive) Default Empty
+                (Link.deleteWallet @Shared walActive) Default Empty
         expectResponseCode HTTP.status204 rDel
 
         (_, accXPubTxt):_ <- liftIO $ genXPubs 1
@@ -367,8 +367,8 @@ spec = describe "SHARED_WALLETS" $ do
     it "SHARED_WALLETS_CREATE_02 - Create a pending shared wallet from root xprv" $ \ctx -> runResourceT $ do
         m15txt <- liftIO $ genMnemonics M15
         m12txt <- liftIO $ genMnemonics M12
-        let (Right m15) = mkSomeMnemonic @'[ 15 ] m15txt
-        let (Right m12) = mkSomeMnemonic @'[ 12 ] m12txt
+        let (Right m15) = mkSomeMnemonic @('[15]) m15txt
+        let (Right m12) = mkSomeMnemonic @('[12]) m12txt
         let passphrase = Passphrase $ BA.convert $ T.encodeUtf8 fixturePassphrase
         let index = 30
         let accXPubDerived = accPubKeyFromMnemonics m15 (Just m12) index passphrase
@@ -518,8 +518,8 @@ spec = describe "SHARED_WALLETS" $ do
     it "SHARED_WALLETS_CREATE_05 - Create an active shared wallet from root xprv with self" $ \ctx -> runResourceT $ do
         m15txt <- liftIO $ genMnemonics M15
         m12txt <- liftIO $ genMnemonics M12
-        let (Right m15) = mkSomeMnemonic @'[ 15 ] m15txt
-        let (Right m12) = mkSomeMnemonic @'[ 12 ] m12txt
+        let (Right m15) = mkSomeMnemonic @('[15]) m15txt
+        let (Right m12) = mkSomeMnemonic @('[12]) m12txt
         let passphrase = Passphrase $ BA.convert $ T.encodeUtf8 fixturePassphrase
         let index = 30
         let accXPubDerived = accPubKeyFromMnemonics m15 (Just m12) index passphrase
@@ -578,7 +578,7 @@ spec = describe "SHARED_WALLETS" $ do
         getWalletIdFromSharedWallet walWithSelf `shouldBe` getWalletIdFromSharedWallet wal
 
         rAddrsActive <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared activeWal) Default Empty
+            (Link.listAddresses @Shared activeWal) Default Empty
         expectResponseCode HTTP.status200 rAddrsActive
         let g = fromIntegral $ getAddressPoolGap defaultAddressPoolGap
         expectListSize g rAddrsActive
@@ -638,7 +638,7 @@ spec = describe "SHARED_WALLETS" $ do
         getWalletIdFromSharedWallet walWithSelf `shouldBe` getWalletIdFromSharedWallet wal
 
         rAddrsActive <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared activeWal) Default Empty
+            (Link.listAddresses @Shared activeWal) Default Empty
         expectResponseCode HTTP.status200 rAddrsActive
         let g = fromIntegral $ getAddressPoolGap defaultAddressPoolGap
         expectListSize g rAddrsActive
@@ -842,7 +842,7 @@ spec = describe "SHARED_WALLETS" $ do
         liftIO $ cosigners cosignerKeysPost `shouldBe` Map.fromList [(Cosigner 0,accXPub0)]
 
         rAddrsPending <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared pendingWal) Default Empty
+            (Link.listAddresses @Shared pendingWal) Default Empty
         expectResponseCode HTTP.status200 rAddrsPending
         expectListSize 0 rAddrsPending
 
@@ -857,7 +857,7 @@ spec = describe "SHARED_WALLETS" $ do
         liftIO $ cosigners cosignerKeysPatch `shouldBe` Map.fromList [(Cosigner 0,accXPub0), (Cosigner 1,accXPub1)]
 
         rAddrsActive <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared activeWal) Default Empty
+            (Link.listAddresses @Shared activeWal) Default Empty
         expectResponseCode HTTP.status200 rAddrsActive
         let g = fromIntegral $ getAddressPoolGap defaultAddressPoolGap
         expectListSize g rAddrsActive
@@ -1247,7 +1247,7 @@ spec = describe "SHARED_WALLETS" $ do
         let walShared@(ApiSharedWallet (Right wal)) = getFromResponse id rPost
 
         rAddr <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared wal) Default Empty
+            (Link.listAddresses @Shared wal) Default Empty
         expectResponseCode HTTP.status200 rAddr
         let sharedAddrs = getFromResponse id rAddr
         let destination = (sharedAddrs !! 1) ^. #id
@@ -1265,13 +1265,13 @@ spec = describe "SHARED_WALLETS" $ do
                 "passphrase": #{fixturePassphrase}
             }|]
         (_, ApiFee (Quantity _) (Quantity feeMax) _ _) <- unsafeRequest ctx
-            (Link.getTransactionFeeOld @'Shelley wShelley) payloadTx
-        let ep = Link.createTransactionOld @'Shelley
+            (Link.getTransactionFeeOld @Shelley wShelley) payloadTx
+        let ep = Link.createTransactionOld @Shelley
         rTx <- request @(ApiTransaction n) ctx (ep wShelley) Default payloadTx
         expectResponseCode HTTP.status202 rTx
         eventually "wShelley balance is decreased" $ do
             ra <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wShelley) Default Empty
+                (Link.getWallet @Shelley wShelley) Default Empty
             expectField
                 (#balance . #available)
                 (`shouldBe` Quantity (faucetAmt - feeMax - amt)) ra

@@ -124,7 +124,7 @@ prop_roundtripFingerprintLift
 prop_roundtripFingerprintLift addr =
     let
         fingerprint = paymentKeyFingerprint @IcarusKey addr
-        eAddr = liftPaymentAddress @'Mainnet @IcarusKey @'CredFromKeyK <$> fingerprint
+        eAddr = liftPaymentAddress @Mainnet @IcarusKey @CredFromKeyK <$> fingerprint
     in
         eAddr === Right addr
 

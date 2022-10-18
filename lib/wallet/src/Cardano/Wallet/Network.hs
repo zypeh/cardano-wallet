@@ -509,7 +509,7 @@ explainedSeverityAnnotation s
 instance HasSeverityAnnotation (FollowStats Rearview) where
     getSeverityAnnotation = fst . explainedSeverityAnnotation
 
--- | Update the 'TMVar' holding the 'FollowStats'@ @'Rearview'
+-- | Update the 'TMVar' holding the 'FollowStats'@ @Rearview'
 -- to forget the 'past' values and replace them with the 'current' ones.
 -- Also update the time and sync process.
 flushStats

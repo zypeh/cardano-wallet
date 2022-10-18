@@ -124,8 +124,8 @@ spec = describe "SHARED_TRANSACTIONS" $ do
     it "SHARED_TRANSACTIONS_CREATE_01 - Cannot create tx for a pending shared wallet" $ \ctx -> runResourceT $ do
         m15txt <- liftIO $ genMnemonics M15
         m12txt <- liftIO $ genMnemonics M12
-        let (Right m15) = mkSomeMnemonic @'[ 15 ] m15txt
-        let (Right m12) = mkSomeMnemonic @'[ 12 ] m12txt
+        let (Right m15) = mkSomeMnemonic @('[15]) m15txt
+        let (Right m12) = mkSomeMnemonic @('[12]) m12txt
         let passphrase = Passphrase $ BA.convert $ T.encodeUtf8 fixturePassphrase
         let index = 30
         let accXPubDerived = accPubKeyFromMnemonics m15 (Just m12) index passphrase
@@ -158,7 +158,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         let metadata = Json [json|{ "metadata": { "1": { "string": "hello" } } }|]
 
         rTx <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wal) Default metadata
+            (Link.createUnsignedTransaction @Shared wal) Default metadata
         verify rTx
             [ expectResponseCode HTTP.status403
             , expectErrorMessage errMsg403SharedWalletPending
@@ -193,7 +193,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         let metadata = Json [json|{ "metadata": { "1": { "string": "hello" } } }|]
 
         rTx1 <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wal) Default metadata
+            (Link.createUnsignedTransaction @Shared wal) Default metadata
         verify rTx1
             [ expectResponseCode HTTP.status403
             , expectErrorMessage errMsg403EmptyUTxO
@@ -203,7 +203,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         fundSharedWallet ctx amt walShared
 
         rTx2 <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wal) Default metadata
+            (Link.createUnsignedTransaction @Shared wal) Default metadata
         verify rTx2
             [ expectResponseCode HTTP.status202
             , expectField (#coinSelection . #metadata) (`shouldSatisfy` isJust)
@@ -213,7 +213,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         let txCbor1 = getFromResponse #transaction rTx2
         let decodePayload1 = Json (toJSON txCbor1)
         rDecodedTx1 <- request @(ApiDecodedTransaction n) ctx
-            (Link.decodeTransaction @'Shared wal) Default decodePayload1
+            (Link.decodeTransaction @Shared wal) Default decodePayload1
         let expectedFee = getFromResponse (#fee . #getQuantity) rTx2
         let metadata' = ApiT (TxMetadata (Map.fromList [(1,TxMetaText "hello")]))
         let decodedExpectations =
@@ -233,7 +233,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
             signSharedTx ctx wal apiTx [ expectResponseCode HTTP.status202 ]
         let decodePayload2 = Json (toJSON signedTx)
         rDecodedTx2 <- request @(ApiDecodedTransaction n) ctx
-            (Link.decodeTransaction @'Shared wal) Default decodePayload2
+            (Link.decodeTransaction @Shared wal) Default decodePayload2
         verify rDecodedTx2 decodedExpectations
 
         -- Submit tx
@@ -258,7 +258,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         let emptyPayload = Json [json|{}|]
 
         rTx <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wa) Default emptyPayload
+            (Link.createUnsignedTransaction @Shared wa) Default emptyPayload
         verify rTx
             [ expectResponseCode HTTP.status403
             , expectErrorMessage errMsg403InvalidConstructTx
@@ -283,7 +283,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
                 }|]
 
         rTx <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wa) Default validityInterval
+            (Link.createUnsignedTransaction @Shared wa) Default validityInterval
         verify rTx
             [ expectResponseCode HTTP.status403
             , expectErrorMessage errMsg403InvalidConstructTx
@@ -298,7 +298,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         payload <- liftIO $ mkTxPayload ctx wb amt
 
         rTx <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wa) Default payload
+            (Link.createUnsignedTransaction @Shared wa) Default payload
         verify rTx
             [ expectSuccess
             , expectResponseCode HTTP.status202
@@ -310,9 +310,9 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         let txCbor = getFromResponse #transaction rTx
         let decodePayload = Json (toJSON txCbor)
         rDecodedTxSource <- request @(ApiDecodedTransaction n) ctx
-            (Link.decodeTransaction @'Shared wa) Default decodePayload
+            (Link.decodeTransaction @Shared wa) Default decodePayload
         rDecodedTxTarget <- request @(ApiDecodedTransaction n) ctx
-            (Link.decodeTransaction @'Shelley wb) Default decodePayload
+            (Link.decodeTransaction @Shelley wb) Default decodePayload
 
         let expectedFee = getFromResponse (#fee . #getQuantity) rTx
         let sharedExpectationsBetweenWallets =
@@ -362,9 +362,9 @@ spec = describe "SHARED_TRANSACTIONS" $ do
             signSharedTx ctx wa apiTx [ expectResponseCode HTTP.status202 ]
         let decodePayload1 = Json (toJSON signedTx)
         rDecodedTxSource1 <- request @(ApiDecodedTransaction n) ctx
-            (Link.decodeTransaction @'Shared wa) Default decodePayload1
+            (Link.decodeTransaction @Shared wa) Default decodePayload1
         rDecodedTxTarget1 <- request @(ApiDecodedTransaction n) ctx
-            (Link.decodeTransaction @'Shelley wb) Default decodePayload1
+            (Link.decodeTransaction @Shelley wb) Default decodePayload1
         verify rDecodedTxTarget1 sharedExpectationsBetweenWallets
         verify rDecodedTxSource1 $
             sharedExpectationsBetweenWallets ++
@@ -394,7 +394,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
 
         eventually "Target wallet balance is increased by amt" $ do
             rWa <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wb) Default Empty
+                (Link.getWallet @Shelley wb) Default Empty
             verify rWa
                 [ expectSuccess
                 , expectField
@@ -411,7 +411,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         payload <- liftIO $ mkTxPayload ctx wb amt
 
         rTx <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wa) Default payload
+            (Link.createUnsignedTransaction @Shared wa) Default payload
         verify rTx
             [ expectResponseCode HTTP.status403
             , expectErrorMessage errMsg403MinUTxOValue
@@ -424,7 +424,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
         payload <- liftIO $ mkTxPayload ctx wb faucetUtxoAmt
 
         rTx <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wa) Default payload
+            (Link.createUnsignedTransaction @Shared wa) Default payload
         verify rTx
             [ expectResponseCode HTTP.status403
             , expectErrorMessage errMsg403Fee
@@ -455,7 +455,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
             }|]
 
         rTx <- request @(ApiConstructTransaction n) ctx
-            (Link.createUnsignedTransaction @'Shared wa) Default payload
+            (Link.createUnsignedTransaction @Shared wa) Default payload
         verify rTx
             [ expectSuccess
             , expectResponseCode HTTP.status202
@@ -471,7 +471,7 @@ spec = describe "SHARED_TRANSACTIONS" $ do
                 _ -> error "funding of shared wallet make sense only for active one"
 
         rAddr <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shared wal) Default Empty
+            (Link.listAddresses @Shared wal) Default Empty
         expectResponseCode HTTP.status200 rAddr
         let sharedAddrs = getFromResponse Prelude.id rAddr
         let destination = (sharedAddrs !! 1) ^. #id
@@ -488,13 +488,13 @@ spec = describe "SHARED_TRANSACTIONS" $ do
                 "passphrase": #{fixturePassphrase}
             }|]
         (_, ApiFee (Quantity _) (Quantity feeMax) _ _) <- unsafeRequest ctx
-            (Link.getTransactionFeeOld @'Shelley wShelley) payloadTx
-        let ep = Link.createTransactionOld @'Shelley
+            (Link.getTransactionFeeOld @Shelley wShelley) payloadTx
+        let ep = Link.createTransactionOld @Shelley
         rTx <- request @(ApiTransaction n) ctx (ep wShelley) Default payloadTx
         expectResponseCode HTTP.status202 rTx
         eventually "wShelley balance is decreased" $ do
             ra <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wShelley) Default Empty
+                (Link.getWallet @Shelley wShelley) Default Empty
             expectField
                 (#balance . #available)
                 (`shouldBe` Quantity (faucetAmt - feeMax - amt)) ra
@@ -508,8 +508,8 @@ spec = describe "SHARED_TRANSACTIONS" $ do
      fixtureSharedWallet ctx = do
         m15txt <- liftIO $ genMnemonics M15
         m12txt <- liftIO $ genMnemonics M12
-        let (Right m15) = mkSomeMnemonic @'[ 15 ] m15txt
-        let (Right m12) = mkSomeMnemonic @'[ 12 ] m12txt
+        let (Right m15) = mkSomeMnemonic @('[15]) m15txt
+        let (Right m12) = mkSomeMnemonic @('[12]) m12txt
         let passphrase = Passphrase $ BA.convert $ T.encodeUtf8 fixturePassphrase
         let index = 30
         let accXPubDerived = accPubKeyFromMnemonics m15 (Just m12) index passphrase

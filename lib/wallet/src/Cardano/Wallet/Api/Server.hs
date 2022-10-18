@@ -1636,7 +1636,7 @@ selectCoins ctx genChange (ApiT wid) body = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         utx <- liftHandler $
-            W.selectAssets @_ @_ @s @k @'CredFromKeyK wrk era pp selectAssetsParams transform
+            W.selectAssets @_ @_ @s @k @CredFromKeyK wrk era pp selectAssetsParams transform
         pure $ mkApiCoinSelection [] [] Nothing md utx
 
 selectCoinsForJoin
@@ -1688,7 +1688,7 @@ selectCoinsForJoin ctx knownPools getPoolStatus pid wid = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         utx <- liftHandler
-            $ W.selectAssets @_ @_ @s @k @'CredFromKeyK wrk era pp selectAssetsParams transform
+            $ W.selectAssets @_ @_ @s @k @CredFromKeyK wrk era pp selectAssetsParams transform
         (_, _, path) <- liftHandler
             $ W.readRewardAccount @_ @s @k @n wrk wid
 
@@ -1743,7 +1743,7 @@ selectCoinsForQuit ctx (ApiT wid) = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         utx <- liftHandler
-            $ W.selectAssets @_ @_ @s @k @'CredFromKeyK wrk era pp selectAssetsParams transform
+            $ W.selectAssets @_ @_ @s @k @CredFromKeyK wrk era pp selectAssetsParams transform
         (_, _, path) <- liftHandler $ W.readRewardAccount @_ @s @k @n wrk wid
 
         pure $ mkApiCoinSelection [] [refund] (Just (action, path)) Nothing utx
@@ -2013,7 +2013,7 @@ postTransactionOld ctx genChange (ApiT wid) body = do
                     , selectionStrategy = SelectionStrategyOptimal
                     }
             sel <- liftHandler
-                $ W.selectAssets @_ @_ @s @k @'CredFromKeyK
+                $ W.selectAssets @_ @_ @s @k @CredFromKeyK
                     wrk era pp selectAssetsParams
                 $ const Prelude.id
             sel' <- liftHandler
@@ -2205,9 +2205,9 @@ postTransactionFeeOld ctx (ApiT wid) body = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         let runSelection =
-                W.selectAssets @_ @_ @s @k @'CredFromKeyK
+                W.selectAssets @_ @_ @s @k @CredFromKeyK
                   wrk era pp selectAssetsParams getFee
-        minCoins <- liftIO (W.calcMinimumCoinValues @_ @k @'CredFromKeyK wrk era (F.toList outs))
+        minCoins <- liftIO (W.calcMinimumCoinValues @_ @k @CredFromKeyK wrk era (F.toList outs))
         liftHandler $ mkApiFee Nothing minCoins <$> W.estimateFee runSelection
 
 constructTransaction
@@ -2279,7 +2279,7 @@ constructTransaction ctx genChange knownPools getPoolStatus (ApiT wid) body = do
             throwE ErrConstructTxMintOrBurnAssetQuantityOutOfBounds
 
     let checkIx (ApiStakeKeyIndex (ApiT derIndex)) =
-            derIndex == DerivationIndex (getIndex @'Hardened minBound)
+            derIndex == DerivationIndex (getIndex @Hardened minBound)
     let validApiDelAction = \case
             Joining _ stakeKeyIx -> checkIx stakeKeyIx
             Leaving stakeKeyIx -> checkIx stakeKeyIx
@@ -2414,7 +2414,7 @@ constructTransaction ctx genChange knownPools getPoolStatus (ApiT wid) body = do
                 pure (txCtx, Nothing)
 
         let runSelection outs =
-                W.selectAssets @_ @_ @s @k @'CredFromKeyK
+                W.selectAssets @_ @_ @s @k @CredFromKeyK
                   wrk era pp selectAssetsParams transform
               where
                 selectAssetsParams = W.SelectAssetsParams
@@ -2617,7 +2617,7 @@ constructSharedTransaction
                 (utxoAvailable, wallet, pendingTxs) <-
                     liftHandler $ W.readWalletUTxOIndex @_ @s @k wrk wid
 
-                let runSelection outs = W.selectAssets @_ @_ @s @k @'CredFromScriptK
+                let runSelection outs = W.selectAssets @_ @_ @s @k @CredFromScriptK
                         wrk era pp selectAssetsParams transform
                       where
                         selectAssetsParams = W.SelectAssetsParams
@@ -2717,7 +2717,7 @@ decodeSharedTransaction ctx (ApiT wid) (ApiSerialisedTransaction (ApiT sealed) _
         , validityInterval = interval
         }
   where
-    tl = ctx ^. W.transactionLayer @k @'CredFromScriptK
+    tl = ctx ^. W.transactionLayer @k @CredFromScriptK
     nl = ctx ^. W.networkLayer @IO
 
     emptyApiAssetMntBurn = ApiAssetMintBurn
@@ -2757,14 +2757,14 @@ balanceTransaction ctx genChange (ApiT wid) body = do
                     (fromApiRedeemer <$> body ^. #redeemers)
               where
                 convertToCardano xs =
-                    toCardanoUTxO (wrk ^. W.transactionLayer @k @'CredFromKeyK) mempty xs
+                    toCardanoUTxO (wrk ^. W.transactionLayer @k @CredFromKeyK) mempty xs
 
         let balanceTx
                 :: forall era. Cardano.IsShelleyBasedEra era
                 => W.PartialTx era
                 -> Handler (Cardano.Tx era)
             balanceTx partialTx =
-                liftHandler $ W.balanceTransaction @_ @IO @s @k @'CredFromKeyK
+                liftHandler $ W.balanceTransaction @_ @IO @s @k @CredFromKeyK
                     wrk
                     genChange
                     (pp, nodePParams)
@@ -2856,7 +2856,7 @@ decodeTransaction ctx (ApiT wid) (ApiSerialisedTransaction (ApiT sealed) _) = do
             , validityInterval = interval
             }
   where
-    tl = ctx ^. W.transactionLayer @k @'CredFromKeyK
+    tl = ctx ^. W.transactionLayer @k @CredFromKeyK
     nl = ctx ^. W.networkLayer @IO
 
     policyIx = ApiT $ DerivationIndex $
@@ -3011,7 +3011,7 @@ submitTransaction ctx apiw@(ApiT wid) apitx = do
             $ W.submitTx @_ @s @k wrk wid (tx, txMeta, sealedTx)
     return $ ApiTxId (apiDecoded ^. #id)
   where
-    tl = ctx ^. W.transactionLayer @k @'CredFromKeyK
+    tl = ctx ^. W.transactionLayer @k @CredFromKeyK
     ti :: TimeInterpreter (ExceptT PastHorizonException IO)
     nl = ctx ^. networkLayer
     ti = timeInterpreter nl
@@ -3115,7 +3115,7 @@ submitSharedTransaction ctx apiw@(ApiT wid) apitx = do
             $ W.submitTx @_ @s @k wrk wid (tx, txMeta, sealedTx)
     return $ ApiTxId (apiDecoded ^. #id)
   where
-    tl = ctx ^. W.transactionLayer @k @'CredFromScriptK
+    tl = ctx ^. W.transactionLayer @k @CredFromScriptK
     ti :: TimeInterpreter (ExceptT PastHorizonException IO)
     nl = ctx ^. networkLayer
     ti = timeInterpreter nl
@@ -3186,7 +3186,7 @@ joinStakePool ctx knownPools getPoolStatus apiPoolId (ApiT wid) body = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         sel <- liftHandler
-            $ W.selectAssets @_ @_ @s @k @'CredFromKeyK wrk era pp selectAssetsParams
+            $ W.selectAssets @_ @_ @s @k @CredFromKeyK wrk era pp selectAssetsParams
             $ const Prelude.id
         sel' <- liftHandler
             $ W.assignChangeAddressesAndUpdateDb wrk wid genChange sel
@@ -3245,7 +3245,7 @@ delegationFee ctx (ApiT wid) = do
     txCtx = defaultTransactionCtx
 
     runSelection wrk era pp _deposit (utxoAvailable, wallet, pendingTxs) =
-        W.selectAssets @_ @_ @s @k @'CredFromKeyK wrk era pp selectAssetsParams calcFee
+        W.selectAssets @_ @_ @s @k @CredFromKeyK wrk era pp selectAssetsParams calcFee
       where
         calcFee _ = selectionDelta TokenBundle.getCoin
         selectAssetsParams = W.SelectAssetsParams
@@ -3310,7 +3310,7 @@ quitStakePool ctx (ApiT wid) body = do
                 , selectionStrategy = SelectionStrategyOptimal
                 }
         sel <- liftHandler
-            $ W.selectAssets @_ @_ @s @k @'CredFromKeyK wrk era pp selectAssetsParams
+            $ W.selectAssets @_ @_ @s @k @CredFromKeyK wrk era pp selectAssetsParams
             $ const Prelude.id
         sel' <- liftHandler
             $ W.assignChangeAddressesAndUpdateDb wrk wid genChange sel
@@ -3934,12 +3934,12 @@ mkRewardAccountBuilder ctx wid withdrawal = do
                 (acct, _, path) <- liftHandler $ W.readRewardAccount @_ @s @k @n wrk wid
                 wdrl <- liftHandler $ W.queryRewardBalance @_ wrk acct
                 (, selfRewardCredentials) . WithdrawalSelf acct path
-                    <$> liftIO (W.readNextWithdrawal @_ @k @'CredFromKeyK wrk era wdrl)
+                    <$> liftIO (W.readNextWithdrawal @_ @k @CredFromKeyK wrk era wdrl)
 
             (Just Refl, Just (ExternalWithdrawal (ApiMnemonicT mw))) -> do
                 let (xprv, acct, path) = W.someRewardAccount @ShelleyKey mw
                 wdrl <- liftHandler (W.queryRewardBalance @_ wrk acct)
-                    >>= liftIO . W.readNextWithdrawal @_ @k @'CredFromKeyK wrk era
+                    >>= liftIO . W.readNextWithdrawal @_ @k @CredFromKeyK wrk era
                 when (wdrl == Coin 0) $ do
                     liftHandler $ throwE ErrWithdrawalNotWorth
                 pure (WithdrawalExternal acct path wdrl, const (xprv, mempty))

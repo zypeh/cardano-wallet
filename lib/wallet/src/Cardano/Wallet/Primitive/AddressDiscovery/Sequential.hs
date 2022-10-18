@@ -600,7 +600,7 @@ instance
           where
             idx (_,(ix,_)) = ix
             shuffle (k,(ix,s)) =
-                (liftPaymentAddress @n @k @'CredFromKeyK k, s, decoratePath st (roleVal @c) ix)
+                (liftPaymentAddress @n @k @CredFromKeyK k, s, decoratePath st (roleVal @c) ix)
 
         nonChangeAddresses = listAddresses $ externalPool st
         changeAddresses = listAddresses $ internalPool st
@@ -641,7 +641,7 @@ discoverSeq query state = do
     pure (discoveredEvents, state')
   where
     -- Only enterprise address (for legacy Icarus keys)
-    fromPayment hash = liftPaymentAddress @n @k @'CredFromKeyK hash
+    fromPayment hash = liftPaymentAddress @n @k @CredFromKeyK hash
     discover :: SeqAddressPool r k -> m (ChainEvents, SeqAddressPool r k)
     discover = fmap (second SeqAddressPool)
         . AddressPool.discover (query . Left . fromPayment) . getPool

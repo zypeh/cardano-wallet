@@ -126,7 +126,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             targetAddresses <- listAddresses @n ctx targetWallet
             let targetAddressIds = targetAddresses <&>
                     (\(ApiTypes.ApiAddress addrId _ _) -> addrId)
-            let ep = Link.createMigrationPlan @'Byron sourceWallet
+            let ep = Link.createMigrationPlan @Byron sourceWallet
             response <- request @(ApiWalletMigrationPlan n) ctx ep Default
                 (Json [json|{addresses: #{targetAddressIds}}|])
             verify response
@@ -153,7 +153,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             targetAddresses <- listAddresses @n ctx targetWallet
             let targetAddressIds = targetAddresses <&>
                     (\(ApiTypes.ApiAddress addrId _ _) -> addrId)
-            let ep = Link.createMigrationPlan @'Byron sourceWallet
+            let ep = Link.createMigrationPlan @Byron sourceWallet
             response <- request @(ApiWalletMigrationPlan n) ctx ep Default
                 (Json [json|{addresses: #{targetAddressIds}}|])
             verify response
@@ -170,7 +170,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             targetAddresses <- listAddresses @n ctx targetWallet
             let targetAddressIds = targetAddresses <&>
                     (\(ApiTypes.ApiAddress addrId _ _) -> addrId)
-            let ep = Link.createMigrationPlan @'Byron sourceWallet
+            let ep = Link.createMigrationPlan @Byron sourceWallet
             response <- request @(ApiWalletMigrationPlan n) ctx ep Default
                 (Json [json|{addresses: #{targetAddressIds}}|])
             verify response
@@ -199,7 +199,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
                 postByronWallet ctx payloadRestore
             eventually "sourceWallet contains dust" $
                 request @ApiByronWallet ctx
-                    (Link.getWallet @'Byron sourceWallet) Default Empty
+                    (Link.getWallet @Byron sourceWallet) Default Empty
                     >>= flip verify
                     [ expectField (#balance . #available . #getQuantity)
                         (.> 0)
@@ -209,7 +209,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             targetAddresses <- listAddresses @n ctx targetWallet
             let targetAddressIds = targetAddresses <&>
                     (\(ApiTypes.ApiAddress addrId _ _) -> addrId)
-            let ep = Link.createMigrationPlan @'Byron sourceWallet
+            let ep = Link.createMigrationPlan @Byron sourceWallet
             response <- request @(ApiWalletMigrationPlan n) ctx ep Default
                 (Json [json|{addresses: #{targetAddressIds}}|])
             verify response
@@ -227,7 +227,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             targetAddresses <- listAddresses @n ctx targetWallet
             let targetAddressIds = targetAddresses <&>
                     (\(ApiTypes.ApiAddress addrId _ _) -> addrId)
-            let ep = Link.createMigrationPlan @'Byron sourceWallet
+            let ep = Link.createMigrationPlan @Byron sourceWallet
             response1 <- request @(ApiWalletMigrationPlan n) ctx ep Default
                 (Json [json|{addresses: #{targetAddressIds}}|])
             response2 <- request @(ApiWalletMigrationPlan n) ctx ep Default
@@ -284,7 +284,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             }|])
         sourceBalance <- eventually "Source wallet balance is correct." $ do
             response <- request @ApiByronWallet ctx
-                (Link.getWallet @'Byron sourceWallet) Default Empty
+                (Link.getWallet @Byron sourceWallet) Default Empty
             verify response
                 [ expectField (#balance . #available . #getQuantity)
                     (`shouldBe` 1_000_000_000_100)
@@ -300,7 +300,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
         -- Compute the expected migration plan:
         responsePlan <- request @(ApiWalletMigrationPlan n) ctx
-            (Link.createMigrationPlan @'Byron sourceWallet) Default
+            (Link.createMigrationPlan @Byron sourceWallet) Default
             (Json [json|{addresses: #{targetAddressIds}}|])
         verify responsePlan
             [ expectResponseCode HTTP.status202
@@ -344,7 +344,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
         let expectedTargetBalance =
                 sourceBalance - balanceLeftover - expectedFee
         request @ApiWallet ctx
-            (Link.getWallet @'Shelley targetWallet) Default Empty
+            (Link.getWallet @Shelley targetWallet) Default Empty
             >>= flip verify
             [ expectField
                 (#balance . #available . #getQuantity)
@@ -356,7 +356,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
         -- Analyse the target wallet's UTxO distribution:
         responseStats <- request @ApiUtxoStatistics ctx
-            (Link.getUTxOsStatistics @'Shelley targetWallet) Default Empty
+            (Link.getUTxOsStatistics @Shelley targetWallet) Default Empty
         verify responseStats
             [ expectField
                 (#distribution)
@@ -365,7 +365,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
         -- Check that the source wallet has the expected leftover balance:
         responseFinalSourceBalance <- request @ApiByronWallet ctx
-            (Link.getWallet @'Byron sourceWallet) Default Empty
+            (Link.getWallet @Byron sourceWallet) Default Empty
         verify responseFinalSourceBalance
             [ expectResponseCode HTTP.status200
             , expectField (#balance . #available)
@@ -384,7 +384,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             targetAddresses <- listAddresses @n ctx targetWallet
             let targetAddressIds = targetAddresses <&>
                     (\(ApiTypes.ApiAddress addrId _ _) -> addrId)
-            let ep = Link.migrateWallet @'Byron sourceWallet
+            let ep = Link.migrateWallet @Byron sourceWallet
             response <- request @[ApiTransaction n] ctx ep Default $
                 Json [json|
                     { passphrase: #{fixturePassphrase}
@@ -415,7 +415,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
                     (\(ApiTypes.ApiAddress addrId _ _) -> addrId)
 
             -- Create a migration plan:
-            let endpointPlan = (Link.createMigrationPlan @'Byron sourceWallet)
+            let endpointPlan = (Link.createMigrationPlan @Byron sourceWallet)
             responsePlan <- request @(ApiWalletMigrationPlan n)
                 ctx endpointPlan Default $
                 Json [json|{addresses: #{targetAddressIds}}|]
@@ -426,7 +426,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
                 ]
 
             -- Perform a migration:
-            let endpointMigrate = Link.migrateWallet @'Byron sourceWallet
+            let endpointMigrate = Link.migrateWallet @Byron sourceWallet
             responseMigrate <-
                 request @[ApiTransaction n] ctx endpointMigrate Default $
                 Json [json|
@@ -460,7 +460,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
             -- Attempt to perform a migration:
             response <- request @[ApiTransaction n] ctx
-                (Link.migrateWallet @'Byron sourceWallet)
+                (Link.migrateWallet @Byron sourceWallet)
                 Default
                 (Json [json|
                     { passphrase: "not-the-right-passphrase"
@@ -502,7 +502,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
                 -- Initiate a migration to all address types:
                 response <- request @[ApiTransaction n] ctx
-                    (Link.migrateWallet @'Byron sourceWallet) Default
+                    (Link.migrateWallet @Byron sourceWallet) Default
                     (Json [json|
                         { passphrase: #{fixturePassphrase}
                         , addresses:
@@ -522,7 +522,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
         $ \ctx -> runResourceT $ do
             sourceWallet <- emptyRandomWallet ctx
             response <- request @[ApiTransaction n] ctx
-                (Link.migrateWallet @'Byron sourceWallet) Default
+                (Link.migrateWallet @Byron sourceWallet) Default
                 (NonJson "{passphrase:,}")
             verify response
                 [ expectResponseCode HTTP.status400
@@ -549,7 +549,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
                 }|])
             eventually "Source wallet balance is correct." $ do
                 request @ApiByronWallet ctx
-                    (Link.getWallet @'Byron sourceWallet)
+                    (Link.getWallet @Byron sourceWallet)
                     Default
                     Empty >>= flip verify
                     [ expectField (#balance . #available)
@@ -560,7 +560,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
             -- Analyse the source wallet's UTxO distribution:
             let expectedSourceDistribution = [(10, 5)]
             responseSourceDistribution <- request @ApiUtxoStatistics ctx
-                (Link.getUTxOsStatistics @'Byron sourceWallet) Default Empty
+                (Link.getUTxOsStatistics @Byron sourceWallet) Default Empty
             verify responseSourceDistribution
                 [ expectField #distribution
                     ((`shouldBe` expectedSourceDistribution)
@@ -577,7 +577,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
 
             -- Attempt a migration:
-            let ep = Link.migrateWallet @'Byron sourceWallet
+            let ep = Link.migrateWallet @Byron sourceWallet
             responseMigrate <- request @[ApiTransaction n] ctx ep Default $
                 Json [json|
                     { passphrase: #{fixturePassphrase}
@@ -631,13 +631,13 @@ spec = describe "BYRON_MIGRATIONS" $ do
             migrateWallet ctx src targets
       where
         endpointCreateMigrationPlan =
-            Link.createMigrationPlan @'Byron src
+            Link.createMigrationPlan @Byron src
         endpointMigrateWallet =
-            Link.migrateWallet @'Byron src
+            Link.migrateWallet @Byron src
         endpointListTxs =
-            Link.listTransactions @'Byron src
+            Link.listTransactions @Byron src
         endpointForget =
-            Link.deleteTransaction @'Byron src
+            Link.deleteTransaction @Byron src
 
         payloadCreateMigrationPlan = Json [json|{"addresses": #{targets}}|]
         payloadMigrateWallet = Json [json|
@@ -674,7 +674,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
             -- Create a migration plan:
             response0 <- request @(ApiWalletMigrationPlan n) ctx
-                (Link.createMigrationPlan @'Byron sourceWallet) Default
+                (Link.createMigrationPlan @Byron sourceWallet) Default
                 (Json [json|{addresses: #{targetAddressIds}}|])
             verify response0
                 [ expectResponseCode HTTP.status202
@@ -687,7 +687,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
             -- Perform a migration from the source wallet to the target wallet:
             response1 <- request @[ApiTransaction n] ctx
-                (Link.migrateWallet @'Byron sourceWallet)
+                (Link.migrateWallet @Byron sourceWallet)
                 Default
                 (Json [json|
                     { passphrase: #{fixturePassphrase}
@@ -703,7 +703,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
                     sourceBalance - expectedFee - balanceLeftover
             waitForTxImmutability ctx
             request @ApiWallet ctx
-                (Link.getWallet @'Shelley targetWallet) Default Empty
+                (Link.getWallet @Shelley targetWallet) Default Empty
                 >>= flip verify
                     [ expectField
                         (#balance . #available)
@@ -715,7 +715,7 @@ spec = describe "BYRON_MIGRATIONS" $ do
 
             -- Check that the source wallet has a balance of zero:
             responseFinalSourceBalance <- request @ApiByronWallet ctx
-                (Link.getWallet @'Byron sourceWallet) Default Empty
+                (Link.getWallet @Byron sourceWallet) Default Empty
             verify responseFinalSourceBalance
                 [ expectField
                     (#balance . #available)

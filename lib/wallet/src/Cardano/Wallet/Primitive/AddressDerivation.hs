@@ -217,7 +217,7 @@ instance FromText Role where
 -- application and either a scoped type variable, or an explicit passing of a
 -- 'Role'.
 --
--- >>> roleVal @'UtxoExternal
+-- >>> roleVal @UtxoExternal
 -- UtxoExternal
 --
 -- >>> roleVal @chain
@@ -227,15 +227,15 @@ roleVal = fromMaybe (error $ "role: unmatched type" <> show (typeRep @c))
        (tryUtxoExternal <|> tryUtxoInternal <|> tryMutableAccount)
   where
     tryUtxoExternal =
-        case testEquality (typeRep @c) (typeRep @'UtxoExternal) of
+        case testEquality (typeRep @c) (typeRep @UtxoExternal) of
             Just Refl  -> Just UtxoExternal
             Nothing -> Nothing
     tryUtxoInternal =
-        case testEquality (typeRep @c) (typeRep @'UtxoInternal) of
+        case testEquality (typeRep @c) (typeRep @UtxoInternal) of
             Just Refl  -> Just UtxoInternal
             Nothing -> Nothing
     tryMutableAccount =
-        case testEquality (typeRep @c) (typeRep @'MutableAccount) of
+        case testEquality (typeRep @c) (typeRep @MutableAccount) of
             Just Refl  -> Just MutableAccount
             Nothing -> Nothing
 
@@ -297,7 +297,7 @@ instance ToText DerivationIndex where
         | ix >= firstHardened  = T.pack $ show (ix - firstHardened) <> "H"
         | otherwise = T.pack $ show ix
       where
-        firstHardened = getIndex @'Hardened minBound
+        firstHardened = getIndex @Hardened minBound
 
 instance FromText DerivationIndex where
     fromText source =
@@ -307,13 +307,13 @@ instance FromText DerivationIndex where
         else
             castNumber source >>= parseAsScientific
       where
-        firstHardened = getIndex @'Hardened minBound
+        firstHardened = getIndex @Hardened minBound
 
         errMalformed = TextDecodingError $ unwords
             [ "A derivation index must be a natural number between"
-            , show (getIndex @'Soft minBound)
+            , show (getIndex @Soft minBound)
             , "and"
-            , show (getIndex @'Soft maxBound)
+            , show (getIndex @Soft maxBound)
             , "with an optional 'H' suffix (e.g. '1815H' or '44')."
             , "Indexes without suffixes are called 'Soft'"
             , "Indexes with suffixes are called 'Hardened'."
@@ -678,8 +678,8 @@ class MkKeyFingerprint key Address
         -> Address
 
 instance PaymentAddress 'Mainnet k ktype => PaymentAddress ('Staging pm) k ktype where
-    paymentAddress = paymentAddress @'Mainnet @k @ktype
-    liftPaymentAddress = liftPaymentAddress @'Mainnet @k @ktype
+    paymentAddress = paymentAddress @Mainnet @k @ktype
+    liftPaymentAddress = liftPaymentAddress @Mainnet @k @ktype
 
 class PaymentAddress network key ktype
     => DelegationAddress (network :: NetworkDiscriminant) key ktype where
@@ -706,8 +706,8 @@ class PaymentAddress network key ktype
         -> Address
 
 instance DelegationAddress 'Mainnet k ktype => DelegationAddress ('Staging pm) k ktype where
-    delegationAddress = delegationAddress @'Mainnet
-    liftDelegationAddress = liftDelegationAddress @'Mainnet
+    delegationAddress = delegationAddress @Mainnet
+    liftDelegationAddress = liftDelegationAddress @Mainnet
 
 -- | Operations for saving a private key into a database, and restoring it from
 -- a database. The keys should be encoded in hexadecimal strings.

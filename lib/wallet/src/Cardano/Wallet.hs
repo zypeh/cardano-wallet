@@ -2512,7 +2512,7 @@ buildAndSignTransaction ctx wid era mkRwdAcct pwd txCtx sel = db & \DBLayer{..} 
             return (tx, meta, time, sealedTx)
   where
     db = ctx ^. dbLayer @IO @s @k
-    tl = ctx ^. transactionLayer @k @'CredFromKeyK
+    tl = ctx ^. transactionLayer @k @CredFromKeyK
     nl = ctx ^. networkLayer
     ti = timeInterpreter nl
 
@@ -2541,7 +2541,7 @@ constructTransaction ctx wid era txCtx sel = db & \DBLayer{..} -> do
             mkUnsignedTransaction tl era xpub pp txCtx sel
   where
     db = ctx ^. dbLayer @IO @s @k
-    tl = ctx ^. transactionLayer @k @'CredFromKeyK
+    tl = ctx ^. transactionLayer @k @CredFromKeyK
     nl = ctx ^. networkLayer
 
 -- | Construct an unsigned transaction from a given selection
@@ -2595,7 +2595,7 @@ constructSharedTransaction ctx wid era txCtx sel = db & \DBLayer{..} -> do
             mkUnsignedTransaction tl era xpub pp txCtx' sel
   where
     db = ctx ^. dbLayer @IO @s @k
-    tl = ctx ^. transactionLayer @k @'CredFromScriptK
+    tl = ctx ^. transactionLayer @k @CredFromScriptK
     nl = ctx ^. networkLayer
 
 -- | Calculate the transaction expiry slot, given a 'TimeInterpreter', and an
@@ -3003,7 +3003,7 @@ createMigrationPlan ctx era wid rewardWithdrawal = do
         $ withdrawalToCoin rewardWithdrawal
   where
     nl = ctx ^. networkLayer
-    tl = ctx ^. transactionLayer @k @'CredFromKeyK
+    tl = ctx ^. transactionLayer @k @CredFromKeyK
 
 type SelectionWithoutChange = SelectionOf Void
 
@@ -3521,7 +3521,7 @@ guardSoftIndex
     => DerivationIndex
     -> ExceptT (ErrInvalidDerivationIndex 'Soft 'CredFromKeyK) m (Index 'Soft whatever)
 guardSoftIndex ix =
-    if ix > DerivationIndex (getIndex @'Soft maxBound) || ix < DerivationIndex (getIndex @'Soft minBound)
+    if ix > DerivationIndex (getIndex @Soft maxBound) || ix < DerivationIndex (getIndex @Soft minBound)
     then throwE $ ErrIndexOutOfBound minBound maxBound ix
     else pure (Index $ getDerivationIndex ix)
 
@@ -3530,7 +3530,7 @@ guardHardIndex
     => DerivationIndex
     -> ExceptT (ErrInvalidDerivationIndex 'Hardened level) m (Index 'Hardened whatever)
 guardHardIndex ix =
-    if ix > DerivationIndex (getIndex @'Hardened maxBound) || ix < DerivationIndex (getIndex @'Hardened minBound)
+    if ix > DerivationIndex (getIndex @Hardened maxBound) || ix < DerivationIndex (getIndex @Hardened minBound)
     then throwE $ ErrIndexOutOfBound minBound maxBound ix
     else pure (Index $ getDerivationIndex ix)
 

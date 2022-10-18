@@ -115,7 +115,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         let g = fromIntegral $ getAddressPoolGap defaultAddressPoolGap
         w <- emptyWallet ctx
         r <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shelley w) Default Empty
+            (Link.listAddresses @Shelley w) Default Empty
         expectResponseCode HTTP.status200 r
         expectListSize g r
         forM_ [0..(g-1)] $ \addrNum -> do
@@ -127,7 +127,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         let g = 15
         w <- emptyWalletWith ctx ("Wallet", fixturePassphrase, g)
         r <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shelley w) Default Empty
+            (Link.listAddresses @Shelley w) Default Empty
         expectResponseCode HTTP.status200 r
         expectListSize g r
         forM_ [0..(g-1)] $ \addrNum -> do
@@ -139,14 +139,14 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         let g = fromIntegral $ getAddressPoolGap defaultAddressPoolGap
         w <- fixtureWallet ctx
         rUsed <- request @[ApiAddress n] ctx
-            (Link.listAddresses' @'Shelley w (Just Used)) Default Empty
+            (Link.listAddresses' @Shelley w (Just Used)) Default Empty
         expectResponseCode HTTP.status200 rUsed
         expectListSize 10 rUsed
         forM_ [0..9] $ \addrNum -> do
             expectListField
                 addrNum (#state . #getApiT) (`shouldBe` Used) rUsed
         rUnused <- request @[ApiAddress n] ctx
-            (Link.listAddresses' @'Shelley w (Just Unused)) Default Empty
+            (Link.listAddresses' @Shelley w (Just Unused)) Default Empty
         expectResponseCode HTTP.status200 rUnused
         expectListSize g rUnused
         forM_ [10..(g-1)] $ \addrNum -> do
@@ -157,9 +157,9 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         $ \ctx -> runResourceT $ do
         w <- emptyWallet ctx
         rUsed <- request @[ApiAddress n] ctx
-            (Link.listAddresses' @'Shelley w (Just Used)) Default Empty
+            (Link.listAddresses' @Shelley w (Just Used)) Default Empty
         rUnused <- request @[ApiAddress n] ctx
-            (Link.listAddresses' @'Shelley w (Just Unused)) Default Empty
+            (Link.listAddresses' @Shelley w (Just Unused)) Default Empty
         expectResponseCode HTTP.status200 rUsed
         expectListSize 0 rUsed
         expectResponseCode HTTP.status200 rUnused
@@ -186,7 +186,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         let withQuery f (method, link) = (method, link <> "?state=" <> T.pack f)
         forM_ filters $ \fil -> it fil $ \ctx -> runResourceT $ do
             w <- emptyWallet ctx
-            let link = withQuery fil $ Link.listAddresses @'Shelley w
+            let link = withQuery fil $ Link.listAddresses @Shelley w
             r <- request @[ApiAddress n] ctx link Default Empty
             verify r
                 [ expectResponseCode HTTP.status400
@@ -203,7 +203,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
 
         -- make sure all addresses in address_pool_gap are 'Unused'
         r <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shelley wDest) Default Empty
+            (Link.listAddresses @Shelley wDest) Default Empty
         verify r
             [ expectResponseCode HTTP.status200
             , expectListSize initPoolGap
@@ -229,13 +229,13 @@ spec = describe "SHELLEY_ADDRESSES" $ do
                 }|]
 
             rTrans <- request @(ApiTransaction n) ctx
-                (Link.createTransactionOld @'Shelley wSrc) Default payload
+                (Link.createTransactionOld @Shelley wSrc) Default payload
             expectResponseCode HTTP.status202 rTrans
 
         -- make sure all transactions are in ledger
         eventually "Wallet balance = initPoolGap * minUTxOValue" $ do
             rb <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley wDest) Default Empty
+                (Link.getWallet @Shelley wDest) Default Empty
             expectField
                 (#balance . #available)
                 (`shouldBe` Quantity (10 * amt))
@@ -243,7 +243,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
 
         -- verify new address_pool_gap has been created
         rAddr <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shelley wDest) Default Empty
+            (Link.listAddresses @Shelley wDest) Default Empty
         verify rAddr
             [ expectResponseCode HTTP.status200
             , expectListSize 20
@@ -258,16 +258,16 @@ spec = describe "SHELLEY_ADDRESSES" $ do
     it "ADDRESS_LIST_04 - Deleted wallet" $ \ctx -> runResourceT $ do
         w <- emptyWallet ctx
         _ <- request @ApiWallet ctx
-            (Link.deleteWallet @'Shelley w) Default Empty
+            (Link.deleteWallet @Shelley w) Default Empty
         r <- request @[ApiAddress n] ctx
-            (Link.listAddresses @'Shelley w) Default Empty
+            (Link.listAddresses @Shelley w) Default Empty
         expectResponseCode HTTP.status404 r
         expectErrorMessage (errMsg404NoWallet $ w ^. walletId) r
 
     it "ADDRESS_LIST_05 - bech32 HRP is correct - mainnet" $ \ctx -> runResourceT $ do
         w <- emptyWallet ctx
         r <- request @[Aeson.Value] ctx
-            (Link.listAddresses @'Shelley w) Default Empty
+            (Link.listAddresses @Shelley w) Default Empty
         verify r
             [ expectResponseCode HTTP.status200
             -- integration tests are configured for mainnet
@@ -310,7 +310,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
                 "passphrase": #{fixturePassphrase}
             }|]
         (_, rtx) <- unsafeRequest @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley wA) payload
+            (Link.createTransactionOld @Shelley wA) payload
 
         -- 3. Check that there's one more used addresses on A.
         --
@@ -330,10 +330,10 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         -- 4. Wait for transaction from A -> B to no longer be pending
         eventually "Transaction from A -> B is discovered on B" $ do
             request @(ApiTransaction n) ctx
-                (Link.getTransaction @'Shelley wA rtx) Default Empty
+                (Link.getTransaction @Shelley wA rtx) Default Empty
                 >>= expectField #status (`shouldBe` ApiT InLedger)
             request @(ApiTransaction n) ctx
-                (Link.getTransaction @'Shelley wB rtx) Default Empty
+                (Link.getTransaction @Shelley wB rtx) Default Empty
                 >>= expectField #status (`shouldBe` ApiT InLedger)
 
         -- 5. Check that there's one more used and total addresses on the wallets
@@ -921,10 +921,10 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         -- wallet API
         let indices = [0..19]
         generatedAddresses <- forM indices $ \index -> do
-            let paymentPath = Link.getWalletKey @'Shelley w UtxoExternal (DerivationIndex index) Nothing
+            let paymentPath = Link.getWalletKey @Shelley w UtxoExternal (DerivationIndex index) Nothing
             (_, paymentKey) <- unsafeRequest @ApiVerificationKeyShelley ctx paymentPath Empty
 
-            let stakePath = Link.getWalletKey @'Shelley w MutableAccount (DerivationIndex 0) Nothing
+            let stakePath = Link.getWalletKey @Shelley w MutableAccount (DerivationIndex 0) Nothing
             (_, stakeKey) <- unsafeRequest @ApiVerificationKeyShelley ctx stakePath Empty
 
             let payload = Json [json|{
@@ -1197,7 +1197,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         let initPoolGap = 10
         w <- emptyWalletWith ctx ("Wallet", fixturePassphrase, initPoolGap)
 
-        let endpoint = Link.postAccountKey @'Shelley w (DerivationIndex 0)
+        let endpoint = Link.postAccountKey @Shelley w (DerivationIndex 0)
         let payload = Json [json|{
                 "passphrase": #{fixturePassphrase},
                 "format": "extended"
@@ -1208,7 +1208,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         -- Request first 10 extended account public keys
         let indices = [0..9]
         accountPublicKeys <- forM indices $ \index -> do
-            let accountPath = Link.postAccountKey @'Shelley w (DerivationIndex $ 2147483648 + index)
+            let accountPath = Link.postAccountKey @Shelley w (DerivationIndex $ 2147483648 + index)
             let payload1 = Json [json|{
                     "passphrase": #{fixturePassphrase},
                     "format": "extended"
@@ -1229,7 +1229,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
     it "POST_ACCOUNT_02 - Can get account public key using purpose" $ \ctx -> runResourceT $ do
         let initPoolGap = 10
         w <- emptyWalletWith ctx ("Wallet", fixturePassphrase, initPoolGap)
-        let accountPath = Link.postAccountKey @'Shelley w (DerivationIndex $ 2147483648 + 1)
+        let accountPath = Link.postAccountKey @Shelley w (DerivationIndex $ 2147483648 + 1)
         let payload1 = Json [json|{
                 "passphrase": #{fixturePassphrase},
                 "format": "extended"
@@ -1268,7 +1268,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         w <- emptyWallet ctx
 
         let stakePath =
-                Link.getWalletKey @'Shelley w MutableAccount (DerivationIndex 0) Nothing
+                Link.getWalletKey @Shelley w MutableAccount (DerivationIndex 0) Nothing
         (_, stakeKey) <-
             unsafeRequest @ApiVerificationKeyShelley ctx stakePath Empty
         let (Aeson.String stakeKeyTxt) = toJSON stakeKey
@@ -1288,7 +1288,7 @@ spec = describe "SHELLEY_ADDRESSES" $ do
         w <- emptyWallet ctx
 
         let stakePath =
-                Link.getWalletKey @'Shelley w MutableAccount (DerivationIndex 0) (Just True)
+                Link.getWalletKey @Shelley w MutableAccount (DerivationIndex 0) (Just True)
         (_, stakeKeyHash) <-
             unsafeRequest @ApiVerificationKeyShelley ctx stakePath Empty
         let (Aeson.String stakeKeyHashTxt) = toJSON stakeKeyHash

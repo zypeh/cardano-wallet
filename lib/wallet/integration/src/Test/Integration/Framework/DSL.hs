@@ -799,7 +799,7 @@ isValidDerivationPath purpose path =
     &&
     ( [ ApiT $ DerivationIndex $ getIndex purpose
       , ApiT $ DerivationIndex $ getIndex coinTypeAda
-      , ApiT $ DerivationIndex $ getIndex @'Hardened minBound
+      , ApiT $ DerivationIndex $ getIndex @Hardened minBound
       ] `isPrefixOf` NE.toList path
     )
 
@@ -807,7 +807,7 @@ isValidRandomDerivationPath :: NonEmpty (ApiT DerivationIndex) -> Bool
 isValidRandomDerivationPath path =
     ( length path == 2 )
     &&
-    ( [ ApiT $ DerivationIndex $ getIndex @'Hardened minBound
+    ( [ ApiT $ DerivationIndex $ getIndex @Hardened minBound
       ] `isPrefixOf` NE.toList path
     )
 
@@ -967,8 +967,8 @@ genXPubs num =
     genXPub = do
         m15txt <- genMnemonics M15
         m12txt <- genMnemonics M12
-        let (Right m15) = mkSomeMnemonic @'[ 15 ] m15txt
-        let (Right m12) = mkSomeMnemonic @'[ 12 ] m12txt
+        let (Right m15) = mkSomeMnemonic @('[15]) m15txt
+        let (Right m12) = mkSomeMnemonic @('[12]) m12txt
         let accXPubTxt = accPubKeyFromMnemonics m15 (Just m12) 10 mempty
         let (Just accXPub) = xpubFromText accXPubTxt
         return (accXPub, accXPubTxt)
@@ -1001,7 +1001,7 @@ waitAllTxsInLedger
     -> ApiWallet
     -> m ()
 waitAllTxsInLedger ctx w = eventually "waitAllTxsInLedger: all txs in ledger" $ do
-    let ep = Link.listTransactions @'Shelley w
+    let ep = Link.listTransactions @Shelley w
     r <- request @[ApiTransaction n] ctx ep Default Empty
     expectResponseCode HTTP.status200 r
     let txs = getFromResponse id r
@@ -1288,10 +1288,10 @@ postWallet'
 postWallet' ctx headers payload = snd <$> allocate create (free . snd)
   where
     create =
-        request @ApiWallet ctx (Link.postWallet @'Shelley) headers payload
+        request @ApiWallet ctx (Link.postWallet @Shelley) headers payload
 
     free (Right w) = void $ request @Aeson.Value ctx
-        (Link.deleteWallet @'Shelley w) Default Empty
+        (Link.deleteWallet @Shelley w) Default Empty
     free (Left _) = return ()
 
 postWallet
@@ -1310,10 +1310,10 @@ postByronWallet
 postByronWallet ctx payload = snd <$> allocate create (free . snd)
   where
     create =
-        request @ApiByronWallet ctx (Link.postWallet @'Byron) Default payload
+        request @ApiByronWallet ctx (Link.postWallet @Byron) Default payload
 
     free (Right w) = void $ request @Aeson.Value ctx
-        (Link.deleteWallet @'Byron w) Default Empty
+        (Link.deleteWallet @Byron w) Default Empty
     free (Left _) = return ()
 
 emptyByronWalletWith
@@ -1453,7 +1453,7 @@ rewardWallet ctx = do
     let w = getFromResponse id r
     waitForNextEpoch ctx
     eventually "MIR wallet: wallet is 100% synced " $ do
-        rg <- request @ApiWallet ctx (Link.getWallet @'Shelley w) Default Empty
+        rg <- request @ApiWallet ctx (Link.getWallet @Shelley w) Default Empty
         verify rg
             [ expectField (#balance . #available . #getQuantity) (.> 0)
             , expectField (#balance . #reward . #getQuantity) (.> 0)
@@ -1490,19 +1490,19 @@ fixtureMultiAssetRandomWallet ctx = do
     assetsSrc `shouldNotBe` mempty
     let val = minUTxOValue (_mainEra ctx) <$ pickAnAsset assetsSrc
 
-    rL <- request @[ApiAddress n] ctx (Link.listAddresses @'Byron wB) Default Empty
+    rL <- request @[ApiAddress n] ctx (Link.listAddresses @Byron wB) Default Empty
     let addrs = getFromResponse id rL
     let destination = (addrs !! 1) ^. #id
     payload <- mkTxPayloadMA @n destination 0 [val] fixturePassphrase
 
     -- send assets to Byron wallet
     rtx <- request @(ApiTransaction n) ctx
-        (Link.createTransactionOld @'Shelley wMA) Default payload
+        (Link.createTransactionOld @Shelley wMA) Default payload
     expectResponseCode HTTP.status202 rtx
 
     eventually "Byron wallet has assets" $ do
         rb <- request @ApiByronWallet ctx
-            (Link.getWallet @'Byron wB) Default Empty
+            (Link.getWallet @Byron wB) Default Empty
         verify rb
             [ expectField (#assets . #available . #getApiT)
                 (`shouldNotBe` TokenMap.empty)
@@ -1531,19 +1531,19 @@ fixtureMultiAssetIcarusWallet ctx = do
     assetsSrc `shouldNotBe` mempty
     let val = minUTxOValue (_mainEra ctx) <$ pickAnAsset assetsSrc
 
-    rL <- request @[ApiAddress n] ctx (Link.listAddresses @'Byron wB) Default Empty
+    rL <- request @[ApiAddress n] ctx (Link.listAddresses @Byron wB) Default Empty
     let addrs = getFromResponse id rL
     let destination = (addrs !! 1) ^. #id
     payload <- mkTxPayloadMA @n destination 0 [val] fixturePassphrase
 
     -- send assets to Icarus wallet
     rtx <- request @(ApiTransaction n) ctx
-        (Link.createTransactionOld @'Shelley wMA) Default payload
+        (Link.createTransactionOld @Shelley wMA) Default payload
     expectResponseCode HTTP.status202 rtx
 
     eventually "Icarus wallet has assets" $ do
         rb <- request @ApiByronWallet ctx
-            (Link.getWallet @'Byron wB) Default Empty
+            (Link.getWallet @Byron wB) Default Empty
         verify rb
             [ expectField (#assets . #available . #getApiT)
                 (`shouldNotBe` TokenMap.empty)
@@ -1561,12 +1561,12 @@ postSharedWallet
 postSharedWallet ctx headers payload = snd <$> allocate create (free . snd)
   where
     create =
-        request @ApiSharedWallet ctx (Link.postWallet @'Shared) headers payload
+        request @ApiSharedWallet ctx (Link.postWallet @Shared) headers payload
 
     free (Right (ApiSharedWallet (Left w))) = void $ request @Aeson.Value ctx
-        (Link.deleteWallet @'Shared w) Default Empty
+        (Link.deleteWallet @Shared w) Default Empty
     free (Right (ApiSharedWallet (Right w))) = void $ request @Aeson.Value ctx
-        (Link.deleteWallet @'Shared w) Default Empty
+        (Link.deleteWallet @Shared w) Default Empty
     free (Left _) = return ()
 
 deleteSharedWallet
@@ -1579,7 +1579,7 @@ deleteSharedWallet ctx = \case
       ApiSharedWallet (Right wal') -> r wal'
   where
       r :: forall w. HasType (ApiT WalletId) w => w -> m (HTTP.Status, Either RequestException Value)
-      r w = request @Aeson.Value ctx (Link.deleteWallet @'Shared w) Default Empty
+      r w = request @Aeson.Value ctx (Link.deleteWallet @Shared w) Default Empty
 
 getSharedWallet
     :: forall m. MonadUnliftIO m
@@ -1591,7 +1591,7 @@ getSharedWallet ctx = \case
     ApiSharedWallet (Right wal') -> r wal'
   where
       r :: forall w. HasType (ApiT WalletId) w => w -> m (HTTP.Status, Either RequestException ApiSharedWallet)
-      r w = request @ApiSharedWallet ctx (Link.getWallet @'Shared w) Default Empty
+      r w = request @ApiSharedWallet ctx (Link.getWallet @Shared w) Default Empty
 
 getSharedWalletKey
     :: forall m. MonadUnliftIO m
@@ -1607,7 +1607,7 @@ getSharedWalletKey ctx wal role ix isHashed =
         ApiSharedWallet (Right wal') -> r wal'
   where
       r :: forall w. HasType (ApiT WalletId) w => w -> m (HTTP.Status, Either RequestException ApiVerificationKeyShared)
-      r w = request @ApiVerificationKeyShared ctx (Link.getWalletKey @'Shared w role ix isHashed) Default Empty
+      r w = request @ApiVerificationKeyShared ctx (Link.getWalletKey @Shared w role ix isHashed) Default Empty
 
 postAccountKeyShared
     :: forall m. MonadUnliftIO m
@@ -1623,7 +1623,7 @@ postAccountKeyShared ctx wal ix headers payload =
         ApiSharedWallet (Right wal') -> r wal'
   where
       r :: forall w. HasType (ApiT WalletId) w => w -> m (HTTP.Status, Either RequestException ApiAccountKeyShared)
-      r w = request @ApiAccountKeyShared ctx (Link.postAccountKey @'Shared w ix) headers payload
+      r w = request @ApiAccountKeyShared ctx (Link.postAccountKey @Shared w ix) headers payload
 
 getAccountKeyShared
     :: forall m. MonadUnliftIO m
@@ -1637,7 +1637,7 @@ getAccountKeyShared ctx wal isHashed =
         ApiSharedWallet (Right wal') -> r wal'
   where
       r :: forall w. HasType (ApiT WalletId) w => w -> m (HTTP.Status, Either RequestException ApiAccountKeyShared)
-      r w = request @ApiAccountKeyShared ctx (Link.getAccountKey @'Shared w isHashed) Default Empty
+      r w = request @ApiAccountKeyShared ctx (Link.getAccountKey @Shared w isHashed) Default Empty
 
 getSomeVerificationKey
     :: forall m. MonadUnliftIO m
@@ -1645,7 +1645,7 @@ getSomeVerificationKey
     -> ApiWallet
     -> m (ApiVerificationKeyShelley, ApiT (Hash "VerificationKey"))
 getSomeVerificationKey ctx w = do
-    let link = Link.getWalletKey @'Shelley w UtxoExternal (DerivationIndex 0) Nothing
+    let link = Link.getWalletKey @Shelley w UtxoExternal (DerivationIndex 0) Nothing
     (_, vk@(ApiVerificationKeyShelley (bytes, _) _)) <-
         unsafeRequest @ApiVerificationKeyShelley ctx link Empty
     pure (vk, ApiT $ Hash $ blake2b224 @ByteString bytes)
@@ -1721,7 +1721,7 @@ fixtureWalletWithMnemonics _ ctx = snd <$> allocate create (free . fst)
                 "passphrase": #{fixturePassphrase}
                 } |]
         r <- request @ApiWallet ctx
-            (Link.postWallet @'Shelley) Default payload
+            (Link.postWallet @Shelley) Default payload
         expectResponseCode HTTP.status201 r
         let w = getFromResponse id r
         race (threadDelay sixtySeconds) (checkBalance w) >>= \case
@@ -1730,11 +1730,11 @@ fixtureWalletWithMnemonics _ ctx = snd <$> allocate create (free . fst)
             Right a -> return (a, mnemonics)
 
     free w = void $ request @Aeson.Value ctx
-        (Link.deleteWallet @'Shelley w) Default Empty
+        (Link.deleteWallet @Shelley w) Default Empty
     sixtySeconds = 60*oneSecond
     checkBalance w = do
         r <- request @ApiWallet ctx
-            (Link.getWallet @'Shelley w) Default Empty
+            (Link.getWallet @Shelley w) Default Empty
         if getFromResponse (#balance . #available) r > Quantity 0
             then return (getFromResponse id r)
             else threadDelay oneSecond *> checkBalance w
@@ -1793,9 +1793,9 @@ fixtureRandomWalletWith ctx coins0 = do
     let addrs = randomAddresses @n mws
     liftIO $ mapM_ (moveByronCoins @n ctx src (dest, addrs)) (groupsOf 10 coins0)
     void $ request @() ctx
-        (Link.deleteWallet @'Byron src) Default Empty
+        (Link.deleteWallet @Byron src) Default Empty
     r <- request @ApiByronWallet ctx
-        (Link.getWallet @'Byron dest) Default Empty
+        (Link.getWallet @Byron dest) Default Empty
     expectResponseCode HTTP.status200 r
     pure (getFromResponse id r)
 
@@ -1853,9 +1853,9 @@ fixtureIcarusWalletWith ctx coins0 = do
     let addrs = icarusAddresses @n mws
     liftIO $ mapM_ (moveByronCoins @n ctx src (dest, addrs)) (groupsOf 10 coins0)
     void $ request @() ctx
-        (Link.deleteWallet @'Byron src) Default Empty
+        (Link.deleteWallet @Byron src) Default Empty
     r <- request @ApiByronWallet ctx
-        (Link.getWallet @'Byron dest) Default Empty
+        (Link.getWallet @Byron dest) Default Empty
     expectResponseCode HTTP.status200 r
     pure (getFromResponse id r)
 
@@ -1876,7 +1876,7 @@ fixtureLegacyWallet ctx style mnemonics = snd <$> allocate create free
                 "passphrase": #{fixturePassphrase},
                 "style": #{style}
                 } |]
-        r <- request @ApiByronWallet ctx (Link.postWallet @'Byron) Default payload
+        r <- request @ApiByronWallet ctx (Link.postWallet @Byron) Default payload
         expectResponseCode HTTP.status201 r
         let w = getFromResponse id r
         liftIO $ race (threadDelay sixtySeconds) (checkBalance w) >>= \case
@@ -1887,12 +1887,12 @@ fixtureLegacyWallet ctx style mnemonics = snd <$> allocate create free
                 return a
     free w = do
         void $ request @() ctx
-            (Link.deleteWallet @'Byron w) Default Empty
+            (Link.deleteWallet @Byron w) Default Empty
 
     sixtySeconds = 60*oneSecond
     checkBalance w = do
         r <- request @ApiByronWallet ctx
-            (Link.getWallet @'Byron w) Default Empty
+            (Link.getWallet @Byron w) Default Empty
         if getFromResponse (#balance . #available) r > Quantity 0
             then return (getFromResponse id r)
             else threadDelay oneSecond *> checkBalance w
@@ -1919,12 +1919,12 @@ fixtureWalletWith ctx coins0 = do
     dest <- emptyWallet ctx
     liftIO $ mapM_ (moveCoins src dest) (groupsOf 10 coins0)
     liftIO $ void $ request @() ctx
-        (Link.deleteWallet @'Shelley src) Default Empty
+        (Link.deleteWallet @Shelley src) Default Empty
 
     waitForTxImmutability ctx
 
     r <- request @ApiWallet ctx
-        (Link.getWallet @'Shelley dest) Default Empty
+        (Link.getWallet @Shelley dest) Default Empty
     expectResponseCode HTTP.status200 r
     pure (getFromResponse id r)
   where
@@ -1940,10 +1940,10 @@ fixtureWalletWith ctx coins0 = do
     moveCoins src dest coins = do
         balance <- getFromResponse (#balance . #available . #getQuantity)
             <$> request @ApiWallet ctx
-                    (Link.getWallet @'Shelley dest) Default Empty
+                    (Link.getWallet @Shelley dest) Default Empty
         addrs <- fmap (view #id) . getFromResponse id
             <$> request @[ApiAddress n] ctx
-                    (Link.listAddresses @'Shelley dest) Default Empty
+                    (Link.listAddresses @Shelley dest) Default Empty
         let payments = for (zip coins addrs) $ \(amt, addr) -> [aesonQQ|{
                 "address": #{addr},
                 "amount": {
@@ -1956,16 +1956,16 @@ fixtureWalletWith ctx coins0 = do
                 "passphrase": #{fixturePassphrase}
             }|]
         request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @'Shelley src) Default payload
+            (Link.createTransactionOld @Shelley src) Default payload
             >>= expectResponseCode HTTP.status202
         eventually "balance available = balance total" $ do
             rb <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley dest) Default Empty
+                (Link.getWallet @Shelley dest) Default Empty
             expectField
                 (#balance . #available)
                 (`shouldBe` Quantity (sum (balance:coins))) rb
             ra <- request @ApiWallet ctx
-                (Link.getWallet @'Shelley src) Default Empty
+                (Link.getWallet @Shelley src) Default Empty
 
             getFromResponse (#balance . #available) ra
                 `shouldBe`
@@ -1982,11 +1982,11 @@ constFixtureWalletNoWait ctx = snd <$> allocate create free
             "passphrase": #{fixturePassphrase}
         } |]
     create = do
-        r <- request @ApiWallet ctx (Link.postWallet @'Shelley) Default payload
+        r <- request @ApiWallet ctx (Link.postWallet @Shelley) Default payload
         expectResponseCode HTTP.status201 r
         pure $ getFromResponse id r
     free w = void $ request @Aeson.Value ctx
-        (Link.deleteWallet @'Shelley w) Default Empty
+        (Link.deleteWallet @Shelley w) Default Empty
 
 -- | Move coins from a wallet to another
 moveByronCoins
@@ -2006,7 +2006,7 @@ moveByronCoins
     -> IO ()
 moveByronCoins ctx src (dest, addrs) coins = do
     balance <- getFromResponse (#balance . #available . #getQuantity)
-        <$> request @ApiByronWallet ctx (Link.getWallet @'Byron dest) Default Empty
+        <$> request @ApiByronWallet ctx (Link.getWallet @Byron dest) Default Empty
     let payments = for (zip coins addrs) $ \(amt, addr) ->
             let addrStr = encodeAddress @n addr
             in [aesonQQ|{
@@ -2021,15 +2021,15 @@ moveByronCoins ctx src (dest, addrs) coins = do
             "passphrase": #{fixturePassphrase}
         }|]
     request @(ApiTransaction n) ctx
-        (Link.createTransactionOld @'Byron src) Default payload
+        (Link.createTransactionOld @Byron src) Default payload
         >>= expectResponseCode HTTP.status202
     eventually "balance available = balance total" $ do
         rb <- request @ApiByronWallet ctx
-            (Link.getWallet @'Byron dest) Default Empty
+            (Link.getWallet @Byron dest) Default Empty
         expectField (#balance . #available)
             (`shouldBe` Quantity (sum (balance:coins))) rb
         ra <- request @ApiByronWallet ctx
-            (Link.getWallet @'Byron src) Default Empty
+            (Link.getWallet @Byron src) Default Empty
         getFromResponse (#balance . #available) ra
             `shouldBe` getFromResponse (#balance . #total) ra
 
@@ -2275,7 +2275,7 @@ listAddresses
     -> ApiWallet
     -> m [ApiAddress n]
 listAddresses ctx w = do
-    let link = Link.listAddresses @'Shelley w
+    let link = Link.listAddresses @Shelley w
     r <- request @[ApiAddress n] ctx link Default Empty
     expectResponseCode HTTP.status200 r
     return (getFromResponse id r)
@@ -2292,7 +2292,7 @@ signTx ctx w sealedTx expectations = do
                            { "transaction": #{sealedTx}
                            , "passphrase": #{fixturePassphrase}
                            }|]
-    let signEndpoint = Link.signTransaction @'Shelley w
+    let signEndpoint = Link.signTransaction @Shelley w
     r <- request @ApiSerialisedTransaction ctx signEndpoint Default toSign
     verify r expectations
     pure $ getFromResponse Prelude.id r
@@ -2309,7 +2309,7 @@ signSharedTx ctx w sealedTx expectations = do
                            { "transaction": #{sealedTx}
                            , "passphrase": #{fixturePassphrase}
                            }|]
-    let signEndpoint = Link.signTransaction @'Shared w
+    let signEndpoint = Link.signTransaction @Shared w
     r <- request @ApiSerialisedTransaction ctx signEndpoint Default toSign
     verify r expectations
     pure $ getFromResponse Prelude.id r
@@ -2338,7 +2338,7 @@ submitTxWithWid
     -> ApiSerialisedTransaction
     -> m (HTTP.Status, Either RequestException ApiTxId)
 submitTxWithWid ctx w tx = do
-    let submitEndpoint = Link.submitTransaction @'Shelley w
+    let submitEndpoint = Link.submitTransaction @Shelley w
     let payload = Json $ Aeson.toJSON tx
     request @ApiTxId ctx submitEndpoint Default payload
 
@@ -2349,7 +2349,7 @@ submitSharedTxWithWid
     -> ApiSerialisedTransaction
     -> m (HTTP.Status, Either RequestException ApiTxId)
 submitSharedTxWithWid ctx w tx = do
-    let submitEndpoint = Link.submitTransaction @'Shared w
+    let submitEndpoint = Link.submitTransaction @Shared w
     let payload = Json $ Aeson.toJSON tx
     request @ApiTxId ctx submitEndpoint Default payload
 
@@ -2362,7 +2362,7 @@ getWallet
     -> w
     -> m ApiWallet
 getWallet ctx w = do
-    let link = Link.getWallet @'Shelley w
+    let link = Link.getWallet @Shelley w
     r <- request @ApiWallet ctx link Default Empty
     expectResponseCode HTTP.status200 r
     return (getFromResponse id r)
@@ -2399,7 +2399,7 @@ listTransactions ctx w mStart mEnd mOrder = do
     let txs = getFromResponse id r
     return txs
   where
-    path = Link.listTransactions' @'Shelley w
+    path = Link.listTransactions' @Shelley w
         Nothing
         (Iso8601Time <$> mStart)
         (Iso8601Time <$> mEnd)
@@ -2434,7 +2434,7 @@ listFilteredWallets
     -> m (HTTP.Status, Either RequestException [ApiWallet])
 listFilteredWallets include ctx = do
     (s, mwallets) <- request @[ApiWallet] ctx
-        (Link.listWallets @'Shelley) Default Empty
+        (Link.listWallets @Shelley) Default Empty
     return (s, filter (\w -> (w ^. walletId) `Set.member` include) <$> mwallets)
 
 -- | Calls 'GET /byron-wallets' and filters the response. This allows tests to
@@ -2446,7 +2446,7 @@ listFilteredByronWallets
     -> m (HTTP.Status, Either RequestException [ApiByronWallet])
 listFilteredByronWallets include ctx = do
     (s, mwallets) <- request @[ApiByronWallet] ctx
-        (Link.listWallets @'Byron) Default Empty
+        (Link.listWallets @Byron) Default Empty
     return (s, filter (\w -> (w ^. walletId) `Set.member` include) <$> mwallets)
 
 listFilteredSharedWallets
@@ -2456,7 +2456,7 @@ listFilteredSharedWallets
     -> m (HTTP.Status, Either RequestException [ApiSharedWallet])
 listFilteredSharedWallets include ctx = do
     (s, mwallets) <- request @[ApiSharedWallet] ctx
-        (Link.listWallets @'Shared) Default Empty
+        (Link.listWallets @Shared) Default Empty
     return (s, filter (\w -> (getWalletIdFromSharedWallet w ^. walletId) `Set.member` include) <$> mwallets)
 
 getWalletIdFromSharedWallet :: ApiSharedWallet -> ApiT WalletId
@@ -2957,7 +2957,7 @@ rootPrvKeyFromMnemonics mnemonics pass =
     T.decodeUtf8 $ hex $ getKey $ Byron.generateKeyFromSeed seed
         (preparePassphrase W.EncryptWithScrypt rawPassd)
  where
-     (Right seed) = mkSomeMnemonic @'[12] mnemonics
+     (Right seed) = mkSomeMnemonic @('[12])  mnemonics
      rawPassd = Passphrase $ BA.convert $ T.encodeUtf8 pass
 
 --
@@ -2968,7 +2968,7 @@ pubKeyFromMnemonics mnemonics =
     T.decodeUtf8 $ serializeXPub $ publicKey
        $ deriveAccountPrivateKey mempty rootXPrv minBound
  where
-     seed = either (error . show) id $ mkSomeMnemonic @'[15,24] mnemonics
+     seed = either (error . show) id $ mkSomeMnemonic @[15,24] mnemonics
      rootXPrv = Shelley.generateKeyFromSeed (seed, Nothing) mempty
 
 --
