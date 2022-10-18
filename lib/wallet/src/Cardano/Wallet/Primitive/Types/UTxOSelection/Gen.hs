@@ -7,22 +7,32 @@ module Cardano.Wallet.Primitive.Types.UTxOSelection.Gen
     , shrinkUTxOSelection
     , shrinkUTxOSelectionNonEmpty
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Wallet.Primitive.Types.UTxOIndex.Gen
-    ( genUTxOIndex, shrinkUTxOIndex )
+    ( genUTxOIndex
+    , shrinkUTxOIndex
+    )
 import Cardano.Wallet.Primitive.Types.UTxOSelection
-    ( UTxOSelection, UTxOSelectionNonEmpty )
+    ( UTxOSelection
+    , UTxOSelectionNonEmpty
+    )
+import Cardano.Wallet.Primitive.Types.UTxOSelection qualified as UTxOSelection
 import Data.Maybe
-    ( mapMaybe )
+    ( mapMaybe
+    )
 import Test.QuickCheck
-    ( Gen, arbitrary, coarbitrary, liftShrink2, shrinkMapBy, suchThatMap )
+    ( Gen
+    , arbitrary
+    , coarbitrary
+    , liftShrink2
+    , shrinkMapBy
+    , suchThatMap
+    )
 import Test.QuickCheck.Extra
-    ( genFunction )
-
-import qualified Cardano.Wallet.Primitive.Types.UTxOSelection as UTxOSelection
+    ( genFunction
+    )
+import Prelude
 
 --------------------------------------------------------------------------------
 -- Selections that may be empty
@@ -35,9 +45,10 @@ genUTxOFunction :: Show u => Gen a -> Gen (u -> a)
 genUTxOFunction = genFunction coarbitraryUTxO
 
 genUTxOSelection :: forall u. (Ord u, Show u) => Gen u -> Gen (UTxOSelection u)
-genUTxOSelection genUTxO = UTxOSelection.fromIndexFiltered
-    <$> genUTxOFilter
-    <*> genUTxOIndex genUTxO
+genUTxOSelection genUTxO =
+    UTxOSelection.fromIndexFiltered
+        <$> genUTxOFilter
+        <*> genUTxOIndex genUTxO
   where
     genUTxOFilter :: Gen (u -> Bool)
     genUTxOFilter = genUTxOFunction (arbitrary @Bool)
@@ -61,7 +72,7 @@ genUTxOSelectionNonEmpty genUTxO =
 
 shrinkUTxOSelectionNonEmpty
     :: Ord u => (u -> [u]) -> (UTxOSelectionNonEmpty u -> [UTxOSelectionNonEmpty u])
-shrinkUTxOSelectionNonEmpty shrinkUTxO
-    = mapMaybe UTxOSelection.toNonEmpty
-    . shrinkUTxOSelection shrinkUTxO
-    . UTxOSelection.fromNonEmpty
+shrinkUTxOSelectionNonEmpty shrinkUTxO =
+    mapMaybe UTxOSelection.toNonEmpty
+        . shrinkUTxOSelection shrinkUTxO
+        . UTxOSelection.fromNonEmpty

@@ -27,10 +27,8 @@
 --
 --  * "Cardano.Wallet.Primitive.AddressDerivation.Shelley"
 --  * "Cardano.Wallet.Primitive.AddressDerivation.Byron"
-
 module Cardano.Wallet.Primitive.AddressDerivation
-    (
-    -- * HD Derivation
+    ( -- * HD Derivation
       Depth (..)
     , Index (..)
     , Role (..)
@@ -48,77 +46,108 @@ module Cardano.Wallet.Primitive.AddressDerivation
     , liftIndex
     , hashVerificationKey
 
-    -- * Delegation
+      -- * Delegation
     , RewardAccount (..)
-    , ToRewardAccount(..)
+    , ToRewardAccount (..)
     , deriveRewardAccount
 
-    -- * Helpers
+      -- * Helpers
     , hex
     , fromHex
 
-    -- * Network Discrimination
+      -- * Network Discrimination
     , NetworkDiscriminant (..)
     , NetworkDiscriminantVal
     , networkDiscriminantVal
 
-    -- * Backends Interoperability
-    , PaymentAddress(..)
-    , DelegationAddress(..)
+      -- * Backends Interoperability
+    , PaymentAddress (..)
+    , DelegationAddress (..)
     , BoundedAddressLength (..)
-    , WalletKey(..)
-    , PersistPrivateKey(..)
-    , PersistPublicKey(..)
-    , MkKeyFingerprint(..)
-    , ErrMkKeyFingerprint(..)
-    , KeyFingerprint(..)
+    , WalletKey (..)
+    , PersistPrivateKey (..)
+    , PersistPublicKey (..)
+    , MkKeyFingerprint (..)
+    , ErrMkKeyFingerprint (..)
+    , KeyFingerprint (..)
     , unsafePaymentKeyFingerprint
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv, XPub, xpubPublicKey )
+    ( XPrv
+    , XPub
+    , xpubPublicKey
+    )
 import Cardano.Address.Script
-    ( KeyHash (..), KeyRole )
+    ( KeyHash (..)
+    , KeyRole
+    )
 import Cardano.Mnemonic
-    ( SomeMnemonic )
+    ( SomeMnemonic
+    )
 import Cardano.Wallet.Primitive.Passphrase.Types
-    ( Passphrase (..), PassphraseHash (..), PassphraseScheme )
+    ( Passphrase (..)
+    , PassphraseHash (..)
+    , PassphraseScheme
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount (..) )
+    ( RewardAccount (..)
+    )
 import Control.Applicative
-    ( (<|>) )
+    ( (<|>)
+    )
 import Control.DeepSeq
-    ( NFData )
+    ( NFData
+    )
 import Control.Monad
-    ( (>=>) )
+    ( (>=>)
+    )
 import Crypto.Hash
-    ( Digest, HashAlgorithm )
+    ( Digest
+    , HashAlgorithm
+    )
 import Crypto.Hash.Utils
-    ( blake2b224 )
+    ( blake2b224
+    )
 import Data.ByteArray
-    ( ByteArray, ByteArrayAccess )
+    ( ByteArray
+    , ByteArrayAccess
+    )
 import Data.ByteArray.Encoding
-    ( Base (..), convertFromBase, convertToBase )
+    ( Base (..)
+    , convertFromBase
+    , convertToBase
+    )
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
 import Data.Kind
-    ( Type )
+    ( Type
+    )
 import Data.List.NonEmpty
-    ( NonEmpty (..) )
+    ( NonEmpty (..)
+    )
 import Data.Maybe
-    ( fromMaybe )
+    ( fromMaybe
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Scientific
-    ( Scientific, toBoundedInteger )
+    ( Scientific
+    , toBoundedInteger
+    )
 import Data.String
-    ( fromString )
+    ( fromString
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
     ( CaseStyle (..)
     , FromText (..)
@@ -128,25 +157,39 @@ import Data.Text.Class
     , toTextFromBoundedEnum
     )
 import Data.Type.Equality
-    ( (:~:) (..), testEquality )
+    ( testEquality
+    , (:~:) (..)
+    )
 import Data.Word
-    ( Word32 )
+    ( Word32
+    )
 import Fmt
-    ( Buildable (..) )
+    ( Buildable (..)
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import GHC.Stack
-    ( HasCallStack )
+    ( HasCallStack
+    )
 import GHC.TypeLits
-    ( KnownNat, Nat, Symbol, natVal )
+    ( KnownNat
+    , Nat
+    , Symbol
+    , natVal
+    )
 import Quiet
-    ( Quiet (..) )
+    ( Quiet (..)
+    )
 import Safe
-    ( readMay, toEnumMay )
+    ( readMay
+    , toEnumMay
+    )
 import Type.Reflection
-    ( Typeable, typeRep )
-
-import qualified Data.Text as T
+    ( Typeable
+    , typeRep
+    )
+import Prelude
 
 {-------------------------------------------------------------------------------
                                 HD Hierarchy
@@ -223,20 +266,22 @@ instance FromText Role where
 -- >>> roleVal @chain
 -- ...
 roleVal :: forall (c :: Role). Typeable c => Role
-roleVal = fromMaybe (error $ "role: unmatched type" <> show (typeRep @c))
-       (tryUtxoExternal <|> tryUtxoInternal <|> tryMutableAccount)
+roleVal =
+    fromMaybe
+        (error $ "role: unmatched type" <> show (typeRep @c))
+        (tryUtxoExternal <|> tryUtxoInternal <|> tryMutableAccount)
   where
     tryUtxoExternal =
         case testEquality (typeRep @c) (typeRep @UtxoExternal) of
-            Just Refl  -> Just UtxoExternal
+            Just Refl -> Just UtxoExternal
             Nothing -> Nothing
     tryUtxoInternal =
         case testEquality (typeRep @c) (typeRep @UtxoInternal) of
-            Just Refl  -> Just UtxoInternal
+            Just Refl -> Just UtxoInternal
             Nothing -> Nothing
     tryMutableAccount =
         case testEquality (typeRep @c) (typeRep @MutableAccount) of
-            Just Refl  -> Just MutableAccount
+            Just Refl -> Just MutableAccount
             Nothing -> Nothing
 
 -- | smart-constructor for getting a derivation index that refers to external
@@ -260,11 +305,12 @@ zeroAccount = minBound
 -- | Full path to the stake key. There's only one.
 stakeDerivationPath :: DerivationPrefix -> NonEmpty DerivationIndex
 stakeDerivationPath (DerivationPrefix (purpose, coin, acc)) =
-    (fromIndex purpose) :| [
-      fromIndex coin
-    , fromIndex acc
-    , fromIndex mutableAccount
-    , fromIndex zeroAccount]
+    (fromIndex purpose)
+        :| [ fromIndex coin
+           , fromIndex acc
+           , fromIndex mutableAccount
+           , fromIndex zeroAccount
+           ]
   where
     fromIndex :: Index t l -> DerivationIndex
     fromIndex = DerivationIndex . getIndex
@@ -285,45 +331,47 @@ stakeDerivationPath (DerivationPrefix (purpose, coin, acc)) =
 --    simply a value >= 2^31. Therefore, instead of representing indexes as
 --    derivationType + relative index within 0 and 2^31, we can represent them
 --    as just an index between 0 and 2^32, which is what DerivationIndex does.
-newtype DerivationIndex
-    = DerivationIndex { getDerivationIndex :: Word32 }
+newtype DerivationIndex = DerivationIndex {getDerivationIndex :: Word32}
     deriving (Eq, Ord, Generic)
-    deriving Show via (Quiet DerivationIndex)
+    deriving (Show) via (Quiet DerivationIndex)
 
 instance NFData DerivationIndex
 
 instance ToText DerivationIndex where
     toText (DerivationIndex ix)
-        | ix >= firstHardened  = T.pack $ show (ix - firstHardened) <> "H"
+        | ix >= firstHardened = T.pack $ show (ix - firstHardened) <> "H"
         | otherwise = T.pack $ show ix
       where
         firstHardened = getIndex @Hardened minBound
 
 instance FromText DerivationIndex where
     fromText source =
-        if "H" `T.isSuffixOf` source then do
-            DerivationIndex ix <- castNumber (T.init source) >>= parseAsScientific
-            pure $ DerivationIndex $ ix + firstHardened
-        else
-            castNumber source >>= parseAsScientific
+        if "H" `T.isSuffixOf` source
+            then do
+                DerivationIndex ix <- castNumber (T.init source) >>= parseAsScientific
+                pure $ DerivationIndex $ ix + firstHardened
+            else castNumber source >>= parseAsScientific
       where
         firstHardened = getIndex @Hardened minBound
 
-        errMalformed = TextDecodingError $ unwords
-            [ "A derivation index must be a natural number between"
-            , show (getIndex @Soft minBound)
-            , "and"
-            , show (getIndex @Soft maxBound)
-            , "with an optional 'H' suffix (e.g. '1815H' or '44')."
-            , "Indexes without suffixes are called 'Soft'"
-            , "Indexes with suffixes are called 'Hardened'."
-            ]
+        errMalformed =
+            TextDecodingError $
+                unwords
+                    [ "A derivation index must be a natural number between"
+                    , show (getIndex @Soft minBound)
+                    , "and"
+                    , show (getIndex @Soft maxBound)
+                    , "with an optional 'H' suffix (e.g. '1815H' or '44')."
+                    , "Indexes without suffixes are called 'Soft'"
+                    , "Indexes with suffixes are called 'Hardened'."
+                    ]
 
         parseAsScientific :: Scientific -> Either TextDecodingError DerivationIndex
         parseAsScientific x =
             case toBoundedInteger x of
-                Just ix | ix < firstHardened ->
-                    pure $ DerivationIndex ix
+                Just ix
+                    | ix < firstHardened ->
+                        pure $ DerivationIndex ix
                 _ ->
                     Left errMalformed
 
@@ -342,7 +390,7 @@ instance FromText DerivationIndex where
 -- let addressIx = Index 'Soft 'CredFromKeyK
 -- @
 newtype Index (derivationType :: DerivationType) (level :: Depth) = Index
-    { getIndex :: Word32 }
+    {getIndex :: Word32}
     deriving stock (Generic, Show, Eq, Ord)
 
 instance NFData (Index derivationType level)
@@ -364,14 +412,15 @@ instance Enum (Index 'Hardened level) where
     toEnum ix
         | ix >= minIndex && ix <= maxIndex = Index (fromIntegral ix)
         | otherwise =
-            error $ concat
-                [ "Index@Hardened.toEnum: value "
-                , show ix
-                , " is not within bounds: "
-                , show minIndex
-                , " <= value <= "
-                , show maxIndex
-                ]
+            error $
+                concat
+                    [ "Index@Hardened.toEnum: value "
+                    , show ix
+                    , " is not within bounds: "
+                    , show minIndex
+                    , " <= value <= "
+                    , show maxIndex
+                    ]
       where
         minIndex = fromIntegral (getIndex (minBound @(Index 'Hardened _)))
         maxIndex = fromIntegral (getIndex (maxBound @(Index 'Hardened _)))
@@ -381,14 +430,15 @@ instance Enum (Index 'Soft level) where
     toEnum ix
         | ix >= minIndex && ix <= maxIndex = Index (fromIntegral ix)
         | otherwise =
-            error $ concat
-                [ "Index@Soft.toEnum: value "
-                , show ix
-                , " is not within bounds: "
-                , show minIndex
-                , " <= value <= "
-                , show maxIndex
-                ]
+            error $
+                concat
+                    [ "Index@Soft.toEnum: value "
+                    , show ix
+                    , " is not within bounds: "
+                    , show minIndex
+                    , " <= value <= "
+                    , show maxIndex
+                    ]
       where
         minIndex = fromIntegral (getIndex (minBound @(Index 'Soft _)))
         maxIndex = fromIntegral (getIndex (maxBound @(Index 'Soft _)))
@@ -398,14 +448,15 @@ instance Enum (Index 'WholeDomain level) where
     toEnum ix
         | ix >= minIndex && ix <= maxIndex = Index (fromIntegral ix)
         | otherwise =
-            error $ concat
-                [ "Index@WholeDomain.toEnum: value "
-                , show ix
-                , " is not within bounds: "
-                , show minIndex
-                , " <= value <= "
-                , show maxIndex
-                ]
+            error $
+                concat
+                    [ "Index@WholeDomain.toEnum: value "
+                    , show ix
+                    , " is not within bounds: "
+                    , show minIndex
+                    , " <= value <= "
+                    , show maxIndex
+                    ]
       where
         minIndex = fromIntegral (getIndex (minBound @(Index 'WholeDomain _)))
         maxIndex = fromIntegral (getIndex (maxBound @(Index 'WholeDomain _)))
@@ -414,17 +465,23 @@ instance Buildable (Index derivationType level) where
     build (Index ix) = fromString (show ix)
 
 instance
-  ( Enum (Index derivation level)
-  , Bounded (Index derivation level)
-  ) => FromText (Index derivation level) where
-    fromText = fromText >=> \n -> case toEnumMay n of
-        Just ix -> pure ix
-        Nothing -> Left $ TextDecodingError $ unwords
-            [ "Couldn't parse derivation index. Expected an integer between"
-            , show (minBound @(Index derivation level))
-            , "and"
-            , show (maxBound @(Index derivation level))
-            ]
+    ( Enum (Index derivation level)
+    , Bounded (Index derivation level)
+    )
+    => FromText (Index derivation level)
+    where
+    fromText =
+        fromText >=> \n -> case toEnumMay n of
+            Just ix -> pure ix
+            Nothing ->
+                Left $
+                    TextDecodingError $
+                        unwords
+                            [ "Couldn't parse derivation index. Expected an integer between"
+                            , show (minBound @(Index derivation level))
+                            , "and"
+                            , show (maxBound @(Index derivation level))
+                            ]
 
 -- Safe coercion to WholeDomain from smaller domains.
 class LiftIndex derivation where
@@ -449,27 +506,31 @@ instance LiftIndex 'Soft where
 -- SeqState keeps track of indexes from the two last levels of a derivation
 -- branch. The 'DerivationPrefix' defines the first three indexes chosen for
 -- this particular 'SeqState'.
-newtype DerivationPrefix = DerivationPrefix
-    ( Index 'Hardened 'PurposeK
-    , Index 'Hardened 'CoinTypeK
-    , Index 'Hardened 'AccountK
-    ) deriving (Show, Generic, Eq, Ord)
+newtype DerivationPrefix
+    = DerivationPrefix
+        ( Index 'Hardened 'PurposeK
+        , Index 'Hardened 'CoinTypeK
+        , Index 'Hardened 'AccountK
+        )
+    deriving (Show, Generic, Eq, Ord)
 
 instance NFData DerivationPrefix
 
 instance ToText DerivationPrefix where
-    toText (DerivationPrefix (purpose, coinType, account))
-        = T.intercalate "/"
-        $ map toText
-        [getIndex purpose, getIndex coinType, getIndex account]
+    toText (DerivationPrefix (purpose, coinType, account)) =
+        T.intercalate "/" $
+            map
+                toText
+                [getIndex purpose, getIndex coinType, getIndex account]
 
 instance FromText DerivationPrefix where
     fromText txt =
         DerivationPrefix <$> case T.splitOn "/" txt of
-            [purposeT, coinTypeT, accountT] -> (,,)
-                <$> fromText purposeT
-                <*> fromText coinTypeT
-                <*> fromText accountT
+            [purposeT, coinTypeT, accountT] ->
+                (,,)
+                    <$> fromText purposeT
+                    <*> fromText coinTypeT
+                    <*> fromText accountT
             _ ->
                 Left $ TextDecodingError "expected exactly 3 derivation paths"
 
@@ -543,13 +604,14 @@ class ToRewardAccount k where
 -- located into a special derivation path and uses the first index of that path.
 deriveRewardAccount
     :: ( HardDerivation k
-       , Bounded (Index (AddressIndexDerivationType k) (AddressCredential k)) )
+       , Bounded (Index (AddressIndexDerivationType k) (AddressCredential k))
+       )
     => Passphrase "encryption"
     -> k 'RootK XPrv
     -> k (AddressCredential k) XPrv
 deriveRewardAccount pwd rootPrv =
     let accPrv = deriveAccountPrivateKey pwd rootPrv minBound
-    in deriveAddressPrivateKey pwd accPrv MutableAccount minBound
+     in deriveAddressPrivateKey pwd accPrv MutableAccount minBound
 
 hashVerificationKey
     :: WalletKey k
@@ -577,9 +639,8 @@ hashVerificationKey keyRole =
 -- - @Staging@: very much like testnet, but like mainnet, assumes to no address
 --              discrimination. Genesis file needs to be passed explicitly when
 --              starting the application.
---
 data NetworkDiscriminant = Mainnet | Testnet Nat | Staging Nat
-    deriving Typeable
+    deriving (Typeable)
 
 class NetworkDiscriminantVal (n :: NetworkDiscriminant) where
     networkDiscriminantVal :: Text
@@ -588,11 +649,11 @@ instance NetworkDiscriminantVal 'Mainnet where
     networkDiscriminantVal =
         "mainnet"
 
-instance KnownNat pm => NetworkDiscriminantVal ('Testnet pm) where
+instance KnownNat pm => NetworkDiscriminantVal ( 'Testnet pm) where
     networkDiscriminantVal =
         "testnet (" <> T.pack (show $ natVal $ Proxy @pm) <> ")"
 
-instance KnownNat pm => NetworkDiscriminantVal ('Staging pm) where
+instance KnownNat pm => NetworkDiscriminantVal ( 'Staging pm) where
     networkDiscriminantVal =
         "staging (" <> T.pack (show $ natVal $ Proxy @pm) <> ")"
 
@@ -609,9 +670,9 @@ class WalletKey (key :: Depth -> Type -> Type) where
     -- will lead to very bad thing.
     changePassphrase
         :: (PassphraseScheme, Passphrase "user")
-            -- ^ Old passphrase
+        -- ^ Old passphrase
         -> (PassphraseScheme, Passphrase "user")
-            -- ^ New passphrase
+        -- ^ New passphrase
         -> key depth XPrv
         -> key depth XPrv
 
@@ -641,7 +702,6 @@ class WalletKey (key :: Depth -> Type -> Type) where
         -> key depth raw
 
 -- | The class of keys for which addresses are bounded in length.
---
 class BoundedAddressLength key where
     -- | Returns the longest address that the wallet can generate for a given
     --   key.
@@ -654,14 +714,15 @@ class BoundedAddressLength key where
     --
     --  - never be used for anything besides its length and validity properties.
     --  - never be used as a payment target within a real transaction.
-    --
     maxLengthAddressFor
         :: Proxy key
         -> Address
 
 -- | Encoding of addresses for certain key types and backend targets.
-class MkKeyFingerprint key Address
-    => PaymentAddress (network :: NetworkDiscriminant) key ktype where
+class
+    MkKeyFingerprint key Address =>
+    PaymentAddress (network :: NetworkDiscriminant) key ktype
+    where
     -- | Convert a public key to a payment 'Address' valid for the given
     -- network discrimination.
     --
@@ -674,15 +735,17 @@ class MkKeyFingerprint key Address
     -- | Lift a payment fingerprint back into a payment address.
     liftPaymentAddress
         :: KeyFingerprint "payment" key
-            -- ^ Payment fingerprint
+        -- ^ Payment fingerprint
         -> Address
 
-instance PaymentAddress 'Mainnet k ktype => PaymentAddress ('Staging pm) k ktype where
+instance PaymentAddress 'Mainnet k ktype => PaymentAddress ( 'Staging pm) k ktype where
     paymentAddress = paymentAddress @Mainnet @k @ktype
     liftPaymentAddress = liftPaymentAddress @Mainnet @k @ktype
 
-class PaymentAddress network key ktype
-    => DelegationAddress (network :: NetworkDiscriminant) key ktype where
+class
+    PaymentAddress network key ktype =>
+    DelegationAddress (network :: NetworkDiscriminant) key ktype
+    where
     -- | Convert a public key and a staking key to a delegation 'Address' valid
     -- for the given network discrimination. Funds sent to this address will be
     -- delegated according to the delegation settings attached to the delegation
@@ -692,20 +755,20 @@ class PaymentAddress network key ktype
     -- application.
     delegationAddress
         :: key ktype XPub
-            -- ^ Payment key
+        -- ^ Payment key
         -> key ktype XPub
-            -- ^ Staking key / Reward account
+        -- ^ Staking key / Reward account
         -> Address
 
     -- | Lift a payment fingerprint back into a delegation address.
     liftDelegationAddress
         :: KeyFingerprint "payment" key
-            -- ^ Payment fingerprint
+        -- ^ Payment fingerprint
         -> key ktype XPub
-            -- ^ Staking key / Reward account
+        -- ^ Staking key / Reward account
         -> Address
 
-instance DelegationAddress 'Mainnet k ktype => DelegationAddress ('Staging pm) k ktype where
+instance DelegationAddress 'Mainnet k ktype => DelegationAddress ( 'Staging pm) k ktype where
     delegationAddress = delegationAddress @Mainnet
     liftDelegationAddress = liftDelegationAddress @Mainnet
 
@@ -769,7 +832,8 @@ class Show from => MkKeyFingerprint (key :: Depth -> Type -> Type) from where
             (KeyFingerprint "payment" key)
 
 data ErrMkKeyFingerprint key from
-    = ErrInvalidAddress from (Proxy key) deriving (Show, Eq)
+    = ErrInvalidAddress from (Proxy key)
+    deriving (Show, Eq)
 
 -- Extract the fingerprint from an 'Address', we expect the caller to
 -- provide addresses that are compatible with the key scheme being used.
@@ -777,16 +841,19 @@ data ErrMkKeyFingerprint key from
 -- Actually, addresses passed as asgument should have been "generated" by
 -- the address pool itself in the past, so they ought to be valid!
 unsafePaymentKeyFingerprint
-    :: forall k from. (HasCallStack, MkKeyFingerprint k from)
+    :: forall k from
+     . (HasCallStack, MkKeyFingerprint k from)
     => from
     -> KeyFingerprint "payment" k
 unsafePaymentKeyFingerprint from = case paymentKeyFingerprint @k @from from of
     Right a -> a
-    Left err -> error $ unwords
-        [ "unsafePaymentKeyFingerprint was given a source invalid with its"
-        , "key type:"
-        , show err
-        ]
+    Left err ->
+        error $
+            unwords
+                [ "unsafePaymentKeyFingerprint was given a source invalid with its"
+                , "key type:"
+                , show err
+                ]
 
 {-------------------------------------------------------------------------------
                                 Helpers

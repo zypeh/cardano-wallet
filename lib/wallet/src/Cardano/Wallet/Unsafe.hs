@@ -16,7 +16,6 @@
 --
 -- But these "unsafe" functions should not be used in application code, unless
 -- it's certain that the error case will never happen.
-
 module Cardano.Wallet.Unsafe
     ( unsafeRight
     , unsafeFromHex
@@ -34,17 +33,18 @@ module Cardano.Wallet.Unsafe
     , unsafeBech32Decode
     , unsafeMkPercentage
     , unsafeIntToWord
-
     , someDummyMnemonic
     , unsafeMkMnemonic
     , unsafeMkEntropy
     , unsafeMkSomeMnemonicFromEntropy
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Crypto.Wallet
-    ( XPrv, XPub )
+    ( XPrv
+    , XPub
+    )
+import Cardano.Crypto.Wallet qualified as CC
 import Cardano.Mnemonic
     ( ConsistentEntropy
     , Entropy
@@ -60,55 +60,83 @@ import Cardano.Mnemonic
     , mkMnemonic
     )
 import Cardano.Wallet.Api.Types
-    ( DecodeAddress (..) )
+    ( DecodeAddress (..)
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address )
+    ( Address
+    )
 import Cardano.Wallet.Util
-    ( internalError )
+    ( internalError
+    )
+import Codec.Binary.Bech32 qualified as Bech32
+import Codec.CBOR.Decoding qualified as CBOR
+import Codec.CBOR.Read qualified as CBOR
 import Control.Monad
-    ( (>=>) )
+    ( (>=>)
+    )
 import Control.Monad.Trans.Except
-    ( ExceptT (..), runExceptT )
+    ( ExceptT (..)
+    , runExceptT
+    )
 import Data.Binary.Get
-    ( Get, runGet )
+    ( Get
+    , runGet
+    )
 import Data.ByteArray
-    ( ByteArray )
+    ( ByteArray
+    )
+import Data.ByteArray qualified as BA
 import Data.ByteArray.Encoding
-    ( Base (..), convertFromBase )
+    ( Base (..)
+    , convertFromBase
+    )
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
+import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as B8
+import Data.ByteString.Lazy qualified as BL
 import Data.Char
-    ( isHexDigit )
+    ( isHexDigit
+    )
 import Data.Either
-    ( fromRight )
+    ( fromRight
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Quantity
-    ( Percentage, mkPercentage )
+    ( Percentage
+    , mkPercentage
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
-    ( FromText (..) )
+    ( FromText (..)
+    )
+import Data.Text.Encoding qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Typeable
-    ( Typeable, typeRep )
+    ( Typeable
+    , typeRep
+    )
 import Fmt
-    ( Buildable, Builder, build, (+||), (|+), (||+) )
+    ( Buildable
+    , Builder
+    , build
+    , (+||)
+    , (|+)
+    , (||+)
+    )
 import GHC.Stack
-    ( HasCallStack )
+    ( HasCallStack
+    )
 import GHC.TypeLits
-    ( natVal )
-
-import qualified Cardano.Crypto.Wallet as CC
-import qualified Codec.Binary.Bech32 as Bech32
-import qualified Codec.CBOR.Decoding as CBOR
-import qualified Codec.CBOR.Read as CBOR
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.IO as TIO
+    ( natVal
+    )
+import Prelude
 
 -- | Take the right side of an 'Either' value. Crash badly if it was a left.
 unsafeRight :: (Buildable e, HasCallStack) => Either e a -> a
@@ -133,7 +161,8 @@ unsafeFromHexFile = fmap (unsafeFromHex . B8.filter isHexDigit) . B8.readFile
 
 -- | Decode a bech32-encoded 'Text' into an 'Address', or fail.
 unsafeDecodeAddress
-    :: forall n. (HasCallStack, DecodeAddress n)
+    :: forall n
+     . (HasCallStack, DecodeAddress n)
     => Text
     -> Address
 unsafeDecodeAddress = unsafeRight . decodeAddress @n
@@ -163,7 +192,7 @@ unsafeXPub bytes =
 -- | Build 'Mnemonic' from literals
 unsafeMkMnemonic
     :: forall mw n csz
-    .  (ConsistentEntropy n mw csz, EntropySize mw ~ n, HasCallStack)
+     . (ConsistentEntropy n mw csz, EntropySize mw ~ n, HasCallStack)
     => [Text]
     -> Mnemonic mw
 unsafeMkMnemonic m =
@@ -175,11 +204,12 @@ unsafeMkMnemonic m =
 -- called after checking for an invariant or, after ensuring that preconditions
 -- for meeting the underlying error have been discarded.
 unsafeRunExceptT :: (MonadFail m, Show e) => ExceptT e m a -> m a
-unsafeRunExceptT = runExceptT >=> \case
-    Left e ->
-        fail $ "unexpected error: " <> show e
-    Right a ->
-        return a
+unsafeRunExceptT =
+    runExceptT >=> \case
+        Left e ->
+            fail $ "unexpected error: " <> show e
+        Right a ->
+            return a
 
 -- | CBOR deserialise without error handling - handy for prototypes or testing.
 unsafeDeserialiseCbor
@@ -187,58 +217,58 @@ unsafeDeserialiseCbor
     => (forall s. CBOR.Decoder s a)
     -> BL.ByteString
     -> a
-unsafeDeserialiseCbor decoder bytes = either
-    (\e -> error $ "unsafeSerializeCbor: " <> show e)
-    snd
-    (CBOR.deserialiseFromBytes decoder bytes)
+unsafeDeserialiseCbor decoder bytes =
+    either
+        (\e -> error $ "unsafeSerializeCbor: " <> show e)
+        snd
+        (CBOR.deserialiseFromBytes decoder bytes)
 
 unsafeMkEntropy
-    :: forall ent csz.
-        ( HasCallStack
-        , ValidEntropySize ent
-        , ValidChecksumSize ent csz
-        )
+    :: forall ent csz
+     . ( HasCallStack
+       , ValidEntropySize ent
+       , ValidChecksumSize ent csz
+       )
     => ByteString
     -> Entropy ent
 unsafeMkEntropy = either (error . show) id . mkEntropy . BA.convert
 
 unsafeMkSomeMnemonicFromEntropy
-    :: forall mw ent csz.
-        ( HasCallStack
-        , ValidEntropySize ent
-        , ValidChecksumSize ent csz
-        , ValidMnemonicSentence mw
-        , ent ~ EntropySize mw
-        , mw ~ MnemonicWords ent
-        )
+    :: forall mw ent csz
+     . ( HasCallStack
+       , ValidEntropySize ent
+       , ValidChecksumSize ent csz
+       , ValidMnemonicSentence mw
+       , ent ~ EntropySize mw
+       , mw ~ MnemonicWords ent
+       )
     => Proxy mw
     -> ByteString
     -> SomeMnemonic
-unsafeMkSomeMnemonicFromEntropy _ = SomeMnemonic
-    . entropyToMnemonic
-    . unsafeMkEntropy @ent
+unsafeMkSomeMnemonicFromEntropy _ =
+    SomeMnemonic
+        . entropyToMnemonic
+        . unsafeMkEntropy @ent
 
 -- | A dummy @SomeMnemonic@ for testing.
 --
 -- Could have been named @dummySomeMnemonic@, but this way it sounds more like
 -- valid english.
 someDummyMnemonic
-    :: forall mw ent csz.
-        ( HasCallStack
-        , ValidEntropySize ent
-        , ValidChecksumSize ent csz
-        , ValidMnemonicSentence mw
-        , ent ~ EntropySize mw
-        , mw ~ MnemonicWords ent
-        )
+    :: forall mw ent csz
+     . ( HasCallStack
+       , ValidEntropySize ent
+       , ValidChecksumSize ent csz
+       , ValidMnemonicSentence mw
+       , ent ~ EntropySize mw
+       , mw ~ MnemonicWords ent
+       )
     => Proxy mw
     -> SomeMnemonic
 someDummyMnemonic proxy =
-    let
-        n = fromIntegral $ natVal (Proxy @ent) `div` 8
+    let n = fromIntegral $ natVal (Proxy @ent) `div` 8
         entropy = BS.replicate n 0
-    in
-        unsafeMkSomeMnemonicFromEntropy proxy entropy
+     in unsafeMkSomeMnemonicFromEntropy proxy entropy
 
 -- | Load the data part of a bech32-encoded string from file. These files often
 -- come from @jcli@. Only the first line of the file is read.
@@ -250,12 +280,19 @@ unsafeBech32DecodeFile = fmap (unsafeBech32Decode . firstLine) . TIO.readFile
 -- | Get the data part of a bech32-encoded string, ignoring the human-readable part.
 unsafeBech32Decode :: HasCallStack => Text -> BL.ByteString
 unsafeBech32Decode txt = case Bech32.decodeLenient txt of
-    Right (_hrp, dp) -> maybe (bomb "missing data part")
-        BL.fromStrict (Bech32.dataPartToBytes dp)
+    Right (_hrp, dp) ->
+        maybe
+            (bomb "missing data part")
+            BL.fromStrict
+            (Bech32.dataPartToBytes dp)
     Left e -> bomb (show e)
   where
-    bomb msg = error $ "Could not decode bech32 string " ++ show txt
-        ++ " because " ++ msg
+    bomb msg =
+        error $
+            "Could not decode bech32 string "
+                ++ show txt
+                ++ " because "
+                ++ msg
 
 unsafeMkPercentage :: HasCallStack => Rational -> Percentage
 unsafeMkPercentage r = fromRight bomb $ mkPercentage r
@@ -277,14 +314,23 @@ unsafeIntToWord
        , Integral to
        , Typeable from
        , Typeable to
-       , Show from)
-    => from -> to
+       , Show from
+       )
+    => from
+    -> to
 unsafeIntToWord n
     | n < fromIntegral (minBound :: to) = crash "underflow"
     | n > fromIntegral (maxBound :: to) = crash "overflow"
     | otherwise = fromIntegral n
   where
     crash :: Builder -> to
-    crash err = internalError $ err |+" converting value "+|| n ||+
-        " from " +|| typeRep (Proxy @from) ||+
-        " to "+|| typeRep (Proxy @to) ||+"!"
+    crash err =
+        internalError $
+            err
+                |+ " converting value "
+                +|| n
+                ||+ " from "
+                +|| typeRep (Proxy @from)
+                ||+ " to "
+                +|| typeRep (Proxy @to)
+                ||+ "!"

@@ -1,4 +1,3 @@
-
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -18,50 +17,62 @@ module Cardano.Wallet.Read.Tx.Hash
     , fromShelleyTxId
     , getEraTxHash
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Binary
-    ( ToCBOR (..) )
+    ( ToCBOR (..)
+    )
 import Cardano.Chain.UTxO
-    ( ATxAux, taTx )
+    ( ATxAux
+    , taTx
+    )
 import Cardano.Crypto
-    ( serializeCborHash )
+    ( serializeCborHash
+    )
+import Cardano.Crypto qualified as CryptoC
+import Cardano.Crypto.Hash qualified as Crypto
+import Cardano.Ledger.Alonzo.Tx qualified as Alonzo
+import Cardano.Ledger.Babbage.Tx qualified as Babbage hiding
+    ( ScriptIntegrityHash
+    , TxBody
+    )
 import Cardano.Ledger.Core
-    ( AuxiliaryData )
+    ( AuxiliaryData
+    )
+import Cardano.Ledger.Core qualified as SL.Core
+import Cardano.Ledger.Crypto qualified as SL
 import Cardano.Ledger.Era
-    ( Era (..) )
+    ( Era (..)
+    )
+import Cardano.Ledger.SafeHash qualified as SafeHash
+import Cardano.Ledger.Shelley.API qualified as SL
 import Cardano.Ledger.Shelley.TxBody
-    ( EraIndependentTxBody )
+    ( EraIndependentTxBody
+    )
+import Cardano.Ledger.ShelleyMA qualified as MA
+import Cardano.Ledger.TxIn qualified as TxIn
 import Cardano.Wallet.Read
-    ( Tx )
+    ( Tx
+    )
 import Cardano.Wallet.Read.Eras
-    ( EraFun (..), K (..) )
+    ( EraFun (..)
+    , K (..)
+    )
 import Cardano.Wallet.Read.Tx.Eras
-    ( onTx )
-
-import qualified Cardano.Crypto as CryptoC
-import qualified Cardano.Crypto.Hash as Crypto
-import qualified Cardano.Ledger.Alonzo.Tx as Alonzo
-import qualified Cardano.Ledger.Babbage.Tx as Babbage hiding
-    ( ScriptIntegrityHash, TxBody )
-import qualified Cardano.Ledger.Core as SL.Core
-import qualified Cardano.Ledger.Crypto as SL
-import qualified Cardano.Ledger.SafeHash as SafeHash
-import qualified Cardano.Ledger.Shelley.API as SL
-import qualified Cardano.Ledger.ShelleyMA as MA
-import qualified Cardano.Ledger.TxIn as TxIn
+    ( onTx
+    )
+import Prelude
 
 getEraTxHash :: EraFun Tx (K Crypto.ByteString)
-getEraTxHash = EraFun
-    { byronFun = onTx $ K . byronTxHash
-    , shelleyFun = onTx $ K . shelleyTxHash
-    , allegraFun = onTx $ K . shelleyTxHash
-    , maryFun = onTx $ K . shelleyTxHash
-    , alonzoFun = onTx $ K . alonzoTxHash
-    , babbageFun = onTx $ K . alonzoTxHash
-    }
+getEraTxHash =
+    EraFun
+        { byronFun = onTx $ K . byronTxHash
+        , shelleyFun = onTx $ K . shelleyTxHash
+        , allegraFun = onTx $ K . shelleyTxHash
+        , maryFun = onTx $ K . shelleyTxHash
+        , alonzoFun = onTx $ K . alonzoTxHash
+        , babbageFun = onTx $ K . alonzoTxHash
+        }
 
 byronTxHash :: ATxAux a -> Crypto.ByteString
 byronTxHash = CryptoC.hashToBytes . serializeCborHash . taTx
@@ -69,9 +80,10 @@ byronTxHash = CryptoC.hashToBytes . serializeCborHash . taTx
 alonzoTxHash
     :: ( Crypto.HashAlgorithm (SL.HASH crypto)
        , SafeHash.HashAnnotated
-             (SL.Core.TxBody era)
-             EraIndependentTxBody
-             crypto)
+            (SL.Core.TxBody era)
+            EraIndependentTxBody
+            crypto
+       )
     => Babbage.ValidatedTx era
     -> Crypto.ByteString
 alonzoTxHash (Alonzo.ValidatedTx bod _ _ _) = fromShelleyTxId $ TxIn.txid bod
@@ -80,7 +92,8 @@ shelleyTxHash
     :: ( Era x
        , ToCBOR (AuxiliaryData x)
        , ToCBOR (SL.Core.TxBody x)
-       , ToCBOR (SL.Core.Witnesses x))
+       , ToCBOR (SL.Core.Witnesses x)
+       )
     => MA.Tx x
     -> Crypto.ByteString
 shelleyTxHash

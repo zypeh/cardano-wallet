@@ -11,9 +11,8 @@ module Cardano.Api.Extra
     ( withShelleyBasedTx
     , inAnyCardanoEra
     , asAnyShelleyBasedEra
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Api
     ( CardanoEra (..)
@@ -24,6 +23,7 @@ import Cardano.Api
     , ShelleyBasedEra (..)
     , Tx
     )
+import Prelude
 
 -- | Apply an era-parameterized function to an existentially-wrapped
 -- tx.
@@ -31,8 +31,8 @@ withShelleyBasedTx
     :: InAnyShelleyBasedEra Tx
     -> (forall era. IsShelleyBasedEra era => Tx era -> a)
     -> a
-withShelleyBasedTx (InAnyShelleyBasedEra _era tx) f
-    = f tx
+withShelleyBasedTx (InAnyShelleyBasedEra _era tx) f =
+    f tx
 
 -- | Helper function for more easily creating an existential
 -- @InAnyCardanoEra Tx@.

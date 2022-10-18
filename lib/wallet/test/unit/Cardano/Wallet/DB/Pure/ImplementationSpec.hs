@@ -6,45 +6,56 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.DB.Pure.ImplementationSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.DB.Properties
-    ( properties )
+    ( properties
+    )
+import Cardano.Wallet.DB.Pure.Layer qualified as PureLayer
 import Cardano.Wallet.DummyTarget.Primitive.Types
-    ( dummyTimeInterpreter )
+    ( dummyTimeInterpreter
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( NetworkDiscriminant (..) )
+    ( NetworkDiscriminant (..)
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( ShelleyKey )
+    ( ShelleyKey
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery
-    ( IsOurs (..) )
+    ( IsOurs (..)
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
-    ( SeqState (..) )
+    ( SeqState (..)
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address )
+    ( Address
+    )
 import Control.DeepSeq
-    ( NFData )
+    ( NFData
+    )
 import Test.Hspec
-    ( Spec, before, describe )
+    ( Spec
+    , before
+    , describe
+    )
 import Test.QuickCheck
-    ( Arbitrary (..) )
+    ( Arbitrary (..)
+    )
 import Test.Utils.Platform
-    ( pendingOnMacOS )
-
-import qualified Cardano.Wallet.DB.Pure.Layer as PureLayer
+    ( pendingOnMacOS
+    )
+import Prelude
 
 spec :: Spec
 spec =
-    before (pendingOnMacOS "#2472: timeouts in hydra mac builds")
-    $ before (PureLayer.newDBLayer @IO @(SeqState 'Mainnet ShelleyKey) ti)
-    $ describe "PureLayer" properties
+    before (pendingOnMacOS "#2472: timeouts in hydra mac builds") $
+        before (PureLayer.newDBLayer @IO @(SeqState 'Mainnet ShelleyKey) ti) $
+            describe "PureLayer" properties
   where
     ti = dummyTimeInterpreter
 

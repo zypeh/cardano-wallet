@@ -1,41 +1,64 @@
 {-# LANGUAGE RankNTypes #-}
+
 module Control.Concurrent.ConciergeSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Control.Concurrent.Concierge
-    ( atomicallyWithLifted, newConcierge )
+    ( atomicallyWithLifted
+    , newConcierge
+    )
 import Control.Monad.Class.MonadFork
-    ( forkIO )
+    ( forkIO
+    )
 import Control.Monad.Class.MonadSay
-    ( say )
+    ( say
+    )
 import Control.Monad.Class.MonadTimer
-    ( threadDelay )
+    ( threadDelay
+    )
 import Control.Monad.IOSim
-    ( IOSim, runSimTrace, selectTraceEventsSay )
+    ( IOSim
+    , runSimTrace
+    , selectTraceEventsSay
+    )
 import Control.Monad.Trans.Class
-    ( lift )
+    ( lift
+    )
 import Control.Monad.Trans.Except
-    ( ExceptT, catchE, runExceptT, throwE )
+    ( ExceptT
+    , catchE
+    , runExceptT
+    , throwE
+    )
 import Test.Hspec
-    ( Spec, describe, it, parallel )
+    ( Spec
+    , describe
+    , it
+    , parallel
+    )
 import Test.QuickCheck
-    ( Property, (===) )
+    ( Property
+    , (===)
+    )
+import Prelude
 
 spec :: Spec
 spec = do
     parallel $ describe "Control.Concurrent.Concierge" $ do
-        it "Atomic operations do not interleave"
+        it
+            "Atomic operations do not interleave"
             unit_atomic
 
-        it "throwE in ExceptT releases lock"
+        it
+            "throwE in ExceptT releases lock"
             unit_exceptT_release_lock
 
 {-------------------------------------------------------------------------------
     Properties
 -------------------------------------------------------------------------------}
+
 -- | Deterministic test for atomicity.
 -- We have to compare a program run that interleaves
 -- against one that is atomic.
@@ -61,7 +84,7 @@ unit_atomic =
     action s = say s >> delay 2 >> say s
 
     delay :: Int -> IOSim s ()
-    delay n = threadDelay (fromIntegral n*0.1)
+    delay n = threadDelay (fromIntegral n * 0.1)
 
 -- | Check that using 'throwE' in the 'ExceptE' monad releases the lock
 unit_exceptT_release_lock :: Property

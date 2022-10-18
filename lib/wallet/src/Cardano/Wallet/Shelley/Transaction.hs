@@ -28,16 +28,15 @@
 -- License: Apache-2.0
 --
 -- Working with Shelley transactions.
-
 module Cardano.Wallet.Shelley.Transaction
     ( newTransactionLayer
 
-    -- * Updating SealedTx
+      -- * Updating SealedTx
     , TxUpdate (..)
     , noTxUpdate
     , updateSealedTx
 
-    -- * Internals
+      -- * Internals
     , TxPayload (..)
     , TxSkeleton (..)
     , TxWitnessTag (..)
@@ -60,14 +59,20 @@ module Cardano.Wallet.Shelley.Transaction
     , distributeSurplusDelta
     , sizeOfCoin
     , maximumCostOfIncreasingCoin
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv, toXPub )
+    ( XPrv
+    , toXPub
+    )
 import Cardano.Address.Script
-    ( Cosigner, KeyHash, Script (..), ScriptTemplate (..), foldScript )
+    ( Cosigner
+    , KeyHash
+    , Script (..)
+    , ScriptTemplate (..)
+    , foldScript
+    )
 import Cardano.Api
     ( AnyCardanoEra (..)
     , ByronEra
@@ -79,22 +84,56 @@ import Cardano.Api
     , ShelleyBasedEra (..)
     , ToCBOR
     )
+import Cardano.Api qualified as Cardano
+import Cardano.Api.Byron qualified as Byron
+import Cardano.Api.Shelley qualified as Cardano
 import Cardano.Binary
-    ( serialize' )
+    ( serialize'
+    )
+import Cardano.Chain.Common qualified as Byron
+import Cardano.Crypto qualified as CC
+import Cardano.Crypto.DSIGN qualified as DSIGN
+import Cardano.Crypto.Hash.Class qualified as Crypto
 import Cardano.Crypto.Wallet
-    ( XPub )
+    ( XPub
+    )
+import Cardano.Crypto.Wallet qualified as Crypto.HD
+import Cardano.Ledger.Alonzo.Data qualified as Alonzo
+import Cardano.Ledger.Alonzo.PParams qualified as Alonzo
+import Cardano.Ledger.Alonzo.PlutusScriptApi qualified as Alonzo
+import Cardano.Ledger.Alonzo.Scripts qualified as Alonzo
 import Cardano.Ledger.Alonzo.Tools
-    ( evaluateTransactionExecutionUnits )
+    ( evaluateTransactionExecutionUnits
+    )
+import Cardano.Ledger.Alonzo.Tx qualified as Alonzo
+import Cardano.Ledger.Alonzo.TxWitness qualified as Alonzo
+import Cardano.Ledger.Babbage.PParams qualified as Babbage
+import Cardano.Ledger.Babbage.Tx qualified as Babbage
+import Cardano.Ledger.Coin qualified as Ledger
+import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto
-    ( DSIGN )
+    ( DSIGN
+    )
 import Cardano.Ledger.Era
-    ( Crypto, Era, ValidateScript (..) )
+    ( Crypto
+    , Era
+    , ValidateScript (..)
+    )
+import Cardano.Ledger.Serialization qualified as Ledger
 import Cardano.Ledger.Shelley.API
-    ( StrictMaybe (..) )
+    ( StrictMaybe (..)
+    )
+import Cardano.Ledger.Shelley.Address.Bootstrap qualified as SL
+import Cardano.Ledger.Shelley.Tx qualified as Shelley
+import Cardano.Ledger.Shelley.UTxO qualified as Ledger
+import Cardano.Ledger.Shelley.UTxO qualified as Shelley
+import Cardano.Ledger.ShelleyMA.TxBody qualified as ShelleyMA
 import Cardano.Slotting.EpochInfo
-    ( EpochInfo )
+    ( EpochInfo
+    )
 import Cardano.Slotting.EpochInfo.API
-    ( hoistEpochInfo )
+    ( hoistEpochInfo
+    )
 import Cardano.Wallet.CoinSelection
     ( SelectionLimitOf (..)
     , SelectionOf (..)
@@ -102,19 +141,32 @@ import Cardano.Wallet.CoinSelection
     , selectionDelta
     )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( Depth (..), RewardAccount (..), WalletKey (..) )
+    ( Depth (..)
+    , RewardAccount (..)
+    , WalletKey (..)
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Byron
-    ( ByronKey )
+    ( ByronKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Icarus
-    ( IcarusKey )
+    ( IcarusKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shared
-    ( SharedKey )
+    ( SharedKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( ShelleyKey, toRewardAccountRaw )
+    ( ShelleyKey
+    , toRewardAccountRaw
+    )
 import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase (..) )
+    ( Passphrase (..)
+    )
 import Cardano.Wallet.Primitive.Slotting
-    ( PastHorizonException, TimeInterpreter, getSystemStart, toEpochInfo )
+    ( PastHorizonException
+    , TimeInterpreter
+    , getSystemStart
+    , toEpochInfo
+    )
 import Cardano.Wallet.Primitive.Types
     ( Certificate
     , ExecutionUnitPrices (..)
@@ -125,21 +177,34 @@ import Cardano.Wallet.Primitive.Types
     , TxParameters (..)
     )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
+import Cardano.Wallet.Primitive.Types.Coin qualified as Coin
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
+    ( Hash (..)
+    )
 import Cardano.Wallet.Primitive.Types.Redeemer
-    ( Redeemer, redeemerData )
+    ( Redeemer
+    , redeemerData
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle
-    ( TokenBundle (..) )
+    ( TokenBundle (..)
+    )
+import Cardano.Wallet.Primitive.Types.TokenBundle qualified as TokenBundle
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId (..), TokenMap )
+    ( AssetId (..)
+    , TokenMap
+    )
+import Cardano.Wallet.Primitive.Types.TokenMap qualified as TokenMap
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName (..) )
+    ( TokenName (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity (..) )
+    ( TokenQuantity (..)
+    )
 import Cardano.Wallet.Primitive.Types.Tx
     ( SealedTx (..)
     , Tx (..)
@@ -154,11 +219,16 @@ import Cardano.Wallet.Primitive.Types.Tx
     , withinEra
     )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
-    ( TxConstraints (..), TxSize (..), txSizeDistance )
+    ( TxConstraints (..)
+    , TxSize (..)
+    , txSizeDistance
+    )
 import Cardano.Wallet.Primitive.Types.UTxO
-    ( UTxO (..) )
+    ( UTxO (..)
+    )
 import Cardano.Wallet.Read.Primitive.Tx
-    ( fromCardanoTx )
+    ( fromCardanoTx
+    )
 import Cardano.Wallet.Shelley.Compatibility
     ( cardanoCertKeysForWitnesses
     , fromCardanoAddress
@@ -178,8 +248,11 @@ import Cardano.Wallet.Shelley.Compatibility
     , toStakeKeyRegCert
     , toStakePoolDlgCert
     )
+import Cardano.Wallet.Shelley.Compatibility qualified as Compatibility
 import Cardano.Wallet.Shelley.MinimumUTxO
-    ( computeMinimumCoinForUTxO, isBelowMinimumCoinForUTxO )
+    ( computeMinimumCoinForUTxO
+    , isBelowMinimumCoinForUTxO
+    )
 import Cardano.Wallet.Transaction
     ( AnyScript (..)
     , DelegationAction (..)
@@ -198,96 +271,104 @@ import Cardano.Wallet.Transaction
     , withdrawalToCoin
     )
 import Cardano.Wallet.Util
-    ( internalError, modifyM )
+    ( internalError
+    , modifyM
+    )
+import Codec.CBOR.Encoding qualified as CBOR
+import Codec.CBOR.Write qualified as CBOR
 import Codec.Serialise
-    ( deserialiseOrFail )
+    ( deserialiseOrFail
+    )
 import Control.Arrow
-    ( left, second )
+    ( left
+    , second
+    )
 import Control.Monad
-    ( forM, guard )
+    ( forM
+    , guard
+    )
 import Control.Monad.Trans.Class
-    ( lift )
+    ( lift
+    )
 import Control.Monad.Trans.Except
-    ( runExceptT )
+    ( runExceptT
+    )
 import Control.Monad.Trans.State.Strict
-    ( StateT (..), execStateT, get, modify' )
+    ( StateT (..)
+    , execStateT
+    , get
+    , modify'
+    )
 import Data.Bifunctor
-    ( bimap )
+    ( bimap
+    )
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BL
 import Data.Either
-    ( fromRight )
+    ( fromRight
+    )
+import Data.Foldable qualified as F
 import Data.Function
-    ( (&) )
+    ( (&)
+    )
 import Data.Functor
-    ( ($>), (<&>) )
+    ( ($>)
+    , (<&>)
+    )
 import Data.Functor.Identity
-    ( runIdentity )
+    ( runIdentity
+    )
 import Data.Generics.Internal.VL.Lens
-    ( view, (^.) )
+    ( view
+    , (^.)
+    )
 import Data.Generics.Labels
-    ()
+    (
+    )
 import Data.IntCast
-    ( intCast )
+    ( intCast
+    )
 import Data.Kind
-    ( Type )
+    ( Type
+    )
+import Data.List qualified as L
+import Data.Map qualified as Map
+import Data.Map.Merge.Strict qualified as Map
 import Data.Map.Strict
-    ( Map, (!) )
+    ( Map
+    , (!)
+    )
 import Data.Maybe
-    ( fromMaybe, mapMaybe )
+    ( fromMaybe
+    , mapMaybe
+    )
 import Data.Quantity
-    ( Quantity (..) )
+    ( Quantity (..)
+    )
+import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set
-    ( Set )
+    ( Set
+    )
+import Data.Set qualified as Set
+import Data.Text qualified as T
 import Data.Type.Equality
-    ( type (==) )
+    ( type (==)
+    )
 import Data.Word
-    ( Word16, Word64, Word8 )
+    ( Word16
+    , Word64
+    , Word8
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import Numeric.Natural
-    ( Natural )
+    ( Natural
+    )
 import Ouroboros.Network.Block
-    ( SlotNo )
-
-import qualified Cardano.Api as Cardano
-import qualified Cardano.Api.Byron as Byron
-import qualified Cardano.Api.Shelley as Cardano
-import qualified Cardano.Chain.Common as Byron
-import qualified Cardano.Crypto as CC
-import qualified Cardano.Crypto.DSIGN as DSIGN
-import qualified Cardano.Crypto.Hash.Class as Crypto
-import qualified Cardano.Crypto.Wallet as Crypto.HD
-import qualified Cardano.Ledger.Alonzo.Data as Alonzo
-import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Alonzo
-import qualified Cardano.Ledger.Alonzo.PParams as Alonzo
-import qualified Cardano.Ledger.Alonzo.Scripts as Alonzo
-import qualified Cardano.Ledger.Alonzo.Tx as Alonzo
-import qualified Cardano.Ledger.Alonzo.TxWitness as Alonzo
-import qualified Cardano.Ledger.Babbage.PParams as Babbage
-import qualified Cardano.Ledger.Babbage.Tx as Babbage
-import qualified Cardano.Ledger.Coin as Ledger
-import qualified Cardano.Ledger.Core as Ledger
-import qualified Cardano.Ledger.Serialization as Ledger
-import qualified Cardano.Ledger.Shelley.Address.Bootstrap as SL
-import qualified Cardano.Ledger.Shelley.Tx as Shelley
-import qualified Cardano.Ledger.Shelley.UTxO as Shelley
-import qualified Cardano.Ledger.Shelley.UTxO as Ledger
-import qualified Cardano.Ledger.ShelleyMA.TxBody as ShelleyMA
-import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
-import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
-import qualified Cardano.Wallet.Primitive.Types.TokenMap as TokenMap
-import qualified Cardano.Wallet.Shelley.Compatibility as Compatibility
-import qualified Codec.CBOR.Encoding as CBOR
-import qualified Codec.CBOR.Write as CBOR
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Foldable as F
-import qualified Data.List as L
-import qualified Data.Map as Map
-import qualified Data.Map.Merge.Strict as Map
-import qualified Data.Sequence.Strict as StrictSeq
-import qualified Data.Set as Set
-import qualified Data.Text as T
-
+    ( SlotNo
+    )
+import Prelude
 
 -- | Type encapsulating what we need to know to add things -- payloads,
 -- certificates -- to a transaction.
@@ -295,18 +376,16 @@ import qualified Data.Text as T
 -- Designed to allow us to have /one/ @mkTx@ which doesn't care whether we
 -- include certificates or not.
 data TxPayload era = TxPayload
-    { _metadata ::  Maybe Cardano.TxMetadata
-      -- ^ User or application-defined metadata to be included in the
-      -- transaction.
-
+    { _metadata :: Maybe Cardano.TxMetadata
+    -- ^ User or application-defined metadata to be included in the
+    -- transaction.
     , _certificates :: [Cardano.Certificate]
-      -- ^ Certificates to be included in the transactions.
-
+    -- ^ Certificates to be included in the transactions.
     , _extraWitnesses :: Cardano.TxBody era -> [Cardano.KeyWitness era]
-      -- ^ Create payload-specific witnesses given the unsigned transaction body.
-      --
-      -- Caller has the freedom and responsibility to provide the correct
-      -- witnesses for what they're trying to do.
+    -- ^ Create payload-specific witnesses given the unsigned transaction body.
+    --
+    -- Caller has the freedom and responsibility to provide the correct
+    -- witnesses for what they're trying to do.
     }
 
 data TxWitnessTag
@@ -346,9 +425,9 @@ instance TxWitnessTagFor ByronKey where
     txWitnessTagFor = TxWitnessByronUTxO Byron
 
 constructUnsignedTx
-    :: forall era.
-        ( EraConstraints era
-        )
+    :: forall era
+     . ( EraConstraints era
+       )
     => Cardano.NetworkId
     -> (Maybe Cardano.TxMetadata, [Cardano.Certificate])
     -> (Maybe SlotNo, SlotNo)
@@ -370,20 +449,41 @@ constructUnsignedTx
     -> ShelleyBasedEra era
     -> Either ErrMkTransaction SealedTx
 constructUnsignedTx
-    networkId (md, certs) ttl rewardAcnt wdrl cs fee toMint toBurn inpScripts era =
+    networkId
+    (md, certs)
+    ttl
+    rewardAcnt
+    wdrl
+    cs
+    fee
+    toMint
+    toBurn
+    inpScripts
+    era =
         sealedTxFromCardanoBody <$> tx
-  where
-    tx = mkUnsignedTx era ttl cs md wdrls certs (toCardanoLovelace fee)
-        (fst toMint) (fst toBurn) mintingScripts inpScripts
-    wdrls = mkWithdrawals networkId rewardAcnt wdrl
-    mintingScripts = Map.union (snd toMint) (snd toBurn)
+      where
+        tx =
+            mkUnsignedTx
+                era
+                ttl
+                cs
+                md
+                wdrls
+                certs
+                (toCardanoLovelace fee)
+                (fst toMint)
+                (fst toBurn)
+                mintingScripts
+                inpScripts
+        wdrls = mkWithdrawals networkId rewardAcnt wdrl
+        mintingScripts = Map.union (snd toMint) (snd toBurn)
 
 mkTx
-    :: forall k era.
-        ( TxWitnessTagFor k
-        , WalletKey k
-        , EraConstraints era
-        )
+    :: forall k era
+     . ( TxWitnessTagFor k
+       , WalletKey k
+       , EraConstraints era
+       )
     => Cardano.NetworkId
     -> TxPayload era
     -> (Maybe SlotNo, SlotNo)
@@ -402,35 +502,54 @@ mkTx
     -> Either ErrMkTransaction (Tx, SealedTx)
 mkTx networkId payload ttl (rewardAcnt, pwdAcnt) addrResolver wdrl cs fees era = do
     let TxPayload md certs mkExtraWits = payload
-    let wdrls = mkWithdrawals
-            networkId
-            (toRewardAccountRaw . toXPub $ rewardAcnt)
-            wdrl
+    let wdrls =
+            mkWithdrawals
+                networkId
+                (toRewardAccountRaw . toXPub $ rewardAcnt)
+                wdrl
 
-    unsigned <- mkUnsignedTx era ttl cs md wdrls certs (toCardanoLovelace fees)
-        TokenMap.empty TokenMap.empty Map.empty Map.empty
-    let signed = signTransaction networkId acctResolver (const Nothing)
-            addrResolver inputResolver (unsigned, mkExtraWits unsigned)
+    unsigned <-
+        mkUnsignedTx
+            era
+            ttl
+            cs
+            md
+            wdrls
+            certs
+            (toCardanoLovelace fees)
+            TokenMap.empty
+            TokenMap.empty
+            Map.empty
+            Map.empty
+    let signed =
+            signTransaction
+                networkId
+                acctResolver
+                (const Nothing)
+                addrResolver
+                inputResolver
+                (unsigned, mkExtraWits unsigned)
 
-    let withResolvedInputs (tx, _, _, _, _) = tx
-            { resolvedInputs = second txOutCoin <$> F.toList (view #inputs cs)
-            }
-    Right ( withResolvedInputs (fromCardanoTx signed)
-          , sealedTxFromCardano' signed
-          )
+    let withResolvedInputs (tx, _, _, _, _) =
+            tx
+                { resolvedInputs = second txOutCoin <$> F.toList (view #inputs cs)
+                }
+    Right
+        ( withResolvedInputs (fromCardanoTx signed)
+        , sealedTxFromCardano' signed
+        )
   where
     inputResolver :: TxIn -> Maybe Address
     inputResolver i =
         let index = Map.fromList (F.toList $ view #inputs cs)
          in do
-            TxOut addr _ <- Map.lookup i index
-            pure addr
+                TxOut addr _ <- Map.lookup i index
+                pure addr
 
     acctResolver :: RewardAccount -> Maybe (XPrv, Passphrase "encryption")
     acctResolver acct = do
         let acct' = toRewardAccountRaw $ toXPub rewardAcnt
         guard (acct == acct') $> (rewardAcnt, pwdAcnt)
-
 
 -- Adds VK witnesses to an already constructed transactions. The function
 -- preserves any existing witnesses on the transaction, and resolve inputs
@@ -438,11 +557,11 @@ mkTx networkId payload ttl (rewardAcnt, pwdAcnt) addrResolver wdrl cs fees era =
 --
 -- If a key for a given input isn't found, the input is skipped.
 signTransaction
-    :: forall k ktype era.
-        ( EraConstraints era
-        , TxWitnessTagFor k
-        , WalletKey k
-        )
+    :: forall k ktype era
+     . ( EraConstraints era
+       , TxWitnessTagFor k
+       , WalletKey k
+       )
     => Cardano.NetworkId
     -- ^ Network identifier (e.g. mainnet, testnet)
     -> (RewardAccount -> Maybe (XPrv, Passphrase "encryption"))
@@ -464,242 +583,287 @@ signTransaction
     resolveInput
     (body, wits) =
         Cardano.makeSignedTransaction wits' body
- where
-    wits' = mconcat
-        [ wits
-        , mapMaybe mkTxInWitness inputs
-        , mapMaybe mkTxInWitness collaterals
-        , mapMaybe mkWdrlCertWitness wdrls
-        , mapMaybe mkExtraWitness extraKeys
-        , mapMaybe mkWdrlCertWitness certs
-        , mapMaybe mkPolicyWitness mintBurnScripts
-        ]
       where
-        Cardano.TxBody bodyContent = body
+        wits' =
+            mconcat
+                [ wits
+                , mapMaybe mkTxInWitness inputs
+                , mapMaybe mkTxInWitness collaterals
+                , mapMaybe mkWdrlCertWitness wdrls
+                , mapMaybe mkExtraWitness extraKeys
+                , mapMaybe mkWdrlCertWitness certs
+                , mapMaybe mkPolicyWitness mintBurnScripts
+                ]
+          where
+            Cardano.TxBody bodyContent = body
 
-        inputs =
-            [ Compatibility.fromCardanoTxIn i
-            | (i, _) <- Cardano.txIns bodyContent
-            ]
+            inputs =
+                [ Compatibility.fromCardanoTxIn i
+                | (i, _) <- Cardano.txIns bodyContent
+                ]
 
-        collaterals =
-            case Cardano.txInsCollateral bodyContent of
-                Cardano.TxInsCollateralNone ->
-                    []
-                Cardano.TxInsCollateral _ is ->
-                    Compatibility.fromCardanoTxIn <$> is
+            collaterals =
+                case Cardano.txInsCollateral bodyContent of
+                    Cardano.TxInsCollateralNone ->
+                        []
+                    Cardano.TxInsCollateral _ is ->
+                        Compatibility.fromCardanoTxIn <$> is
 
-        extraKeys =
-            case Cardano.txExtraKeyWits bodyContent of
-                Cardano.TxExtraKeyWitnessesNone ->
-                    []
-                Cardano.TxExtraKeyWitnesses _ xs ->
-                    xs
-        wdrls =
-            [ addr
-            | (addr, _) <- fromCardanoWdrls $ Cardano.txWithdrawals bodyContent
-            ]
+            extraKeys =
+                case Cardano.txExtraKeyWits bodyContent of
+                    Cardano.TxExtraKeyWitnessesNone ->
+                        []
+                    Cardano.TxExtraKeyWitnesses _ xs ->
+                        xs
+            wdrls =
+                [ addr
+                | (addr, _) <- fromCardanoWdrls $ Cardano.txWithdrawals bodyContent
+                ]
 
-        certs = cardanoCertKeysForWitnesses $ Cardano.txCertificates bodyContent
+            certs = cardanoCertKeysForWitnesses $ Cardano.txCertificates bodyContent
 
-        mintBurnScripts =
-            let (_, toMint, toBurn, _, _) = fromCardanoTx $
-                    Cardano.makeSignedTransaction wits body
-            in
-            -- Note that we use 'nub' here because multiple scripts can share
-            -- the same policyXPub. It's sufficient to have one witness for
-            -- each.
-            L.nub $ getScripts toMint <> getScripts toBurn
+            mintBurnScripts =
+                let (_, toMint, toBurn, _, _) =
+                        fromCardanoTx $
+                            Cardano.makeSignedTransaction wits body
+                 in -- Note that we use 'nub' here because multiple scripts can share
+                    -- the same policyXPub. It's sufficient to have one witness for
+                    -- each.
+                    L.nub $ getScripts toMint <> getScripts toBurn
 
-    getScripts :: TokenMapWithScripts -> [KeyHash]
-    getScripts scripts =
-        let retrieveAllKeyHashes (NativeScript s) = foldScript (:) [] s
-            retrieveAllKeyHashes _ = []
-            isTimelock (NativeScript _) = True
-            isTimelock _ = False
-        in concatMap retrieveAllKeyHashes $
-           filter isTimelock $
-           Map.elems $ scripts ^. #txScripts
+        getScripts :: TokenMapWithScripts -> [KeyHash]
+        getScripts scripts =
+            let retrieveAllKeyHashes (NativeScript s) = foldScript (:) [] s
+                retrieveAllKeyHashes _ = []
+                isTimelock (NativeScript _) = True
+                isTimelock _ = False
+             in concatMap retrieveAllKeyHashes $
+                    filter isTimelock $
+                        Map.elems $
+                            scripts ^. #txScripts
 
-    mkTxInWitness :: TxIn -> Maybe (Cardano.KeyWitness era)
-    mkTxInWitness i = do
-        addr <- resolveInput i
-        (k, pwd) <- resolveAddress addr
-        pure $ case (txWitnessTagFor @k) of
-            TxWitnessShelleyUTxO ->
-                mkShelleyWitness body (getRawKey k, pwd)
-            TxWitnessByronUTxO{} ->
-                mkByronWitness body networkId addr (getRawKey k, pwd)
+        mkTxInWitness :: TxIn -> Maybe (Cardano.KeyWitness era)
+        mkTxInWitness i = do
+            addr <- resolveInput i
+            (k, pwd) <- resolveAddress addr
+            pure $ case (txWitnessTagFor @k) of
+                TxWitnessShelleyUTxO ->
+                    mkShelleyWitness body (getRawKey k, pwd)
+                TxWitnessByronUTxO {} ->
+                    mkByronWitness body networkId addr (getRawKey k, pwd)
 
-    mkWdrlCertWitness :: RewardAccount -> Maybe (Cardano.KeyWitness era)
-    mkWdrlCertWitness a =
-        mkShelleyWitness body <$> resolveRewardAcct a
+        mkWdrlCertWitness :: RewardAccount -> Maybe (Cardano.KeyWitness era)
+        mkWdrlCertWitness a =
+            mkShelleyWitness body <$> resolveRewardAcct a
 
-    mkPolicyWitness :: KeyHash -> Maybe (Cardano.KeyWitness era)
-    mkPolicyWitness a =
-        mkShelleyWitness body <$> resolvePolicyKey a
+        mkPolicyWitness :: KeyHash -> Maybe (Cardano.KeyWitness era)
+        mkPolicyWitness a =
+            mkShelleyWitness body <$> resolvePolicyKey a
 
-    mkExtraWitness :: Cardano.Hash Cardano.PaymentKey -> Maybe (Cardano.KeyWitness era)
-    mkExtraWitness vkh = do
-        -- NOTE: We cannot resolve key hashes directly, so create a one-time
-        -- temporary address with that key hash which is fine to lookup via the
-        -- address lookup provided above. It works _fine_ because the discovery
-        -- of addresses is done properly based on the address constituents (i.e.
-        -- the key hash) and not the overall address itself.
-        let addr = Cardano.makeShelleyAddress networkId
-                (Cardano.PaymentCredentialByKey vkh)
-                Cardano.NoStakeAddress
-        (k, pwd) <- resolveAddress (fromCardanoAddress addr)
-        pure $ mkShelleyWitness body (getRawKey k, pwd)
+        mkExtraWitness :: Cardano.Hash Cardano.PaymentKey -> Maybe (Cardano.KeyWitness era)
+        mkExtraWitness vkh = do
+            -- NOTE: We cannot resolve key hashes directly, so create a one-time
+            -- temporary address with that key hash which is fine to lookup via the
+            -- address lookup provided above. It works _fine_ because the discovery
+            -- of addresses is done properly based on the address constituents (i.e.
+            -- the key hash) and not the overall address itself.
+            let addr =
+                    Cardano.makeShelleyAddress
+                        networkId
+                        (Cardano.PaymentCredentialByKey vkh)
+                        Cardano.NoStakeAddress
+            (k, pwd) <- resolveAddress (fromCardanoAddress addr)
+            pure $ mkShelleyWitness body (getRawKey k, pwd)
 
 newTransactionLayer
-    :: forall k ktype.
-        ( TxWitnessTagFor k
-        , WalletKey k
-        )
+    :: forall k ktype
+     . ( TxWitnessTagFor k
+       , WalletKey k
+       )
     => NetworkId
     -> TransactionLayer k ktype SealedTx
-newTransactionLayer networkId = TransactionLayer
-    { mkTransaction = \era stakeCreds keystore _pp ctx selection -> do
-        let ttl   = txValidityInterval ctx
-        let wdrl  = withdrawalToCoin $ view #txWithdrawal ctx
-        let delta = selectionDelta txOutCoin selection
-        case view #txDelegationAction ctx of
-            Nothing -> do
-                withShelleyBasedEra era $ do
-                    let payload = TxPayload (view #txMetadata ctx) mempty mempty
-                    mkTx networkId payload ttl stakeCreds keystore wdrl
-                        selection delta
+newTransactionLayer networkId =
+    TransactionLayer
+        { mkTransaction = \era stakeCreds keystore _pp ctx selection -> do
+            let ttl = txValidityInterval ctx
+            let wdrl = withdrawalToCoin $ view #txWithdrawal ctx
+            let delta = selectionDelta txOutCoin selection
+            case view #txDelegationAction ctx of
+                Nothing -> do
+                    withShelleyBasedEra era $ do
+                        let payload = TxPayload (view #txMetadata ctx) mempty mempty
+                        mkTx
+                            networkId
+                            payload
+                            ttl
+                            stakeCreds
+                            keystore
+                            wdrl
+                            selection
+                            delta
+                Just action -> do
+                    withShelleyBasedEra era $ do
+                        let stakeXPub = toXPub $ fst stakeCreds
+                        let certs = mkDelegationCertificates action stakeXPub
+                        let payload = TxPayload (view #txMetadata ctx) certs (const [])
+                        mkTx
+                            networkId
+                            payload
+                            ttl
+                            stakeCreds
+                            keystore
+                            wdrl
+                            selection
+                            delta
+        , addVkWitnesses =
+            \era stakeCreds policyCreds addressResolver inputResolver sealedTx ->
+                do
+                    let acctResolver
+                            :: RewardAccount -> Maybe (XPrv, Passphrase "encryption")
+                        acctResolver acct = do
+                            let acct' = toRewardAccountRaw $ toXPub $ fst stakeCreds
+                            guard (acct == acct') $> stakeCreds
+                    let policyResolver
+                            :: KeyHash -> Maybe (XPrv, Passphrase "encryption")
+                        policyResolver keyhash = do
+                            let (keyhash', xprv, encP) = policyCreds
+                            guard (keyhash == keyhash') $> (xprv, encP)
+                    case cardanoTxIdeallyNoLaterThan era sealedTx of
+                        InAnyCardanoEra ByronEra _ ->
+                            sealedTx
+                        InAnyCardanoEra ShelleyEra (Cardano.Tx body wits) ->
+                            signTransaction
+                                networkId
+                                acctResolver
+                                (const Nothing)
+                                addressResolver
+                                inputResolver
+                                (body, wits)
+                                & sealedTxFromCardano'
+                        InAnyCardanoEra AllegraEra (Cardano.Tx body wits) ->
+                            signTransaction
+                                networkId
+                                acctResolver
+                                (const Nothing)
+                                addressResolver
+                                inputResolver
+                                (body, wits)
+                                & sealedTxFromCardano'
+                        InAnyCardanoEra MaryEra (Cardano.Tx body wits) ->
+                            signTransaction
+                                networkId
+                                acctResolver
+                                policyResolver
+                                addressResolver
+                                inputResolver
+                                (body, wits)
+                                & sealedTxFromCardano'
+                        InAnyCardanoEra AlonzoEra (Cardano.Tx body wits) ->
+                            signTransaction
+                                networkId
+                                acctResolver
+                                policyResolver
+                                addressResolver
+                                inputResolver
+                                (body, wits)
+                                & sealedTxFromCardano'
+                        InAnyCardanoEra BabbageEra (Cardano.Tx body wits) ->
+                            signTransaction
+                                networkId
+                                acctResolver
+                                policyResolver
+                                addressResolver
+                                inputResolver
+                                (body, wits)
+                                & sealedTxFromCardano'
+        , mkUnsignedTransaction = \era stakeXPub _pp ctx selection -> do
+            let ttl = txValidityInterval ctx
+            let wdrl = withdrawalToCoin $ view #txWithdrawal ctx
+            let delta = selectionDelta txOutCoin selection
+            let rewardAcct = toRewardAccountRaw stakeXPub
+            let assetsToBeMinted = view #txAssetsToMint ctx
+            let assetsToBeBurned = view #txAssetsToBurn ctx
+            let inpsScripts = view #txNativeScriptInputs ctx
 
-            Just action -> do
-                withShelleyBasedEra era $ do
-                    let stakeXPub = toXPub $ fst stakeCreds
-                    let certs = mkDelegationCertificates action stakeXPub
-                    let payload = TxPayload (view #txMetadata ctx) certs (const [])
-                    mkTx networkId payload ttl stakeCreds keystore wdrl
-                        selection delta
-
-    , addVkWitnesses =
-        \era stakeCreds policyCreds addressResolver inputResolver sealedTx ->
-        do
-            let acctResolver
-                    :: RewardAccount -> Maybe (XPrv, Passphrase "encryption")
-                acctResolver acct = do
-                    let acct' = toRewardAccountRaw $ toXPub $ fst stakeCreds
-                    guard (acct == acct') $> stakeCreds
-            let policyResolver
-                    :: KeyHash -> Maybe (XPrv, Passphrase "encryption")
-                policyResolver keyhash = do
-                    let (keyhash', xprv, encP) = policyCreds
-                    guard (keyhash == keyhash') $> (xprv, encP)
-            case cardanoTxIdeallyNoLaterThan era sealedTx of
-                InAnyCardanoEra ByronEra _ ->
-                    sealedTx
-                InAnyCardanoEra ShelleyEra (Cardano.Tx body wits) ->
-                    signTransaction networkId acctResolver (const Nothing)
-                    addressResolver inputResolver (body, wits)
-                    & sealedTxFromCardano'
-                InAnyCardanoEra AllegraEra (Cardano.Tx body wits) ->
-                    signTransaction networkId acctResolver (const Nothing)
-                    addressResolver inputResolver (body, wits)
-                    & sealedTxFromCardano'
-                InAnyCardanoEra MaryEra (Cardano.Tx body wits) ->
-                    signTransaction networkId acctResolver policyResolver
-                    addressResolver inputResolver (body, wits)
-                    & sealedTxFromCardano'
-                InAnyCardanoEra AlonzoEra (Cardano.Tx body wits) ->
-                    signTransaction networkId acctResolver policyResolver
-                    addressResolver inputResolver (body, wits)
-                    & sealedTxFromCardano'
-                InAnyCardanoEra BabbageEra (Cardano.Tx body wits) ->
-                    signTransaction networkId acctResolver policyResolver
-                    addressResolver inputResolver (body, wits)
-                    & sealedTxFromCardano'
-
-    , mkUnsignedTransaction = \era stakeXPub _pp ctx selection -> do
-        let ttl   = txValidityInterval ctx
-        let wdrl  = withdrawalToCoin $ view #txWithdrawal ctx
-        let delta = selectionDelta txOutCoin selection
-        let rewardAcct = toRewardAccountRaw stakeXPub
-        let assetsToBeMinted = view #txAssetsToMint ctx
-        let assetsToBeBurned = view #txAssetsToBurn ctx
-        let inpsScripts = view #txNativeScriptInputs ctx
-
-        case view #txDelegationAction ctx of
-            Nothing -> do
-                withShelleyBasedEra era $ do
-                    let md = view #txMetadata ctx
-                    constructUnsignedTx networkId (md, []) ttl rewardAcct wdrl
-                        selection delta assetsToBeMinted assetsToBeBurned inpsScripts
-
-            Just action -> do
-                withShelleyBasedEra era $ do
-                    let certs = mkDelegationCertificates action stakeXPub
-                    let payload = (view #txMetadata ctx, certs)
-                    constructUnsignedTx networkId payload ttl rewardAcct wdrl
-                        selection delta assetsToBeMinted assetsToBeBurned inpsScripts
-
-    , estimateSignedTxSize = \pp (Cardano.Tx body _) -> do
-        _estimateSignedTxSize pp body
-
-    , calcMinimumCost = \era pp ctx skeleton ->
-        estimateTxCost era pp (mkTxSkeleton (txWitnessTagFor @k) ctx skeleton)
-        <>
-        txFeePadding ctx
-
-    , maxScriptExecutionCost =
-        _maxScriptExecutionCost
-
-    , distributeSurplus = _distributeSurplus
-
-    , assignScriptRedeemers =
-        _assignScriptRedeemers
-
-    , evaluateMinimumFee =
-        _evaluateMinimumFee
-
-    , evaluateTransactionBalance = _evaluateTransactionBalance
-
-    , computeSelectionLimit = \era pp ctx outputsToCover ->
-        let txMaxSize = getTxMaxSize $ txParameters pp in
-        MaximumInputLimit $
-            _estimateMaxNumberOfInputs @k era txMaxSize ctx outputsToCover
-
-    , tokenBundleSizeAssessor =
-        Compatibility.tokenBundleSizeAssessor
-
-    , constraints = \era pp -> txConstraints era pp (txWitnessTagFor @k)
-
-    , decodeTx = _decodeSealedTx
-
-    , updateTx = updateSealedTx
-
-    , toCardanoUTxO = _toCardanoUTxO
-    , fromCardanoTxOut = Compatibility.fromCardanoTxOut
-    , fromCardanoTxIn = Compatibility.fromCardanoTxIn
-    }
+            case view #txDelegationAction ctx of
+                Nothing -> do
+                    withShelleyBasedEra era $ do
+                        let md = view #txMetadata ctx
+                        constructUnsignedTx
+                            networkId
+                            (md, [])
+                            ttl
+                            rewardAcct
+                            wdrl
+                            selection
+                            delta
+                            assetsToBeMinted
+                            assetsToBeBurned
+                            inpsScripts
+                Just action -> do
+                    withShelleyBasedEra era $ do
+                        let certs = mkDelegationCertificates action stakeXPub
+                        let payload = (view #txMetadata ctx, certs)
+                        constructUnsignedTx
+                            networkId
+                            payload
+                            ttl
+                            rewardAcct
+                            wdrl
+                            selection
+                            delta
+                            assetsToBeMinted
+                            assetsToBeBurned
+                            inpsScripts
+        , estimateSignedTxSize = \pp (Cardano.Tx body _) -> do
+            _estimateSignedTxSize pp body
+        , calcMinimumCost = \era pp ctx skeleton ->
+            estimateTxCost era pp (mkTxSkeleton (txWitnessTagFor @k) ctx skeleton)
+                <> txFeePadding ctx
+        , maxScriptExecutionCost =
+            _maxScriptExecutionCost
+        , distributeSurplus = _distributeSurplus
+        , assignScriptRedeemers =
+            _assignScriptRedeemers
+        , evaluateMinimumFee =
+            _evaluateMinimumFee
+        , evaluateTransactionBalance = _evaluateTransactionBalance
+        , computeSelectionLimit = \era pp ctx outputsToCover ->
+            let txMaxSize = getTxMaxSize $ txParameters pp
+             in MaximumInputLimit $
+                    _estimateMaxNumberOfInputs @k era txMaxSize ctx outputsToCover
+        , tokenBundleSizeAssessor =
+            Compatibility.tokenBundleSizeAssessor
+        , constraints = \era pp -> txConstraints era pp (txWitnessTagFor @k)
+        , decodeTx = _decodeSealedTx
+        , updateTx = updateSealedTx
+        , toCardanoUTxO = _toCardanoUTxO
+        , fromCardanoTxOut = Compatibility.fromCardanoTxOut
+        , fromCardanoTxIn = Compatibility.fromCardanoTxIn
+        }
 
 _decodeSealedTx
     :: AnyCardanoEra
-    -> SealedTx ->
-        ( Tx
-        , TokenMapWithScripts
-        , TokenMapWithScripts
-        , [Certificate]
-        , Maybe ValidityIntervalExplicit
-        )
+    -> SealedTx
+    -> ( Tx
+       , TokenMapWithScripts
+       , TokenMapWithScripts
+       , [Certificate]
+       , Maybe ValidityIntervalExplicit
+       )
 _decodeSealedTx preferredLatestEra (cardanoTxIdeallyNoLaterThan preferredLatestEra -> Cardano.InAnyCardanoEra _ tx) =
     fromCardanoTx tx
 
 _evaluateTransactionBalance
-    :: forall era. IsShelleyBasedEra era
+    :: forall era
+     . IsShelleyBasedEra era
     => Cardano.Tx era
     -> Cardano.ProtocolParameters
     -> Cardano.UTxO era
     -> Cardano.Value
 _evaluateTransactionBalance (Cardano.Tx body _) pp utxo =
-    lovelaceFromCardanoTxOutValue
-        $ Cardano.evaluateTransactionBalance
+    lovelaceFromCardanoTxOutValue $
+        Cardano.evaluateTransactionBalance
             pp
             mempty
             utxo
@@ -709,28 +873,31 @@ _evaluateTransactionBalance (Cardano.Tx body _) pp utxo =
         :: Cardano.TxOutValue era -> Cardano.Value
     lovelaceFromCardanoTxOutValue = \case
         Cardano.TxOutAdaOnly _ ada -> Cardano.lovelaceToValue ada
-        Cardano.TxOutValue _ val   -> val
+        Cardano.TxOutValue _ val -> val
 
 _toCardanoUTxO
-    :: forall era. IsShelleyBasedEra era
+    :: forall era
+     . IsShelleyBasedEra era
     => UTxO
     -> [(TxIn, TxOut, Maybe (Hash "Datum"))]
     -> Cardano.UTxO era
 _toCardanoUTxO utxo extraUTxO =
-    let
-        utxo' = Map.fromList
-            . map (bimap toCardanoTxIn (toCardanoTxOut era))
-            . Map.toList
-            $ unUTxO utxo
+    let utxo' =
+            Map.fromList
+                . map (bimap toCardanoTxIn (toCardanoTxOut era))
+                . Map.toList
+                $ unUTxO utxo
 
-        extraUTxO' = Map.fromList
-            . map (\(i, o, mDatumHash) ->
-                (toCardanoTxIn i
-                , setDatumHash era mDatumHash (toCardanoTxOut era o))
-                )
-            $ extraUTxO
-    in
-        -- The two UTxO sets could overlap here. When called by
+        extraUTxO' =
+            Map.fromList
+                . map
+                    ( \(i, o, mDatumHash) ->
+                        ( toCardanoTxIn i
+                        , setDatumHash era mDatumHash (toCardanoTxOut era o)
+                        )
+                    )
+                $ extraUTxO
+     in -- The two UTxO sets could overlap here. When called by
         -- 'balanceTransaction' the user-specified input resolution
         -- will overwrite the wallet UTxO (if in conflict).
         --
@@ -757,51 +924,60 @@ _toCardanoUTxO utxo extraUTxO =
         -> Cardano.TxOut ctx era
         -> Cardano.TxOut ctx era
     setDatumHash _era Nothing o = o
-    setDatumHash _era
-        (Just (Hash datumHash)) (Cardano.TxOut addr val _ refScript) =
-            Cardano.TxOut addr val
-                (Cardano.TxOutDatumHash scriptDataSupported hash) refScript
-      where
-        scriptDataSupported = case era of
-            ShelleyBasedEraBabbage -> Cardano.ScriptDataInBabbageEra
-            ShelleyBasedEraAlonzo -> Cardano.ScriptDataInAlonzoEra
-            ShelleyBasedEraMary -> errBadEra
-            ShelleyBasedEraAllegra -> errBadEra
-            ShelleyBasedEraShelley -> errBadEra
+    setDatumHash
+        _era
+        (Just (Hash datumHash))
+        (Cardano.TxOut addr val _ refScript) =
+            Cardano.TxOut
+                addr
+                val
+                (Cardano.TxOutDatumHash scriptDataSupported hash)
+                refScript
           where
-            -- FIXME [ADP-1479] Proper error handling
-            errBadEra = error $ unwords
-                [ "_toCardanoUTxO:"
-                , "cannot add a datum hash to the transaction body of an"
-                , "era that doesn't support datum hashes."
-                ]
-        hash = fromMaybe errBadHash $ Cardano.deserialiseFromRawBytes
-            (Cardano.AsHash Cardano.AsScriptData)
-            datumHash
-          where
-            -- FIXME [ADP-1479] Proper error handling
-            errBadHash = error $ unwords
-                [ "_toCardanoUTxO: couldn't convert hash "
-                , show datumHash
-                ]
-
+            scriptDataSupported = case era of
+                ShelleyBasedEraBabbage -> Cardano.ScriptDataInBabbageEra
+                ShelleyBasedEraAlonzo -> Cardano.ScriptDataInAlonzoEra
+                ShelleyBasedEraMary -> errBadEra
+                ShelleyBasedEraAllegra -> errBadEra
+                ShelleyBasedEraShelley -> errBadEra
+              where
+                -- FIXME [ADP-1479] Proper error handling
+                errBadEra =
+                    error $
+                        unwords
+                            [ "_toCardanoUTxO:"
+                            , "cannot add a datum hash to the transaction body of an"
+                            , "era that doesn't support datum hashes."
+                            ]
+            hash =
+                fromMaybe errBadHash $
+                    Cardano.deserialiseFromRawBytes
+                        (Cardano.AsHash Cardano.AsScriptData)
+                        datumHash
+              where
+                -- FIXME [ADP-1479] Proper error handling
+                errBadHash =
+                    error $
+                        unwords
+                            [ "_toCardanoUTxO: couldn't convert hash "
+                            , show datumHash
+                            ]
 
 mkDelegationCertificates
     :: DelegationAction
-        -- Pool Id to which we're planning to delegate
+    -- Pool Id to which we're planning to delegate
     -> XPub
-        -- Reward account public key
+    -- Reward account public key
     -> [Cardano.Certificate]
 mkDelegationCertificates da accXPub =
     case da of
-       Join poolId ->
-               [ toStakePoolDlgCert accXPub poolId ]
-       RegisterKeyAndJoin poolId ->
-               [ toStakeKeyRegCert  accXPub
-               , toStakePoolDlgCert accXPub poolId
-               ]
-       Quit -> [toStakeKeyDeregCert accXPub]
-
+        Join poolId ->
+            [toStakePoolDlgCert accXPub poolId]
+        RegisterKeyAndJoin poolId ->
+            [ toStakeKeyRegCert accXPub
+            , toStakePoolDlgCert accXPub poolId
+            ]
+        Quit -> [toStakeKeyDeregCert accXPub]
 
 -- | For testing that
 -- @
@@ -814,7 +990,9 @@ noTxUpdate = TxUpdate [] [] [] UseOldTxFee
 -- Used to add inputs and outputs when balancing a transaction.
 --
 -- If the transaction contains existing key witnesses, it will return `Left`,
+
 -- *even if `noTxUpdate` is used*. This last detail could be changed.
+
 --
 -- == Notes on implementation choices
 --
@@ -824,7 +1002,8 @@ noTxUpdate = TxUpdate [] [] [] UseOldTxFee
 -- To avoid the need for `ledger -> wallet` conversions, this function can only
 -- be used to *add* tx body content.
 updateSealedTx
-    :: forall era. Cardano.IsShelleyBasedEra era
+    :: forall era
+     . Cardano.IsShelleyBasedEra era
     => Cardano.Tx era
     -> TxUpdate
     -> Either ErrUpdateSealedTx (Cardano.Tx era)
@@ -834,23 +1013,24 @@ updateSealedTx (Cardano.Tx body existingKeyWits) extraContent = do
     body' <- modifyTxBody extraContent body
 
     if (null existingKeyWits)
-       then Right $ Cardano.Tx body' mempty
-       else Left $ ErrExistingKeyWitnesses $ length existingKeyWits
+        then Right $ Cardano.Tx body' mempty
+        else Left $ ErrExistingKeyWitnesses $ length existingKeyWits
   where
     modifyTxBody
         :: TxUpdate
         -> Cardano.TxBody era
         -> Either ErrUpdateSealedTx (Cardano.TxBody era)
     modifyTxBody ebc txBody@(Cardano.ShelleyTxBody {}) =
-        let Cardano.ShelleyTxBody shelleyEra bod scripts scriptData aux val
-                = txBody
-        in
-        Right $ Cardano.ShelleyTxBody shelleyEra
-            (modifyShelleyTxBody ebc shelleyEra bod)
-            scripts
-            scriptData
-            aux
-            val
+        let Cardano.ShelleyTxBody shelleyEra bod scripts scriptData aux val =
+                txBody
+         in Right $
+                Cardano.ShelleyTxBody
+                    shelleyEra
+                    (modifyShelleyTxBody ebc shelleyEra bod)
+                    scripts
+                    scriptData
+                    aux
+                    val
     modifyTxBody _ (Byron.ByronTxBody _) =
         case Cardano.shelleyBasedEra @era of {}
 
@@ -863,96 +1043,116 @@ modifyShelleyTxBody
     -> Ledger.TxBody (Cardano.ShelleyLedgerEra era)
     -> Ledger.TxBody (Cardano.ShelleyLedgerEra era)
 modifyShelleyTxBody txUpdate era ledgerBody = case era of
-    ShelleyBasedEraBabbage -> ledgerBody
-        { Babbage.outputs = Babbage.outputs ledgerBody
-            <> StrictSeq.fromList
-                ( Ledger.mkSized
-                . Cardano.toShelleyTxOut era
-                . Cardano.toCtxUTxOTxOut
-                . toCardanoTxOut era <$> extraOutputs
-                )
-        , Babbage.inputs = Babbage.inputs ledgerBody
-            <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs')
-        , Babbage.collateral = Babbage.collateral ledgerBody
-            <> Set.fromList (Cardano.toShelleyTxIn <$> extraCollateral')
-        , Babbage.txfee =
-            modifyFee $ Babbage.txfee ledgerBody
-        }
-    ShelleyBasedEraAlonzo -> ledgerBody
-        { Alonzo.outputs = Alonzo.outputs ledgerBody
-            <> StrictSeq.fromList
-                ( Cardano.toShelleyTxOut era
-                . Cardano.toCtxUTxOTxOut
-                . toCardanoTxOut era <$> extraOutputs
-                )
-        , Alonzo.inputs = Alonzo.inputs ledgerBody
-            <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs')
-        , Alonzo.collateral = Alonzo.collateral ledgerBody
-            <> Set.fromList (Cardano.toShelleyTxIn <$> extraCollateral')
-        , Alonzo.txfee =
-            modifyFee $ Alonzo.txfee ledgerBody
-        }
+    ShelleyBasedEraBabbage ->
+        ledgerBody
+            { Babbage.outputs =
+                Babbage.outputs ledgerBody
+                    <> StrictSeq.fromList
+                        ( Ledger.mkSized
+                            . Cardano.toShelleyTxOut era
+                            . Cardano.toCtxUTxOTxOut
+                            . toCardanoTxOut era
+                            <$> extraOutputs
+                        )
+            , Babbage.inputs =
+                Babbage.inputs ledgerBody
+                    <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs')
+            , Babbage.collateral =
+                Babbage.collateral ledgerBody
+                    <> Set.fromList (Cardano.toShelleyTxIn <$> extraCollateral')
+            , Babbage.txfee =
+                modifyFee $ Babbage.txfee ledgerBody
+            }
+    ShelleyBasedEraAlonzo ->
+        ledgerBody
+            { Alonzo.outputs =
+                Alonzo.outputs ledgerBody
+                    <> StrictSeq.fromList
+                        ( Cardano.toShelleyTxOut era
+                            . Cardano.toCtxUTxOTxOut
+                            . toCardanoTxOut era
+                            <$> extraOutputs
+                        )
+            , Alonzo.inputs =
+                Alonzo.inputs ledgerBody
+                    <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs')
+            , Alonzo.collateral =
+                Alonzo.collateral ledgerBody
+                    <> Set.fromList (Cardano.toShelleyTxIn <$> extraCollateral')
+            , Alonzo.txfee =
+                modifyFee $ Alonzo.txfee ledgerBody
+            }
     ShelleyBasedEraMary ->
-        let
-            ShelleyMA.TxBody
-                inputs outputs certs wdrls txfee vldt update adHash mint
-                    = ledgerBody
-            toTxOut
-                = Cardano.toShelleyTxOut era
-                . Cardano.toCtxUTxOTxOut
-                . toCardanoTxOut era
-        in
-        ShelleyMA.TxBody
-            (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
-            (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
-            certs
-            wdrls
-            (modifyFee txfee)
-            vldt
-            update
-            adHash
-            mint
+        let ShelleyMA.TxBody
+                inputs
+                outputs
+                certs
+                wdrls
+                txfee
+                vldt
+                update
+                adHash
+                mint =
+                    ledgerBody
+            toTxOut =
+                Cardano.toShelleyTxOut era
+                    . Cardano.toCtxUTxOTxOut
+                    . toCardanoTxOut era
+         in ShelleyMA.TxBody
+                (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
+                (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
+                certs
+                wdrls
+                (modifyFee txfee)
+                vldt
+                update
+                adHash
+                mint
     ShelleyBasedEraAllegra ->
-        let
-            ShelleyMA.TxBody
-                inputs outputs certs wdrls txfee vldt update adHash mint
-                    = ledgerBody
-            toTxOut
-                = Cardano.toShelleyTxOut era
-                . Cardano.toCtxUTxOTxOut
-                . toCardanoTxOut era
-        in
-        ShelleyMA.TxBody
-            (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
-            (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
-            certs
-            wdrls
-            (modifyFee txfee)
-            vldt
-            update
-            adHash
-            mint
+        let ShelleyMA.TxBody
+                inputs
+                outputs
+                certs
+                wdrls
+                txfee
+                vldt
+                update
+                adHash
+                mint =
+                    ledgerBody
+            toTxOut =
+                Cardano.toShelleyTxOut era
+                    . Cardano.toCtxUTxOTxOut
+                    . toCardanoTxOut era
+         in ShelleyMA.TxBody
+                (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
+                (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
+                certs
+                wdrls
+                (modifyFee txfee)
+                vldt
+                update
+                adHash
+                mint
     ShelleyBasedEraShelley ->
-        let
-            Shelley.TxBody inputs outputs certs wdrls txfee ttl txUpdate' mdHash
-                = ledgerBody
-            toTxOut
-                = Cardano.toShelleyTxOut era
-                . Cardano.toCtxUTxOTxOut
-                . toCardanoTxOut era
-        in
-        Shelley.TxBody
-            (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
-            (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
-            certs
-            wdrls
-            (modifyFee txfee)
-            ttl
-            txUpdate'
-            mdHash
+        let Shelley.TxBody inputs outputs certs wdrls txfee ttl txUpdate' mdHash =
+                ledgerBody
+            toTxOut =
+                Cardano.toShelleyTxOut era
+                    . Cardano.toCtxUTxOTxOut
+                    . toCardanoTxOut era
+         in Shelley.TxBody
+                (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
+                (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
+                certs
+                wdrls
+                (modifyFee txfee)
+                ttl
+                txUpdate'
+                mdHash
   where
-    TxUpdate extraInputs extraCollateral extraOutputs feeUpdate
-        = txUpdate
+    TxUpdate extraInputs extraCollateral extraOutputs feeUpdate =
+        txUpdate
 
     extraInputs' = toCardanoTxIn . fst <$> extraInputs
     extraCollateral' = toCardanoTxIn <$> extraCollateral
@@ -984,55 +1184,60 @@ _estimateMaxNumberOfInputs
      . TxWitnessTagFor k
     => AnyCardanoEra
     -> Quantity "byte" Word16
-     -- ^ Transaction max size in bytes
+    -- ^ Transaction max size in bytes
     -> TransactionCtx
-     -- ^ An additional transaction context
+    -- ^ An additional transaction context
     -> [TxOut]
-     -- ^ A list of outputs being considered.
+    -- ^ A list of outputs being considered.
     -> Int
 _estimateMaxNumberOfInputs era txMaxSize ctx outs =
     fromIntegral $ findLargestUntil ((> maxSize) . txSizeGivenInputs) 0
   where
-    -- | Find the largest amount of inputs that doesn't make the tx too big.
+    -- \| Find the largest amount of inputs that doesn't make the tx too big.
     -- Tries in sequence from 0 and upward (up to 255, but smaller than 50 in
     -- practice because of the max transaction size).
     findLargestUntil :: (Integer -> Bool) -> Integer -> Integer
     findLargestUntil isTxTooLarge inf
-        | inf == maxNInps        = maxNInps
+        | inf == maxNInps = maxNInps
         | isTxTooLarge (inf + 1) = inf
-        | otherwise              = findLargestUntil isTxTooLarge (inf + 1)
+        | otherwise = findLargestUntil isTxTooLarge (inf + 1)
 
-    maxSize  = toInteger (getQuantity txMaxSize)
+    maxSize = toInteger (getQuantity txMaxSize)
     maxNInps = 255 -- Arbitrary, but large enough.
-
     txSizeGivenInputs nInps = fromIntegral size
       where
-        TxSize size = estimateTxSize era $ mkTxSkeleton
-            (txWitnessTagFor @k) ctx sel
-        sel  = dummySkeleton (fromIntegral nInps) outs
+        TxSize size =
+            estimateTxSize era $
+                mkTxSkeleton
+                    (txWitnessTagFor @k)
+                    ctx
+                    sel
+        sel = dummySkeleton (fromIntegral nInps) outs
 
 dummySkeleton :: Int -> [TxOut] -> SelectionSkeleton
-dummySkeleton inputCount outputs = SelectionSkeleton
-    { skeletonInputCount =
-        inputCount
-    , skeletonOutputs =
-        outputs
-    , skeletonChange =
-        TokenBundle.getAssets . view #tokens <$> outputs
-    }
-
+dummySkeleton inputCount outputs =
+    SelectionSkeleton
+        { skeletonInputCount =
+            inputCount
+        , skeletonOutputs =
+            outputs
+        , skeletonChange =
+            TokenBundle.getAssets . view #tokens <$> outputs
+        }
 -- ^ Evaluate a minimal fee amount necessary to pay for a given tx
 -- using ledger's functionality
 --
 -- Will estimate how many witnesses there /should be/, so it works even
 -- for unsigned transactions.
+
 _evaluateMinimumFee
     :: Cardano.IsShelleyBasedEra era
     => Cardano.ProtocolParameters
     -> Cardano.Tx era
     -> Coin
-_evaluateMinimumFee pp (Cardano.Tx body _) = fromCardanoLovelace $
-    Cardano.evaluateTransactionFee pp body nWits 0
+_evaluateMinimumFee pp (Cardano.Tx body _) =
+    fromCardanoLovelace $
+        Cardano.evaluateTransactionFee pp body nWits 0
   where
     nWits = (estimateNumberOfWitnesses body)
 
@@ -1043,8 +1248,7 @@ _estimateSignedTxSize
     -> Cardano.TxBody era
     -> TxSize
 _estimateSignedTxSize pparams body =
-    let
-        nWits :: Word
+    let nWits :: Word
         nWits = estimateNumberOfWitnesses body
 
         -- Hack which allows us to rely on the ledger to calculate the size of
@@ -1056,36 +1260,40 @@ _estimateSignedTxSize pparams body =
         sizeOfWits =
             case feeOfWits `coinQuotRem` feePerByte of
                 (n, 0) -> TxSize n
-                (_, _) -> error $ unwords
-                    [ "estimateSignedTxSize:"
-                    , "the impossible happened!"
-                    , "Couldn't divide"
-                    , show feeOfWits
-                    , "lovelace (the fee contribution of"
-                    , show nWits
-                    , "witnesses) with"
-                    , show feePerByte
-                    , "lovelace/byte"
-                    ]
+                (_, _) ->
+                    error $
+                        unwords
+                            [ "estimateSignedTxSize:"
+                            , "the impossible happened!"
+                            , "Couldn't divide"
+                            , show feeOfWits
+                            , "lovelace (the fee contribution of"
+                            , show nWits
+                            , "witnesses) with"
+                            , show feePerByte
+                            , "lovelace/byte"
+                            ]
         sizeOfTx :: TxSize
-        sizeOfTx = TxSize
-            . fromIntegral
-            . BS.length
-            . serialisedTx
-            $ sealedTxFromCardanoBody body
-    in
-        sizeOfTx <> sizeOfWits
+        sizeOfTx =
+            TxSize
+                . fromIntegral
+                . BS.length
+                . serialisedTx
+                $ sealedTxFromCardanoBody body
+     in sizeOfTx <> sizeOfWits
   where
     coinQuotRem :: Coin -> Coin -> (Natural, Natural)
     coinQuotRem (Coin p) (Coin q) = quotRem p q
 
     minfee :: Word -> Coin
-    minfee nWits = fromCardanoLovelace $
-        Cardano.evaluateTransactionFee pparams body nWits 0
+    minfee nWits =
+        fromCardanoLovelace $
+            Cardano.evaluateTransactionFee pparams body nWits 0
 
     feePerByte :: Coin
-    feePerByte = Coin.fromNatural $
-        view #protocolParamTxFeePerByte pparams
+    feePerByte =
+        Coin.fromNatural $
+            view #protocolParamTxFeePerByte pparams
 
 -- | Estimates the required number of Shelley-era witnesses.
 --
@@ -1102,12 +1310,13 @@ _estimateSignedTxSize pparams body =
 -- NOTE: Similar to 'estimateTransactionKeyWitnessCount' from cardano-api, which
 -- we cannot use because it requires a 'TxBodyContent BuildTx era'.
 estimateNumberOfWitnesses
-    :: forall era. Cardano.IsShelleyBasedEra era
+    :: forall era
+     . Cardano.IsShelleyBasedEra era
     => Cardano.TxBody era
     -> Word
 estimateNumberOfWitnesses (Cardano.TxBody txbodycontent) =
     let txIns = Cardano.txIns txbodycontent
-        txIns' = [ txin | (txin, Cardano.ViewTx) <- txIns ]
+        txIns' = [txin | (txin, Cardano.ViewTx) <- txIns]
         txInsCollateral = Cardano.txInsCollateral txbodycontent
         txIns'' = case txInsCollateral of
             Cardano.TxInsCollateral _ collaterals -> collaterals
@@ -1120,26 +1329,27 @@ estimateNumberOfWitnesses (Cardano.TxBody txbodycontent) =
         txWithdrawals = Cardano.txWithdrawals txbodycontent
         txWithdrawals' = case txWithdrawals of
             Cardano.TxWithdrawals _ wdls ->
-                [ () | (_, _, Cardano.ViewTx) <- wdls ]
+                [() | (_, _, Cardano.ViewTx) <- wdls]
             _ -> []
         txUpdateProposal = Cardano.txUpdateProposal txbodycontent
         txUpdateProposal' = case txUpdateProposal of
-            Cardano.TxUpdateProposal _
+            Cardano.TxUpdateProposal
+                _
                 (Cardano.UpdateProposal updatePerGenesisKey _) ->
                     Map.size updatePerGenesisKey
             _ -> 0
         txCerts = case Cardano.txCertificates txbodycontent of
             Cardano.TxCertificatesNone -> 0
             Cardano.TxCertificates _ certs _ -> length certs
-            -- FIXME [ADP-1515] Not all certificates require witnesses. Will
-            -- over-estimate unnecessarily.
-    in
-    fromIntegral $
-        length txInsUnique +
-        length txExtraKeyWits' +
-        length txWithdrawals' +
-        txUpdateProposal' +
-        txCerts
+     in -- FIXME [ADP-1515] Not all certificates require witnesses. Will
+        -- over-estimate unnecessarily.
+
+        fromIntegral $
+            length txInsUnique
+                + length txExtraKeyWits'
+                + length txWithdrawals'
+                + txUpdateProposal'
+                + txCerts
   where
     -- Silence warning from redundant @IsShelleyBasedEra@ constraint:
     _ = shelleyBasedEra @era
@@ -1151,16 +1361,17 @@ _maxScriptExecutionCost
 _maxScriptExecutionCost pp redeemers
     | not (null redeemers) = case view #executionUnitPrices pp of
         Just prices -> executionCost prices maxExecutionUnits
-        Nothing     -> Coin 0
+        Nothing -> Coin 0
     | otherwise = Coin 0
   where
     maxExecutionUnits :: ExecutionUnits
     maxExecutionUnits = view (#txParameters . #getMaxExecutionUnits) pp
 
     executionCost :: ExecutionUnitPrices -> ExecutionUnits -> Coin
-    executionCost ps us = Coin.fromNatural . ceiling
-        $ (ps ^. #pricePerStep)       * toRational (us ^. #executionSteps)
-        + (ps ^. #pricePerMemoryUnit) * toRational (us ^. #executionMemory)
+    executionCost ps us =
+        Coin.fromNatural . ceiling $
+            (ps ^. #pricePerStep) * toRational (us ^. #executionSteps)
+                + (ps ^. #pricePerMemoryUnit) * toRational (us ^. #executionMemory)
 
 type AlonzoTx =
     Ledger.Tx (Cardano.ShelleyLedgerEra Cardano.AlonzoEra)
@@ -1169,27 +1380,29 @@ type BabbageTx =
     Ledger.Tx (Cardano.ShelleyLedgerEra Cardano.BabbageEra)
 
 _assignScriptRedeemers
-    :: forall era. Cardano.IsShelleyBasedEra era
+    :: forall era
+     . Cardano.IsShelleyBasedEra era
     => Cardano.ProtocolParameters
     -> TimeInterpreter (Either PastHorizonException)
     -> Cardano.UTxO era
     -> [Redeemer]
     -> Cardano.Tx era
-    -> Either ErrAssignRedeemers (Cardano.Tx era )
+    -> Either ErrAssignRedeemers (Cardano.Tx era)
 _assignScriptRedeemers pparams ti utxo redeemers tx =
     case Cardano.shelleyBasedEra @era of
         Cardano.ShelleyBasedEraShelley ->
             pure tx
         Cardano.ShelleyBasedEraAllegra ->
             pure tx
-        Cardano.ShelleyBasedEraMary->
+        Cardano.ShelleyBasedEraMary ->
             pure tx
         Cardano.ShelleyBasedEraAlonzo -> do
             let Cardano.ShelleyTx _ alonzoTx = tx
             alonzoTx' <- flip execStateT alonzoTx $ do
                 indexedRedeemers <- StateT assignNullRedeemersAlonzo
-                executionUnits <- get
-                    >>= lift . evaluateExecutionUnitsAlonzo indexedRedeemers
+                executionUnits <-
+                    get
+                        >>= lift . evaluateExecutionUnitsAlonzo indexedRedeemers
                 modifyM (assignExecutionUnitsAlonzo executionUnits)
                 modify' addScriptIntegrityHashAlonzo
             pure $ Cardano.ShelleyTx ShelleyBasedEraAlonzo alonzoTx'
@@ -1197,27 +1410,30 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
             let Cardano.ShelleyTx _ babbageTx = tx
             babbageTx' <- flip execStateT babbageTx $ do
                 indexedRedeemers <- StateT assignNullRedeemersBabbage
-                executionUnits <- get
-                    >>= lift . evaluateExecutionUnitsBabbage indexedRedeemers
+                executionUnits <-
+                    get
+                        >>= lift . evaluateExecutionUnitsBabbage indexedRedeemers
                 modifyM (assignExecutionUnitsBabbage executionUnits)
                 modify' addScriptIntegrityHashBabbage
             pure $ Cardano.ShelleyTx ShelleyBasedEraBabbage babbageTx'
   where
     epochInfo :: EpochInfo (Either T.Text)
-    epochInfo = hoistEpochInfo (left (T.pack . show) . runIdentity . runExceptT)
+    epochInfo =
+        hoistEpochInfo (left (T.pack . show) . runIdentity . runExceptT)
         -- Because `TimeInterpreter` conflates the monad for fetching the
         -- interpreter with the possibility of errors, we cope with this `error`
         -- call for now. A nicer solution would be exposing either
         -- `EpochInfo` or `Cardano.EraHistory` in the `NetworkLayer` directly,
         -- or - perhaps at some point - reimagining the `TimeInterpreter`
         -- abstraction.
-        $ fromRight
-            (error "`toEpochInfo ti` can never fail")
-            (toEpochInfo ti)
+        $
+            fromRight
+                (error "`toEpochInfo ti` can never fail")
+                (toEpochInfo ti)
 
     systemStart = getSystemStart ti
 
-    -- | Assign redeemers with null execution units to the input transaction.
+    -- \| Assign redeemers with null execution units to the input transaction.
     --
     -- Redeemers are determined from the context given to the caller via the
     -- 'Redeemer' type which is mapped to an 'Alonzo.ScriptPurpose'.
@@ -1243,9 +1459,10 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
         pure
             ( Map.fromList indexedRedeemers
             , alonzoTx
-                { Alonzo.wits = (Alonzo.wits alonzoTx)
-                    { Alonzo.txrdmrs = Alonzo.Redeemers (Map.fromList nullRedeemers)
-                    }
+                { Alonzo.wits =
+                    (Alonzo.wits alonzoTx)
+                        { Alonzo.txrdmrs = Alonzo.Redeemers (Map.fromList nullRedeemers)
+                        }
                 }
             )
 
@@ -1272,33 +1489,39 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
         pure
             ( Map.fromList indexedRedeemers
             , babbageTx
-                { Alonzo.wits = (Alonzo.wits babbageTx)
-                    { Alonzo.txrdmrs =
-                        Alonzo.Redeemers (Map.fromList nullRedeemers)
-                    }
+                { Alonzo.wits =
+                    (Alonzo.wits babbageTx)
+                        { Alonzo.txrdmrs =
+                            Alonzo.Redeemers (Map.fromList nullRedeemers)
+                        }
                 }
             )
 
-    -- | Evaluate execution units of each script/redeemer in the transaction.
+    -- \| Evaluate execution units of each script/redeemer in the transaction.
     -- This may fail for each script.
     evaluateExecutionUnitsAlonzo
         :: era ~ Cardano.AlonzoEra
         => Map Alonzo.RdmrPtr Redeemer
         -> AlonzoTx
-        -> Either ErrAssignRedeemers
+        -> Either
+            ErrAssignRedeemers
             (Map Alonzo.RdmrPtr (Either ErrAssignRedeemers Alonzo.ExUnits))
     evaluateExecutionUnitsAlonzo indexedRedeemers alonzoTx = do
-        let pparams' = Cardano.toLedgerPParams
-                Cardano.ShelleyBasedEraAlonzo pparams
-        let costs = toCostModelsAsArray
-                (Alonzo.unCostModels $ Alonzo._costmdls pparams')
-        let res = evaluateTransactionExecutionUnits
-                pparams'
-                alonzoTx
-                (toLedgerUTxO utxo)
-                epochInfo
-                systemStart
-                costs
+        let pparams' =
+                Cardano.toLedgerPParams
+                    Cardano.ShelleyBasedEraAlonzo
+                    pparams
+        let costs =
+                toCostModelsAsArray
+                    (Alonzo.unCostModels $ Alonzo._costmdls pparams')
+        let res =
+                evaluateTransactionExecutionUnits
+                    pparams'
+                    alonzoTx
+                    (toLedgerUTxO utxo)
+                    epochInfo
+                    systemStart
+                    costs
         case res of
             Left translationError ->
                 Left $ ErrAssignRedeemersTranslationError translationError
@@ -1309,22 +1532,26 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
         :: era ~ Cardano.BabbageEra
         => Map Alonzo.RdmrPtr Redeemer
         -> BabbageTx
-        -> Either ErrAssignRedeemers
+        -> Either
+            ErrAssignRedeemers
             (Map Alonzo.RdmrPtr (Either ErrAssignRedeemers Alonzo.ExUnits))
     evaluateExecutionUnitsBabbage indexedRedeemers babbageTx = do
+        let pparams' =
+                Cardano.toLedgerPParams
+                    Cardano.ShelleyBasedEraBabbage
+                    pparams
+        let costs =
+                toCostModelsAsArray
+                    (Alonzo.unCostModels $ Babbage._costmdls pparams')
 
-        let pparams' = Cardano.toLedgerPParams
-                Cardano.ShelleyBasedEraBabbage pparams
-        let costs = toCostModelsAsArray
-                (Alonzo.unCostModels $ Babbage._costmdls pparams')
-
-        let res = evaluateTransactionExecutionUnits
-                pparams'
-                babbageTx
-                (toLedgerUTxO utxo)
-                epochInfo
-                systemStart
-                costs
+        let res =
+                evaluateTransactionExecutionUnits
+                    pparams'
+                    babbageTx
+                    (toLedgerUTxO utxo)
+                    epochInfo
+                    systemStart
+                    costs
         case res of
             Left translationError ->
                 Left $ ErrAssignRedeemersTranslationError translationError
@@ -1339,7 +1566,7 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
     hoistScriptFailure indexedRedeemers = Map.mapWithKey $ \ptr -> left $ \e ->
         ErrAssignRedeemersScriptFailure (indexedRedeemers ! ptr) (show e)
 
-    -- | Change execution units for each redeemers in the transaction to what
+    -- \| Change execution units for each redeemers in the transaction to what
     -- they ought to be.
     assignExecutionUnitsAlonzo
         :: Map Alonzo.RdmrPtr (Either ErrAssignRedeemers Alonzo.ExUnits)
@@ -1348,17 +1575,20 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
     assignExecutionUnitsAlonzo exUnits alonzoTx = do
         let wits = Alonzo.wits alonzoTx
         let Alonzo.Redeemers rdmrs = Alonzo.txrdmrs wits
-        rdmrs' <- Map.mergeA
-            Map.preserveMissing
-            Map.dropMissing
-            (Map.zipWithAMatched (const assignUnits))
-            rdmrs
-            exUnits
-        pure $ alonzoTx
-            { Alonzo.wits = wits
-                { Alonzo.txrdmrs = Alonzo.Redeemers rdmrs'
+        rdmrs' <-
+            Map.mergeA
+                Map.preserveMissing
+                Map.dropMissing
+                (Map.zipWithAMatched (const assignUnits))
+                rdmrs
+                exUnits
+        pure $
+            alonzoTx
+                { Alonzo.wits =
+                    wits
+                        { Alonzo.txrdmrs = Alonzo.Redeemers rdmrs'
+                        }
                 }
-            }
 
     assignExecutionUnitsBabbage
         :: Map Alonzo.RdmrPtr (Either ErrAssignRedeemers Alonzo.ExUnits)
@@ -1367,17 +1597,20 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
     assignExecutionUnitsBabbage exUnits babbageTx = do
         let wits = Alonzo.wits babbageTx
         let Alonzo.Redeemers rdmrs = Alonzo.txrdmrs wits
-        rdmrs' <- Map.mergeA
-            Map.preserveMissing
-            Map.dropMissing
-            (Map.zipWithAMatched (const assignUnits))
-            rdmrs
-            exUnits
-        pure $ babbageTx
-            { Alonzo.wits = wits
-                { Alonzo.txrdmrs = Alonzo.Redeemers rdmrs'
+        rdmrs' <-
+            Map.mergeA
+                Map.preserveMissing
+                Map.dropMissing
+                (Map.zipWithAMatched (const assignUnits))
+                rdmrs
+                exUnits
+        pure $
+            babbageTx
+                { Alonzo.wits =
+                    wits
+                        { Alonzo.txrdmrs = Alonzo.Redeemers rdmrs'
+                        }
                 }
-            }
 
     assignUnits
         :: (dat, Alonzo.ExUnits)
@@ -1386,77 +1619,88 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
     assignUnits (dats, _zero) =
         fmap (dats,)
 
-    -- | Finally, calculate and add the script integrity hash with the new
+    -- \| Finally, calculate and add the script integrity hash with the new
     -- final redeemers, if any.
     addScriptIntegrityHashAlonzo
-        :: forall e. (e ~ Cardano.ShelleyLedgerEra Cardano.AlonzoEra)
+        :: forall e
+         . (e ~ Cardano.ShelleyLedgerEra Cardano.AlonzoEra)
         => AlonzoTx
         -> AlonzoTx
     addScriptIntegrityHashAlonzo alonzoTx =
-        let
-            wits  = Alonzo.wits alonzoTx
+        let wits = Alonzo.wits alonzoTx
             langs =
                 [ l
                 | (_hash, script) <- Map.toList (Alonzo.txscripts wits)
                 , (not . isNativeScript @e) script
                 , Just l <- [Alonzo.language script]
                 ]
-        in
-        alonzoTx
-            { Alonzo.body = (Alonzo.body alonzoTx)
-                { Alonzo.scriptIntegrityHash = Alonzo.hashScriptIntegrity
-                    (Set.fromList $ Alonzo.getLanguageView
-                        (Cardano.toLedgerPParams
-                            Cardano.ShelleyBasedEraAlonzo pparams)
-                        <$> langs)
-                    (Alonzo.txrdmrs wits)
-                    (Alonzo.txdats wits)
+         in alonzoTx
+                { Alonzo.body =
+                    (Alonzo.body alonzoTx)
+                        { Alonzo.scriptIntegrityHash =
+                            Alonzo.hashScriptIntegrity
+                                ( Set.fromList $
+                                    Alonzo.getLanguageView
+                                        ( Cardano.toLedgerPParams
+                                            Cardano.ShelleyBasedEraAlonzo
+                                            pparams
+                                        )
+                                        <$> langs
+                                )
+                                (Alonzo.txrdmrs wits)
+                                (Alonzo.txdats wits)
+                        }
                 }
-            }
 
     addScriptIntegrityHashBabbage
-        :: forall e. ( e ~ Cardano.ShelleyLedgerEra Cardano.BabbageEra )
+        :: forall e
+         . (e ~ Cardano.ShelleyLedgerEra Cardano.BabbageEra)
         => BabbageTx
         -> BabbageTx
     addScriptIntegrityHashBabbage babbageTx =
-        let
-            wits  = Alonzo.wits babbageTx
+        let wits = Alonzo.wits babbageTx
             langs =
                 [ l
                 | (_hash, script) <- Map.toList (Alonzo.txscripts wits)
                 , (not . isNativeScript @e) script
                 , Just l <- [Alonzo.language script]
                 ]
-        in
-        babbageTx
-            { Babbage.body = (Babbage.body babbageTx)
-                { Babbage.scriptIntegrityHash = Alonzo.hashScriptIntegrity
-                    (Set.fromList $ Alonzo.getLanguageView
-                        (Cardano.toLedgerPParams
-                            Cardano.ShelleyBasedEraBabbage pparams)
-                        <$> langs)
-                    (Alonzo.txrdmrs wits)
-                    (Alonzo.txdats wits)
+         in babbageTx
+                { Babbage.body =
+                    (Babbage.body babbageTx)
+                        { Babbage.scriptIntegrityHash =
+                            Alonzo.hashScriptIntegrity
+                                ( Set.fromList $
+                                    Alonzo.getLanguageView
+                                        ( Cardano.toLedgerPParams
+                                            Cardano.ShelleyBasedEraBabbage
+                                            pparams
+                                        )
+                                        <$> langs
+                                )
+                                (Alonzo.txrdmrs wits)
+                                (Alonzo.txdats wits)
+                        }
                 }
-            }
 
 txConstraints
     :: AnyCardanoEra -> ProtocolParameters -> TxWitnessTag -> TxConstraints
-txConstraints era protocolParams witnessTag = TxConstraints
-    { txBaseCost
-    , txBaseSize
-    , txInputCost
-    , txInputSize
-    , txOutputCost
-    , txOutputSize
-    , txOutputMaximumSize
-    , txOutputMaximumTokenQuantity
-    , txOutputMinimumAdaQuantity
-    , txOutputBelowMinimumAdaQuantity
-    , txRewardWithdrawalCost
-    , txRewardWithdrawalSize
-    , txMaximumSize
-    }
+txConstraints era protocolParams witnessTag =
+    TxConstraints
+        { txBaseCost
+        , txBaseSize
+        , txInputCost
+        , txInputSize
+        , txOutputCost
+        , txOutputSize
+        , txOutputMaximumSize
+        , txOutputMaximumTokenQuantity
+        , txOutputMinimumAdaQuantity
+        , txOutputBelowMinimumAdaQuantity
+        , txRewardWithdrawalCost
+        , txRewardWithdrawalSize
+        , txMaximumSize
+        }
   where
     txBaseCost =
         estimateTxCost era protocolParams empty
@@ -1476,11 +1720,13 @@ txConstraints era protocolParams witnessTag = TxConstraints
     txOutputSize bundle =
         marginalSizeOf empty {txOutputs = [mkTxOut bundle]}
 
-    txOutputMaximumSize = (<>)
-        (txOutputSize mempty)
-        (view
-            (#txParameters . #getTokenBundleMaxSize . #unTokenBundleMaxSize)
-            protocolParams)
+    txOutputMaximumSize =
+        (<>)
+            (txOutputSize mempty)
+            ( view
+                (#txParameters . #getTokenBundleMaxSize . #unTokenBundleMaxSize)
+                protocolParams
+            )
 
     txOutputMaximumTokenQuantity =
         TokenQuantity $ fromIntegral $ maxBound @Word64
@@ -1497,11 +1743,12 @@ txConstraints era protocolParams witnessTag = TxConstraints
     txRewardWithdrawalSize c =
         marginalSizeOf empty {txRewardWithdrawal = c}
 
-    txMaximumSize = protocolParams
-        & view (#txParameters . #getTxMaxSize)
-        & getQuantity
-        & fromIntegral
-        & TxSize
+    txMaximumSize =
+        protocolParams
+            & view (#txParameters . #getTxMaxSize)
+            & getQuantity
+            & fromIntegral
+            & TxSize
 
     empty :: TxSkeleton
     empty = emptyTxSkeleton witnessTag
@@ -1542,7 +1789,6 @@ txConstraints era protocolParams witnessTag = TxConstraints
 --
 -- The data included in 'TxSkeleton' is a subset of the data included in the
 -- union of 'SelectionSkeleton' and 'TransactionCtx'.
---
 data TxSkeleton = TxSkeleton
     { txMetadata :: !(Maybe TxMetadata)
     , txDelegationAction :: !(Maybe DelegationAction)
@@ -1562,54 +1808,55 @@ data TxSkeleton = TxSkeleton
 -- | Constructs an empty transaction skeleton.
 --
 -- This may be used to estimate the size and cost of an empty transaction.
---
 emptyTxSkeleton :: TxWitnessTag -> TxSkeleton
-emptyTxSkeleton txWitnessTag = TxSkeleton
-    { txMetadata = Nothing
-    , txDelegationAction = Nothing
-    , txRewardWithdrawal = Coin 0
-    , txWitnessTag
-    , txInputCount = 0
-    , txOutputs = []
-    , txChange = []
-    , txPaymentTemplate = Nothing
-    , txMintOrBurnScripts = []
-    , txAssetsToMintOrBurn = Set.empty
-    , txScriptExecutionCost = Coin 0
-    }
+emptyTxSkeleton txWitnessTag =
+    TxSkeleton
+        { txMetadata = Nothing
+        , txDelegationAction = Nothing
+        , txRewardWithdrawal = Coin 0
+        , txWitnessTag
+        , txInputCount = 0
+        , txOutputs = []
+        , txChange = []
+        , txPaymentTemplate = Nothing
+        , txMintOrBurnScripts = []
+        , txAssetsToMintOrBurn = Set.empty
+        , txScriptExecutionCost = Coin 0
+        }
 
 -- | Constructs a transaction skeleton from wallet primitive types.
 --
 -- This function extracts a subset of the data included in 'SelectionSkeleton'
 -- and 'TransactionCtx'.
---
 mkTxSkeleton
     :: TxWitnessTag
     -> TransactionCtx
     -> SelectionSkeleton
     -> TxSkeleton
-mkTxSkeleton witness context skeleton = TxSkeleton
-    { txMetadata = view #txMetadata context
-    , txDelegationAction = view #txDelegationAction context
-    , txRewardWithdrawal = withdrawalToCoin $ view #txWithdrawal context
-    , txWitnessTag = witness
-    , txInputCount = view #skeletonInputCount skeleton
-    , txOutputs = view #skeletonOutputs skeleton
-    , txChange = view #skeletonChange skeleton
-    , txPaymentTemplate =
-        template <$>
-        view #txPaymentCredentialScriptTemplate context
-    , txMintOrBurnScripts = (<>)
-        (Map.elems (snd $ view #txAssetsToMint context))
-        (Map.elems (snd $ view #txAssetsToBurn context))
-    , txAssetsToMintOrBurn = (<>)
-        (TokenMap.getAssets (fst $ view #txAssetsToMint context))
-        (TokenMap.getAssets (fst $ view #txAssetsToBurn context))
-    , txScriptExecutionCost = view #txPlutusScriptExecutionCost context
-    }
+mkTxSkeleton witness context skeleton =
+    TxSkeleton
+        { txMetadata = view #txMetadata context
+        , txDelegationAction = view #txDelegationAction context
+        , txRewardWithdrawal = withdrawalToCoin $ view #txWithdrawal context
+        , txWitnessTag = witness
+        , txInputCount = view #skeletonInputCount skeleton
+        , txOutputs = view #skeletonOutputs skeleton
+        , txChange = view #skeletonChange skeleton
+        , txPaymentTemplate =
+            template
+                <$> view #txPaymentCredentialScriptTemplate context
+        , txMintOrBurnScripts =
+            (<>)
+                (Map.elems (snd $ view #txAssetsToMint context))
+                (Map.elems (snd $ view #txAssetsToBurn context))
+        , txAssetsToMintOrBurn =
+            (<>)
+                (TokenMap.getAssets (fst $ view #txAssetsToMint context))
+                (TokenMap.getAssets (fst $ view #txAssetsToBurn context))
+        , txScriptExecutionCost = view #txPlutusScriptExecutionCost context
+        }
 
 -- | Estimates the final cost of a transaction based on its skeleton.
---
 estimateTxCost :: AnyCardanoEra -> ProtocolParameters -> TxSkeleton -> Coin
 estimateTxCost era pp skeleton =
     F.fold
@@ -1620,7 +1867,7 @@ estimateTxCost era pp skeleton =
     computeFee :: TxSize -> Coin
     computeFee (TxSize size) =
         let LinearFee LinearFunction {..} = getFeePolicy $ txParameters pp
-        in Coin $ ceiling $ intercept + slope * fromIntegral size
+         in Coin $ ceiling $ intercept + slope * fromIntegral size
 
 -- | Calculate the cost of increasing a CBOR-encoded Coin-value by another Coin
 -- with the lovelace/byte cost given by the 'FeePolicy'.
@@ -1636,8 +1883,10 @@ estimateTxCost era pp skeleton =
 -- Coin 352 -- 8 bytes * 44 lovelace/byte
 costOfIncreasingCoin
     :: FeePolicy
-    -> Coin -- ^ Original coin
-    -> Coin -- ^ Increment
+    -> Coin
+    -- ^ Original coin
+    -> Coin
+    -- ^ Increment
     -> Coin
 costOfIncreasingCoin (LinearFee fee) from delta =
     costOfCoin (from <> delta) `Coin.difference` costOfCoin from
@@ -1656,16 +1905,15 @@ maximumCostOfIncreasingCoin (LinearFee fee) = Coin $ ceiling $ 8 * perByte
 sizeOfCoin :: Coin -> TxSize
 sizeOfCoin (Coin c)
     | c >= 4_294_967_296 = TxSize 9 -- c >= 2^32
-    | c >=        65_536 = TxSize 5 -- c >= 2^16
-    | c >=           256 = TxSize 3 -- c >= 2^ 8
-    | c >=            24 = TxSize 2
-    | otherwise          = TxSize 1
+    | c >= 65_536 = TxSize 5 -- c >= 2^16
+    | c >= 256 = TxSize 3 -- c >= 2^ 8
+    | c >= 24 = TxSize 2
+    | otherwise = TxSize 1
 
 -- | Distributes a surplus transaction balance between the given change outputs
 --   and the given fee.
 --
 -- See documentation for 'TransactionLayer.distributeSurplus' for more details.
---
 _distributeSurplus
     :: FeePolicy
     -> Coin
@@ -1675,11 +1923,13 @@ _distributeSurplus
     -> Either ErrMoreSurplusNeeded (TxFeeAndChange [TxOut])
     -- ^ Adjusted fee and change outputs.
 _distributeSurplus feePolicy surplus fc@(TxFeeAndChange fee change) =
-    distributeSurplusDelta feePolicy surplus
+    distributeSurplusDelta
+        feePolicy
+        surplus
         (mapTxFeeAndChange id (fmap txOutCoin) fc)
-    <&> mapTxFeeAndChange
-        (fee <>)
-        (zipWith (flip txOutAddCoin) change)
+        <&> mapTxFeeAndChange
+            (fee <>)
+            (zipWith (flip txOutAddCoin) change)
 
 distributeSurplusDelta
     :: FeePolicy
@@ -1690,87 +1940,99 @@ distributeSurplusDelta
 distributeSurplusDelta feePolicy surplus (TxFeeAndChange fee change) =
     case change of
         changeHead : changeTail ->
-            distributeSurplusDeltaWithOneChangeCoin feePolicy surplus
+            distributeSurplusDeltaWithOneChangeCoin
+                feePolicy
+                surplus
                 (TxFeeAndChange fee changeHead)
-            <&> mapTxFeeAndChange id
-                (: (Coin 0 <$ changeTail))
+                <&> mapTxFeeAndChange
+                    id
+                    (: (Coin 0 <$ changeTail))
         [] ->
-            burnSurplusAsFees feePolicy surplus
+            burnSurplusAsFees
+                feePolicy
+                surplus
                 (TxFeeAndChange fee ())
-            <&> mapTxFeeAndChange id
-                (\() -> [])
+                <&> mapTxFeeAndChange
+                    id
+                    (\() -> [])
 
 distributeSurplusDeltaWithOneChangeCoin
     :: FeePolicy
-    -> Coin -- ^ Surplus to distribute
+    -> Coin
+    -- ^ Surplus to distribute
     -> TxFeeAndChange Coin
     -> Either ErrMoreSurplusNeeded (TxFeeAndChange Coin)
 distributeSurplusDeltaWithOneChangeCoin
-    feePolicy surplus fc@(TxFeeAndChange fee0 change0) =
-    let
-        -- We calculate the maximum possible fee increase, by assuming the
-        -- **entire** surplus is added to the change.
-        extraFee = findFixpointIncreasingFeeBy $
-            costOfIncreasingCoin feePolicy change0 surplus
-    in
-        case surplus `Coin.subtract` extraFee of
-            Just extraChange ->
-                Right $ TxFeeAndChange
-                    { fee = extraFee
-                    , change = extraChange
-                    }
-            Nothing ->
-                -- The fee increase from adding the surplus to the change was
-                -- greater than the surplus itself. This could happen if the
-                -- surplus is small.
-                burnSurplusAsFees feePolicy surplus
-                    (mapTxFeeAndChange id (const ()) fc)
+    feePolicy
+    surplus
+    fc@(TxFeeAndChange fee0 change0) =
+        let -- We calculate the maximum possible fee increase, by assuming the
+            -- \**entire** surplus is added to the change.
+            extraFee =
+                findFixpointIncreasingFeeBy $
+                    costOfIncreasingCoin feePolicy change0 surplus
+         in case surplus `Coin.subtract` extraFee of
+                Just extraChange ->
+                    Right $
+                        TxFeeAndChange
+                            { fee = extraFee
+                            , change = extraChange
+                            }
+                Nothing ->
+                    -- The fee increase from adding the surplus to the change was
+                    -- greater than the surplus itself. This could happen if the
+                    -- surplus is small.
+                    burnSurplusAsFees
+                        feePolicy
+                        surplus
+                        (mapTxFeeAndChange id (const ()) fc)
                         <&> mapTxFeeAndChange id (\() -> Coin 0)
-  where
-    -- Increasing the fee may itself increase the fee. If that is the case, this
-    -- function will increase the fee further. The process repeats until the fee
-    -- doesn't need to be increased.
-    --
-    -- The function will always converge because the result of
-    -- 'costOfIncreasingCoin' is bounded to @8 * feePerByte@.
-    --
-    -- On mainnet it seems unlikely that the function would recurse more than
-    -- one time, and certainly not more than twice. If the protocol parameters
-    -- are updated to allow for slightly more expensive txs, it might be
-    -- possible to hit the boundary at ≈4 ada where the fee would need 9 bytes
-    -- rather than 5. This is already the largest boundary.
-    --
-    -- Note that both the argument and the result of this function are increases
-    -- relative to 'fee0'.
-    --
-    -- == Example ==
-    --
-    -- In this more extreme example the fee is increased from increasing the fee
-    -- itself:
-    --
-    -- @@
-    --     let fee0 = 23
-    --     let feePolicy = -- 300 lovelace / byte
-    --
-    --     findFixpointIncreasingFeeBy 1 = go 0 1
-    --     -- Recurse:
-    --     = go (0 + 1) (costOfIncreasingCoin feePolicy (23 + 0) 1)
-    --     = go (0 + 1) 300
-    --     -- Recurse:
-    --     = go (1 + 300) (costOfIncreasingCoin feePolicy (23 + 1) 300)
-    --     = go 301 300
-    --     = go (301 + 300) (costOfIncreasingCoin feePolicy (23 + 301) 300)
-    --     = go (301 + 300) 0
-    --     = go 601 0
-    --     = 601
-    -- @@
-    findFixpointIncreasingFeeBy = go mempty
       where
-        go :: Coin -> Coin -> Coin
-        go c (Coin 0) = c
-        go c increase = go
-            (c <> increase)
-            (costOfIncreasingCoin feePolicy (c <> fee0) increase)
+        -- Increasing the fee may itself increase the fee. If that is the case, this
+        -- function will increase the fee further. The process repeats until the fee
+        -- doesn't need to be increased.
+        --
+        -- The function will always converge because the result of
+        -- 'costOfIncreasingCoin' is bounded to @8 * feePerByte@.
+        --
+        -- On mainnet it seems unlikely that the function would recurse more than
+        -- one time, and certainly not more than twice. If the protocol parameters
+        -- are updated to allow for slightly more expensive txs, it might be
+        -- possible to hit the boundary at ≈4 ada where the fee would need 9 bytes
+        -- rather than 5. This is already the largest boundary.
+        --
+        -- Note that both the argument and the result of this function are increases
+        -- relative to 'fee0'.
+        --
+        -- == Example ==
+        --
+        -- In this more extreme example the fee is increased from increasing the fee
+        -- itself:
+        --
+        -- @@
+        --     let fee0 = 23
+        --     let feePolicy = -- 300 lovelace / byte
+        --
+        --     findFixpointIncreasingFeeBy 1 = go 0 1
+        --     -- Recurse:
+        --     = go (0 + 1) (costOfIncreasingCoin feePolicy (23 + 0) 1)
+        --     = go (0 + 1) 300
+        --     -- Recurse:
+        --     = go (1 + 300) (costOfIncreasingCoin feePolicy (23 + 1) 300)
+        --     = go 301 300
+        --     = go (301 + 300) (costOfIncreasingCoin feePolicy (23 + 301) 300)
+        --     = go (301 + 300) 0
+        --     = go 601 0
+        --     = 601
+        -- @@
+        findFixpointIncreasingFeeBy = go mempty
+          where
+            go :: Coin -> Coin -> Coin
+            go c (Coin 0) = c
+            go c increase =
+                go
+                    (c <> increase)
+                    (costOfIncreasingCoin feePolicy (c <> fee0) increase)
 
 burnSurplusAsFees
     :: FeePolicy
@@ -1794,7 +2056,6 @@ burnSurplusAsFees feePolicy surplus (TxFeeAndChange fee0 ())
 -- https://github.com/input-output-hk/cardano-ledger/blob/master/eras/shelley/test-suite/cddl-files/shelley.cddl
 -- https://github.com/input-output-hk/cardano-ledger/blob/master/eras/shelley-ma/test-suite/cddl-files/shelley-ma.cddl
 -- https://github.com/input-output-hk/cardano-ledger/blob/master/eras/alonzo/test-suite/cddl-files/alonzo.cddl
---
 estimateTxSize
     :: AnyCardanoEra
     -> TxSkeleton
@@ -1815,21 +2076,21 @@ estimateTxSize era skeleton =
         , txAssetsToMintOrBurn
         } = skeleton
 
-    numberOf_Inputs
-        = fromIntegral txInputCount
+    numberOf_Inputs =
+        fromIntegral txInputCount
 
-    numberOf_CertificateSignatures
-        = maybe 0 (const 1) txDelegationAction
+    numberOf_CertificateSignatures =
+        maybe 0 (const 1) txDelegationAction
 
-    numberOf_Withdrawals
-        = if txRewardWithdrawal > Coin 0 then 1 else 0
+    numberOf_Withdrawals =
+        if txRewardWithdrawal > Coin 0 then 1 else 0
 
     -- Total number of signatures the scripts require
-    numberOf_MintingWitnesses
-        = sumVia scriptRequiredKeySigs txMintOrBurnScripts
+    numberOf_MintingWitnesses =
+        sumVia scriptRequiredKeySigs txMintOrBurnScripts
 
-    numberOf_ScriptVkeyWitnesses
-        = maybe 0 scriptRequiredKeySigs txPaymentTemplate
+    numberOf_ScriptVkeyWitnesses =
+        maybe 0 scriptRequiredKeySigs txPaymentTemplate
 
     scriptRequiredKeySigs :: Num num => Script object -> num
     scriptRequiredKeySigs = \case
@@ -1848,24 +2109,25 @@ estimateTxSize era skeleton =
             -- the worst case of "signs with all".
             sumVia scriptRequiredKeySigs ss
 
-    numberOf_VkeyWitnesses
-        = case txWitnessTag of
-            TxWitnessByronUTxO{} -> 0
+    numberOf_VkeyWitnesses =
+        case txWitnessTag of
+            TxWitnessByronUTxO {} -> 0
             TxWitnessShelleyUTxO ->
-                if numberOf_ScriptVkeyWitnesses == 0 then
-                    numberOf_Inputs
-                    + numberOf_Withdrawals
-                    + numberOf_CertificateSignatures
-                    + numberOf_MintingWitnesses
-                else
-                    (numberOf_Inputs * numberOf_ScriptVkeyWitnesses)
-                    + numberOf_Withdrawals
-                    + numberOf_CertificateSignatures
-                    + numberOf_MintingWitnesses
+                if numberOf_ScriptVkeyWitnesses == 0
+                    then
+                        numberOf_Inputs
+                            + numberOf_Withdrawals
+                            + numberOf_CertificateSignatures
+                            + numberOf_MintingWitnesses
+                    else
+                        (numberOf_Inputs * numberOf_ScriptVkeyWitnesses)
+                            + numberOf_Withdrawals
+                            + numberOf_CertificateSignatures
+                            + numberOf_MintingWitnesses
 
-    numberOf_BootstrapWitnesses
-        = case txWitnessTag of
-            TxWitnessByronUTxO{} -> numberOf_Inputs
+    numberOf_BootstrapWitnesses =
+        case txWitnessTag of
+            TxWitnessByronUTxO {} -> numberOf_Inputs
             TxWitnessShelleyUTxO -> 0
 
     -- transaction =
@@ -1873,11 +2135,11 @@ estimateTxSize era skeleton =
     --   , transaction_witness_set
     --   , transaction_metadata / null
     --   ]
-    sizeOf_Transaction
-        = sizeOf_SmallArray
-        + sizeOf_TransactionBody
-        + sizeOf_WitnessSet
-        + sizeOf_Metadata
+    sizeOf_Transaction =
+        sizeOf_SmallArray
+            + sizeOf_TransactionBody
+            + sizeOf_WitnessSet
+            + sizeOf_Metadata
 
     -- transaction_body =
     --   { 0 : set<transaction_input>
@@ -1891,110 +2153,111 @@ estimateTxSize era skeleton =
     --   , ? 8 : uint ; validity interval start
     --   , ? 9 : mint
     --   }
-    sizeOf_TransactionBody
-        = sizeOf_SmallMap
-        + sizeOf_Inputs
-        + sizeOf_Outputs
-        + sizeOf_Fee
-        + sizeOf_Ttl
-        + sizeOf_Certificates
-        + sizeOf_Withdrawals
-        + sizeOf_Update
-        + sizeOf_MetadataHash
-        + sizeOf_ValidityIntervalStart
-        + sumVia sizeOf_Mint (F.toList txAssetsToMintOrBurn)
+    sizeOf_TransactionBody =
+        sizeOf_SmallMap
+            + sizeOf_Inputs
+            + sizeOf_Outputs
+            + sizeOf_Fee
+            + sizeOf_Ttl
+            + sizeOf_Certificates
+            + sizeOf_Withdrawals
+            + sizeOf_Update
+            + sizeOf_MetadataHash
+            + sizeOf_ValidityIntervalStart
+            + sumVia sizeOf_Mint (F.toList txAssetsToMintOrBurn)
       where
         -- 0 => set<transaction_input>
-        sizeOf_Inputs
-            = sizeOf_SmallUInt
-            + sizeOf_Array
-            + sizeOf_Input * numberOf_Inputs
+        sizeOf_Inputs =
+            sizeOf_SmallUInt
+                + sizeOf_Array
+                + sizeOf_Input * numberOf_Inputs
 
         -- 1 => [* transaction_output]
-        sizeOf_Outputs
-            = sizeOf_SmallUInt
-            + sizeOf_Array
-            + F.sum (sizeOf_Output <$> txOutputs)
-            + F.sum (sizeOf_ChangeOutput <$> txChange)
+        sizeOf_Outputs =
+            sizeOf_SmallUInt
+                + sizeOf_Array
+                + F.sum (sizeOf_Output <$> txOutputs)
+                + F.sum (sizeOf_ChangeOutput <$> txChange)
 
         -- 2 => fee
-        sizeOf_Fee
-            = sizeOf_SmallUInt
-            + sizeOf_UInt
+        sizeOf_Fee =
+            sizeOf_SmallUInt
+                + sizeOf_UInt
 
         -- 3 => ttl
-        sizeOf_Ttl
-            = sizeOf_SmallUInt
-            + sizeOf_UInt
+        sizeOf_Ttl =
+            sizeOf_SmallUInt
+                + sizeOf_UInt
 
         -- ?4 => [* certificates ]
-        sizeOf_Certificates
-            = case txDelegationAction of
+        sizeOf_Certificates =
+            case txDelegationAction of
                 Nothing ->
                     0
-                Just RegisterKeyAndJoin{} ->
+                Just RegisterKeyAndJoin {} ->
                     sizeOf_SmallUInt
-                    + sizeOf_SmallArray
-                    + sizeOf_StakeRegistration
-                    + sizeOf_StakeDelegation
-                Just Join{} ->
+                        + sizeOf_SmallArray
+                        + sizeOf_StakeRegistration
+                        + sizeOf_StakeDelegation
+                Just Join {} ->
                     sizeOf_SmallUInt
-                    + sizeOf_SmallArray
-                    + sizeOf_StakeDelegation
-                Just Quit{} ->
+                        + sizeOf_SmallArray
+                        + sizeOf_StakeDelegation
+                Just Quit {} ->
                     sizeOf_SmallUInt
-                    + sizeOf_SmallArray
-                    + sizeOf_StakeDeregistration
+                        + sizeOf_SmallArray
+                        + sizeOf_StakeDeregistration
 
         -- ?5 => withdrawals
-        sizeOf_Withdrawals
-            = (if numberOf_Withdrawals > 0
+        sizeOf_Withdrawals =
+            ( if numberOf_Withdrawals > 0
                 then sizeOf_SmallUInt + sizeOf_SmallMap
-                else 0)
-            + sizeOf_Withdrawal * numberOf_Withdrawals
+                else 0
+            )
+                + sizeOf_Withdrawal * numberOf_Withdrawals
 
         -- ?6 => update
-        sizeOf_Update
-            = 0 -- Assuming no updates is running through cardano-wallet
+        sizeOf_Update =
+            0 -- Assuming no updates is running through cardano-wallet
 
         -- ?7 => metadata_hash
-        sizeOf_MetadataHash
-            = maybe 0 (const (sizeOf_SmallUInt + sizeOf_Hash32)) txMetadata
+        sizeOf_MetadataHash =
+            maybe 0 (const (sizeOf_SmallUInt + sizeOf_Hash32)) txMetadata
 
         -- ?8 => uint ; validity interval start
-        sizeOf_ValidityIntervalStart
-            = sizeOf_UInt
+        sizeOf_ValidityIntervalStart =
+            sizeOf_UInt
 
         -- ?9 => mint = multiasset<int64>
         -- mint = multiasset<int64>
-        sizeOf_Mint AssetId{tokenName}
-          = sizeOf_MultiAsset sizeOf_Int64 tokenName
+        sizeOf_Mint AssetId {tokenName} =
+            sizeOf_MultiAsset sizeOf_Int64 tokenName
 
     -- For metadata, we can't choose a reasonable upper bound, so it's easier to
     -- measure the serialize data since we have it anyway. When it's "empty",
     -- metadata are represented by a special "null byte" in CBOR `F6`.
-    sizeOf_Metadata
-        = maybe 1 (toInteger . BS.length . serialiseToCBOR) txMetadata
+    sizeOf_Metadata =
+        maybe 1 (toInteger . BS.length . serialiseToCBOR) txMetadata
 
     -- transaction_input =
     --   [ transaction_id : $hash32
     --   , index : uint
     --   ]
-    sizeOf_Input
-        = sizeOf_SmallArray
-        + sizeOf_Hash32
-        + sizeOf_UInt
+    sizeOf_Input =
+        sizeOf_SmallArray
+            + sizeOf_Hash32
+            + sizeOf_UInt
 
     -- legacy_transaction_output =
     --   [address, amount : value]
     -- value =
     --   coin / [coin,multiasset<uint>]
-    sizeOf_LegacyTransactionOutput TxOut {address, tokens}
-        = sizeOf_SmallArray
-        + sizeOf_Address address
-        + sizeOf_SmallArray
-        + sizeOf_Coin (TokenBundle.getCoin tokens)
-        + sumVia sizeOf_NativeAsset (TokenBundle.getAssets tokens)
+    sizeOf_LegacyTransactionOutput TxOut {address, tokens} =
+        sizeOf_SmallArray
+            + sizeOf_Address address
+            + sizeOf_SmallArray
+            + sizeOf_Coin (TokenBundle.getCoin tokens)
+            + sumVia sizeOf_NativeAsset (TokenBundle.getAssets tokens)
 
     -- post_alonzo_transaction_output =
     --   { 0 : address
@@ -2004,37 +2267,37 @@ estimateTxSize era skeleton =
     --   }
     -- value =
     --   coin / [coin,multiasset<uint>]
-    sizeOf_PostAlonzoTransactionOutput TxOut {address, tokens}
-        = sizeOf_SmallMap
-        + sizeOf_SmallUInt
-        + sizeOf_Address address
-        + sizeOf_SmallUInt
-        + sizeOf_SmallArray
-        + sizeOf_Coin (TokenBundle.getCoin tokens)
-        + sumVia sizeOf_NativeAsset (TokenBundle.getAssets tokens)
+    sizeOf_PostAlonzoTransactionOutput TxOut {address, tokens} =
+        sizeOf_SmallMap
+            + sizeOf_SmallUInt
+            + sizeOf_Address address
+            + sizeOf_SmallUInt
+            + sizeOf_SmallArray
+            + sizeOf_Coin (TokenBundle.getCoin tokens)
+            + sumVia sizeOf_NativeAsset (TokenBundle.getAssets tokens)
 
-    sizeOf_Output
-        = if withinEra (AnyCardanoEra AlonzoEra) era
-          then sizeOf_LegacyTransactionOutput
-          else sizeOf_PostAlonzoTransactionOutput
+    sizeOf_Output =
+        if withinEra (AnyCardanoEra AlonzoEra) era
+            then sizeOf_LegacyTransactionOutput
+            else sizeOf_PostAlonzoTransactionOutput
 
     sizeOf_ChangeOutput :: Set AssetId -> Integer
-    sizeOf_ChangeOutput
-        = if withinEra (AnyCardanoEra AlonzoEra) era
-          then sizeOf_LegacyChangeOutput
-          else sizeOf_PostAlonzoChangeOutput
+    sizeOf_ChangeOutput =
+        if withinEra (AnyCardanoEra AlonzoEra) era
+            then sizeOf_LegacyChangeOutput
+            else sizeOf_PostAlonzoChangeOutput
 
     -- transaction_output =
     --   [address, amount : value]
     -- value =
     --   coin / [coin,multiasset<uint>]
     sizeOf_LegacyChangeOutput :: Set AssetId -> Integer
-    sizeOf_LegacyChangeOutput xs
-        = sizeOf_SmallArray
-        + sizeOf_ChangeAddress
-        + sizeOf_SmallArray
-        + sizeOf_LargeUInt
-        + sumVia sizeOf_NativeAsset xs
+    sizeOf_LegacyChangeOutput xs =
+        sizeOf_SmallArray
+            + sizeOf_ChangeAddress
+            + sizeOf_SmallArray
+            + sizeOf_LargeUInt
+            + sumVia sizeOf_NativeAsset xs
 
     -- post_alonzo_transaction_output =
     --   { 0 : address
@@ -2045,47 +2308,47 @@ estimateTxSize era skeleton =
     -- value =
     --   coin / [coin,multiasset<uint>]
     sizeOf_PostAlonzoChangeOutput :: Set AssetId -> Integer
-    sizeOf_PostAlonzoChangeOutput xs
-        = sizeOf_SmallMap
-        + sizeOf_SmallUInt
-        + sizeOf_ChangeAddress
-        + sizeOf_SmallMap
-        + sizeOf_SmallUInt
-        + sizeOf_LargeUInt
-        + sumVia sizeOf_NativeAsset xs
+    sizeOf_PostAlonzoChangeOutput xs =
+        sizeOf_SmallMap
+            + sizeOf_SmallUInt
+            + sizeOf_ChangeAddress
+            + sizeOf_SmallMap
+            + sizeOf_SmallUInt
+            + sizeOf_LargeUInt
+            + sumVia sizeOf_NativeAsset xs
 
     -- stake_registration =
     --   (0, stake_credential)
-    sizeOf_StakeRegistration
-        = sizeOf_SmallArray
-        + sizeOf_SmallUInt
-        + sizeOf_StakeCredential
+    sizeOf_StakeRegistration =
+        sizeOf_SmallArray
+            + sizeOf_SmallUInt
+            + sizeOf_StakeCredential
 
     -- stake_deregistration =
     --   (1, stake_credential)
-    sizeOf_StakeDeregistration
-        = sizeOf_StakeRegistration
+    sizeOf_StakeDeregistration =
+        sizeOf_StakeRegistration
 
     -- stake_delegation =
     --   (2, stake_credential, pool_keyhash)
-    sizeOf_StakeDelegation
-        = sizeOf_SmallArray
-        + sizeOf_SmallUInt
-        + sizeOf_StakeCredential
-        + sizeOf_Hash28
+    sizeOf_StakeDelegation =
+        sizeOf_SmallArray
+            + sizeOf_SmallUInt
+            + sizeOf_StakeCredential
+            + sizeOf_Hash28
 
     -- stake_credential =
     --   [  0, addr_keyhash
     --   // 1, scripthash
     --   ]
-    sizeOf_StakeCredential
-        = sizeOf_SmallArray
-        + sizeOf_SmallUInt
-        + sizeOf_Hash28
+    sizeOf_StakeCredential =
+        sizeOf_SmallArray
+            + sizeOf_SmallUInt
+            + sizeOf_Hash28
 
     -- We carry addresses already serialized, so it's a matter of measuring.
-    sizeOf_Address addr
-        = 2 + toInteger (BS.length (unAddress addr))
+    sizeOf_Address addr =
+        2 + toInteger (BS.length (unAddress addr))
 
     -- For change address, we consider the worst-case scenario based on the
     -- given wallet scheme. Byron addresses are larger.
@@ -2093,100 +2356,103 @@ estimateTxSize era skeleton =
     -- NOTE: we could do slightly better if we wanted to for Byron addresses and
     -- discriminate based on the network as well since testnet addresses are
     -- larger than mainnet ones. But meh.
-    sizeOf_ChangeAddress
-        = case txWitnessTag of
-            TxWitnessByronUTxO{} -> 85
+    sizeOf_ChangeAddress =
+        case txWitnessTag of
+            TxWitnessByronUTxO {} -> 85
             TxWitnessShelleyUTxO -> 59
 
     -- value = coin / [coin,multiasset<uint>]
     -- We consider "native asset" to just be the "multiasset<uint>" part of the
     -- above, hence why we don't also include the size of the coin. Where this
     -- is used, the size of the coin and array are are added too.
-    sizeOf_NativeAsset AssetId{tokenName}
-        = sizeOf_MultiAsset sizeOf_LargeUInt tokenName
+    sizeOf_NativeAsset AssetId {tokenName} =
+        sizeOf_MultiAsset sizeOf_LargeUInt tokenName
 
     -- multiasset<a> = { * policy_id => { * asset_name => a } }
     -- policy_id = scripthash
     -- asset_name = bytes .size (0..32)
-    sizeOf_MultiAsset sizeOf_a name
-      = sizeOf_SmallMap -- NOTE: Assuming < 23 policies per output
-      + sizeOf_Hash28
-      + sizeOf_SmallMap -- NOTE: Assuming < 23 assets per policy
-      + sizeOf_AssetName name
-      + sizeOf_a
+    sizeOf_MultiAsset sizeOf_a name =
+        sizeOf_SmallMap -- NOTE: Assuming < 23 policies per output
+            + sizeOf_Hash28
+            + sizeOf_SmallMap -- NOTE: Assuming < 23 assets per policy
+            + sizeOf_AssetName name
+            + sizeOf_a
 
     -- asset_name = bytes .size (0..32)
-    sizeOf_AssetName name
-        = 2 + toInteger (BS.length $ unTokenName name)
+    sizeOf_AssetName name =
+        2 + toInteger (BS.length $ unTokenName name)
 
     -- Coins can really vary so it's very punishing to always assign them the
     -- upper bound. They will typically be between 3 and 9 bytes (only 6 bytes
     -- difference, but on 20+ outputs, one starts feeling it).
     --
     -- So, for outputs, since we have the values, we can compute it accurately.
-    sizeOf_Coin
-        = toInteger
-        . BS.length
-        . CBOR.toStrictByteString
-        . CBOR.encodeWord64
-        . Coin.unsafeToWord64
+    sizeOf_Coin =
+        toInteger
+            . BS.length
+            . CBOR.toStrictByteString
+            . CBOR.encodeWord64
+            . Coin.unsafeToWord64
 
     -- withdrawals =
     --   { * reward_account => coin }
-    sizeOf_Withdrawal
-        = sizeOf_Hash28
-        + sizeOf_LargeUInt
+    sizeOf_Withdrawal =
+        sizeOf_Hash28
+            + sizeOf_LargeUInt
 
     -- [* native_script ]
-    sizeOf_NativeScripts []
-        = 0
-    sizeOf_NativeScripts ss
-        = sizeOf_Array
-        + sizeOf_SmallUInt
-        + sumVia sizeOf_NativeScript ss
+    sizeOf_NativeScripts [] =
+        0
+    sizeOf_NativeScripts ss =
+        sizeOf_Array
+            + sizeOf_SmallUInt
+            + sumVia sizeOf_NativeScript ss
 
-    determinePaymentTemplateSize [] scriptCosigner
-        = sizeOf_Array
-        + sizeOf_SmallUInt
-        + numberOf_Inputs * (sizeOf_NativeScript scriptCosigner)
-    determinePaymentTemplateSize _ scriptCosigner
-        = numberOf_Inputs * (sizeOf_NativeScript scriptCosigner)
+    determinePaymentTemplateSize [] scriptCosigner =
+        sizeOf_Array
+            + sizeOf_SmallUInt
+            + numberOf_Inputs * (sizeOf_NativeScript scriptCosigner)
+    determinePaymentTemplateSize _ scriptCosigner =
+        numberOf_Inputs * (sizeOf_NativeScript scriptCosigner)
 
     -- transaction_witness_set =
     --   { ?0 => [* vkeywitness ]
     --   , ?1 => [* native_script ]
     --   , ?2 => [* bootstrap_witness ]
     --   }
-    sizeOf_WitnessSet
-        = sizeOf_SmallMap
-        + sizeOf_VKeyWitnesses
-        + sizeOf_NativeScripts txMintOrBurnScripts
-        + maybe 0 (determinePaymentTemplateSize txMintOrBurnScripts) txPaymentTemplate
-        + sizeOf_BootstrapWitnesses
+    sizeOf_WitnessSet =
+        sizeOf_SmallMap
+            + sizeOf_VKeyWitnesses
+            + sizeOf_NativeScripts txMintOrBurnScripts
+            + maybe 0 (determinePaymentTemplateSize txMintOrBurnScripts) txPaymentTemplate
+            + sizeOf_BootstrapWitnesses
       where
         -- ?0 => [* vkeywitness ]
-        sizeOf_VKeyWitnesses
-            = (if numberOf_VkeyWitnesses > 0
-                then sizeOf_Array + sizeOf_SmallUInt else 0)
-            + sizeOf_VKeyWitness * numberOf_VkeyWitnesses
+        sizeOf_VKeyWitnesses =
+            ( if numberOf_VkeyWitnesses > 0
+                then sizeOf_Array + sizeOf_SmallUInt
+                else 0
+            )
+                + sizeOf_VKeyWitness * numberOf_VkeyWitnesses
 
         -- ?1 => [* native_script ]
 
         -- ?2 => [* bootstrap_witness ]
-        sizeOf_BootstrapWitnesses
-            = (if numberOf_BootstrapWitnesses > 0
+        sizeOf_BootstrapWitnesses =
+            ( if numberOf_BootstrapWitnesses > 0
                 then sizeOf_Array + sizeOf_SmallUInt
-                else 0)
-            + sizeOf_BootstrapWitness * numberOf_BootstrapWitnesses
+                else 0
+            )
+                + sizeOf_BootstrapWitness * numberOf_BootstrapWitnesses
 
     -- vkeywitness =
     --  [ $vkey
     --  , $signature
     --  ]
-    sizeOf_VKeyWitness
-        = sizeOf_SmallArray
-        + sizeOf_VKey
-        + sizeOf_Signature
+    sizeOf_VKeyWitness =
+        sizeOf_SmallArray
+            + sizeOf_VKey
+            + sizeOf_Signature
 
     -- bootstrap_witness =
     --  [ public_key : $vkey
@@ -2194,14 +2460,14 @@ estimateTxSize era skeleton =
     --  , chain_code : bytes .size 32
     --  , attributes : bytes
     --  ]
-    sizeOf_BootstrapWitness
-        = sizeOf_SmallArray
-        + sizeOf_VKey
-        + sizeOf_Signature
-        + sizeOf_ChainCode
-        + sizeOf_Attributes
+    sizeOf_BootstrapWitness =
+        sizeOf_SmallArray
+            + sizeOf_VKey
+            + sizeOf_Signature
+            + sizeOf_ChainCode
+            + sizeOf_Attributes
       where
-        sizeOf_ChainCode  = 34
+        sizeOf_ChainCode = 34
         sizeOf_Attributes = 45 -- NOTE: could be smaller by ~34 for Icarus
 
     -- native_script =
@@ -2236,23 +2502,23 @@ estimateTxSize era skeleton =
 
     -- A Blake2b-224 hash, resulting in a 28-byte digest wrapped in CBOR, so
     -- with 2 bytes overhead (length <255, but length > 23)
-    sizeOf_Hash28
-        = 30
+    sizeOf_Hash28 =
+        30
 
     -- A Blake2b-256 hash, resulting in a 32-byte digest wrapped in CBOR, so
     -- with 2 bytes overhead (length <255, but length > 23)
-    sizeOf_Hash32
-        = 34
+    sizeOf_Hash32 =
+        34
 
     -- A 32-byte Ed25519 public key, encoded as a CBOR-bytestring so with 2
     -- bytes overhead (length < 255, but length > 23)
-    sizeOf_VKey
-        = 34
+    sizeOf_VKey =
+        34
 
     -- A 64-byte Ed25519 signature, encoded as a CBOR-bytestring so with 2
     -- bytes overhead (length < 255, but length > 23)
-    sizeOf_Signature
-        = 66
+    sizeOf_Signature =
+        66
 
     -- A CBOR UInt which is less than 23 in value fits on a single byte. Beyond,
     -- the first byte is used to encode the number of bytes necessary to encode
@@ -2291,17 +2557,18 @@ sumVia :: (Foldable t, Num m) => (a -> m) -> t a -> m
 sumVia f = F.foldl' (\t -> (t +) . f) 0
 
 withShelleyBasedEra
-    :: forall a. ()
+    :: forall a
+     . ()
     => AnyCardanoEra
     -> (forall era. EraConstraints era => ShelleyBasedEra era -> Either ErrMkTransaction a)
     -> Either ErrMkTransaction a
 withShelleyBasedEra era fn = case era of
-    AnyCardanoEra ByronEra    -> Left $ ErrMkTransactionInvalidEra era
-    AnyCardanoEra ShelleyEra  -> fn ShelleyBasedEraShelley
-    AnyCardanoEra AllegraEra  -> fn ShelleyBasedEraAllegra
-    AnyCardanoEra MaryEra     -> fn ShelleyBasedEraMary
-    AnyCardanoEra AlonzoEra   -> fn ShelleyBasedEraAlonzo
-    AnyCardanoEra BabbageEra  -> fn ShelleyBasedEraBabbage
+    AnyCardanoEra ByronEra -> Left $ ErrMkTransactionInvalidEra era
+    AnyCardanoEra ShelleyEra -> fn ShelleyBasedEraShelley
+    AnyCardanoEra AllegraEra -> fn ShelleyBasedEraAllegra
+    AnyCardanoEra MaryEra -> fn ShelleyBasedEraMary
+    AnyCardanoEra AlonzoEra -> fn ShelleyBasedEraAlonzo
+    AnyCardanoEra BabbageEra -> fn ShelleyBasedEraBabbage
 
 -- FIXME: Make this a Allegra or Shelley transaction depending on the era we're
 -- in. However, quoting Duncan:
@@ -2313,7 +2580,8 @@ withShelleyBasedEra era fn = case era of
 --
 -- Which suggests that we may get away with Shelley-only transactions for now?
 mkUnsignedTx
-    :: forall era.  Cardano.IsCardanoEra era
+    :: forall era
+     . Cardano.IsCardanoEra era
     => ShelleyBasedEra era
     -> (Maybe SlotNo, SlotNo)
     -> SelectionOf TxOut
@@ -2327,87 +2595,73 @@ mkUnsignedTx
     -> Map TxIn (Script KeyHash)
     -> Either ErrMkTransaction (Cardano.TxBody era)
 mkUnsignedTx era ttl cs md wdrls certs fees mintData burnData mintingScripts inpsScripts =
-    left toErrMkTx $ Cardano.makeTransactionBody $ Cardano.TxBodyContent
-    { Cardano.txIns = inputWits
-
-    , txInsReference = Cardano.TxInsReferenceNone
-
-    , Cardano.txOuts =
-        toCardanoTxOut era <$> view #outputs cs ++ F.toList (view #change cs)
-
-    , Cardano.txWithdrawals =
-        let
-            wit = Cardano.BuildTxWith
-                $ Cardano.KeyWitness Cardano.KeyWitnessForStakeAddr
-        in
-            Cardano.TxWithdrawals wdrlsSupported
-                (map (\(key, coin) -> (key, coin, wit)) wdrls)
-
-
-    -- @mkUnsignedTx@ is never used with Plutus scripts, and so we never have to
-    -- care about collateral or PParams (for script integrity hash) here.
-    --
-    -- If constructTransaction because of multisig in the future ever needs to
-    -- run/redeem Plutus scripts, we should re-use balanceTransaction and remove
-    -- this @mkUnsignedTx@. (We should do this regardless.)
-    , txInsCollateral = Cardano.TxInsCollateralNone
-    , txTotalCollateral = Cardano.TxTotalCollateralNone
-    , txReturnCollateral = Cardano.TxReturnCollateralNone
-    , txProtocolParams = Cardano.BuildTxWith Nothing
-
-    , txScriptValidity =
-        Cardano.TxScriptValidityNone
-
-    , txExtraKeyWits = Cardano.TxExtraKeyWitnessesNone
-
-    , Cardano.txCertificates =
-        let
-            -- It seems that passing Map.empty here works just fine.
-            witMap = Map.empty
-            ctx = Cardano.BuildTxWith witMap
-        in
-            Cardano.TxCertificates certSupported certs ctx
-
-    , Cardano.txFee = explicitFees era fees
-
-    , Cardano.txValidityRange =
-        let toLowerBound from = case txValidityLowerBoundSupported of
-                Just lowerBoundSupported ->
-                    Cardano.TxValidityLowerBound lowerBoundSupported from
-                Nothing -> Cardano.TxValidityNoLowerBound
-        in
-        bimap
-            (maybe Cardano.TxValidityNoLowerBound toLowerBound)
-            (Cardano.TxValidityUpperBound txValidityUpperBoundSupported)
-            ttl
-
-    , Cardano.txMetadata =
-        maybe
-            Cardano.TxMetadataNone
-            (Cardano.TxMetadataInEra metadataSupported)
-            md
-
-    , Cardano.txAuxScripts =
-        Cardano.TxAuxScriptsNone
-
-    , Cardano.txUpdateProposal =
-        Cardano.TxUpdateProposalNone
-
-    , Cardano.txMintValue =
-        case txMintingSupported of
-            Nothing -> Cardano.TxMintNone
-            Just mintedEra ->
-                let mintValue = toCardanoValue (TokenBundle (Coin 0) mintData)
-                    burnValue =
-                        Cardano.negateValue $
-                        toCardanoValue (TokenBundle (Coin 0) burnData)
-                    witMap =
-                        Map.map toScriptWitness $
-                        Map.mapKeys (toCardanoPolicyId . TokenMap.tokenPolicyId)
-                        mintingScripts
-                    ctx = Cardano.BuildTxWith witMap
-                in Cardano.TxMintValue mintedEra (mintValue <> burnValue) ctx
-    }
+    left toErrMkTx $
+        Cardano.makeTransactionBody $
+            Cardano.TxBodyContent
+                { Cardano.txIns = inputWits
+                , txInsReference = Cardano.TxInsReferenceNone
+                , Cardano.txOuts =
+                    toCardanoTxOut era <$> view #outputs cs ++ F.toList (view #change cs)
+                , Cardano.txWithdrawals =
+                    let wit =
+                            Cardano.BuildTxWith $
+                                Cardano.KeyWitness Cardano.KeyWitnessForStakeAddr
+                     in Cardano.TxWithdrawals
+                            wdrlsSupported
+                            (map (\(key, coin) -> (key, coin, wit)) wdrls)
+                , -- @mkUnsignedTx@ is never used with Plutus scripts, and so we never have to
+                  -- care about collateral or PParams (for script integrity hash) here.
+                  --
+                  -- If constructTransaction because of multisig in the future ever needs to
+                  -- run/redeem Plutus scripts, we should re-use balanceTransaction and remove
+                  -- this @mkUnsignedTx@. (We should do this regardless.)
+                  txInsCollateral = Cardano.TxInsCollateralNone
+                , txTotalCollateral = Cardano.TxTotalCollateralNone
+                , txReturnCollateral = Cardano.TxReturnCollateralNone
+                , txProtocolParams = Cardano.BuildTxWith Nothing
+                , txScriptValidity =
+                    Cardano.TxScriptValidityNone
+                , txExtraKeyWits = Cardano.TxExtraKeyWitnessesNone
+                , Cardano.txCertificates =
+                    let -- It seems that passing Map.empty here works just fine.
+                        witMap = Map.empty
+                        ctx = Cardano.BuildTxWith witMap
+                     in Cardano.TxCertificates certSupported certs ctx
+                , Cardano.txFee = explicitFees era fees
+                , Cardano.txValidityRange =
+                    let toLowerBound from = case txValidityLowerBoundSupported of
+                            Just lowerBoundSupported ->
+                                Cardano.TxValidityLowerBound lowerBoundSupported from
+                            Nothing -> Cardano.TxValidityNoLowerBound
+                     in bimap
+                            (maybe Cardano.TxValidityNoLowerBound toLowerBound)
+                            (Cardano.TxValidityUpperBound txValidityUpperBoundSupported)
+                            ttl
+                , Cardano.txMetadata =
+                    maybe
+                        Cardano.TxMetadataNone
+                        (Cardano.TxMetadataInEra metadataSupported)
+                        md
+                , Cardano.txAuxScripts =
+                    Cardano.TxAuxScriptsNone
+                , Cardano.txUpdateProposal =
+                    Cardano.TxUpdateProposalNone
+                , Cardano.txMintValue =
+                    case txMintingSupported of
+                        Nothing -> Cardano.TxMintNone
+                        Just mintedEra ->
+                            let mintValue = toCardanoValue (TokenBundle (Coin 0) mintData)
+                                burnValue =
+                                    Cardano.negateValue $
+                                        toCardanoValue (TokenBundle (Coin 0) burnData)
+                                witMap =
+                                    Map.map toScriptWitness $
+                                        Map.mapKeys
+                                            (toCardanoPolicyId . TokenMap.tokenPolicyId)
+                                            mintingScripts
+                                ctx = Cardano.BuildTxWith witMap
+                             in Cardano.TxMintValue mintedEra (mintValue <> burnValue) ctx
+                }
   where
     toErrMkTx :: Cardano.TxBodyError -> ErrMkTransaction
     toErrMkTx = ErrMkTransactionTxBodyError . T.pack . Cardano.displayError
@@ -2424,7 +2678,7 @@ mkUnsignedTx era ttl cs md wdrls certs fees mintData burnData mintingScripts inp
     certSupported = case era of
         ShelleyBasedEraShelley -> Cardano.CertificatesInShelleyEra
         ShelleyBasedEraAllegra -> Cardano.CertificatesInAllegraEra
-        ShelleyBasedEraMary    -> Cardano.CertificatesInMaryEra
+        ShelleyBasedEraMary -> Cardano.CertificatesInMaryEra
         ShelleyBasedEraAlonzo -> Cardano.CertificatesInAlonzoEra
         ShelleyBasedEraBabbage -> Cardano.CertificatesInBabbageEra
 
@@ -2432,7 +2686,7 @@ mkUnsignedTx era ttl cs md wdrls certs fees mintData burnData mintingScripts inp
     wdrlsSupported = case era of
         ShelleyBasedEraShelley -> Cardano.WithdrawalsInShelleyEra
         ShelleyBasedEraAllegra -> Cardano.WithdrawalsInAllegraEra
-        ShelleyBasedEraMary    -> Cardano.WithdrawalsInMaryEra
+        ShelleyBasedEraMary -> Cardano.WithdrawalsInMaryEra
         ShelleyBasedEraAlonzo -> Cardano.WithdrawalsInAlonzoEra
         ShelleyBasedEraBabbage -> Cardano.WithdrawalsInBabbageEra
 
@@ -2464,10 +2718,12 @@ mkUnsignedTx era ttl cs md wdrls certs fees mintData burnData mintingScripts inp
     scriptWitsSupported
         :: Cardano.ScriptLanguageInEra Cardano.SimpleScriptV2 era
     scriptWitsSupported = case era of
-        ShelleyBasedEraShelley -> internalError
-            "scriptWitsSupported: we should be at least in Mary"
-        ShelleyBasedEraAllegra -> internalError
-            "scriptWitsSupported: we should be at least in Mary"
+        ShelleyBasedEraShelley ->
+            internalError
+                "scriptWitsSupported: we should be at least in Mary"
+        ShelleyBasedEraAllegra ->
+            internalError
+                "scriptWitsSupported: we should be at least in Mary"
         ShelleyBasedEraMary -> Cardano.SimpleScriptV2InMary
         ShelleyBasedEraAlonzo -> Cardano.SimpleScriptV2InAlonzo
         ShelleyBasedEraBabbage -> Cardano.SimpleScriptV2InBabbage
@@ -2475,26 +2731,27 @@ mkUnsignedTx era ttl cs md wdrls certs fees mintData burnData mintingScripts inp
     toScriptWitness :: Script KeyHash -> Cardano.ScriptWitness witctx era
     toScriptWitness script =
         Cardano.SimpleScriptWitness
-        scriptWitsSupported
-        Cardano.SimpleScriptV2
-        (Cardano.SScript $ toCardanoSimpleScript script)
+            scriptWitsSupported
+            Cardano.SimpleScriptV2
+            (Cardano.SScript $ toCardanoSimpleScript script)
 
     constructInpScriptWit inp =
         let script = case Map.lookup inp inpsScripts of
                 Nothing -> error "constructInpScriptWit: each input should have script in multisig"
                 Just script' -> script'
             scriptWit = toScriptWitness script
-        in ( toCardanoTxIn inp
-           , Cardano.BuildTxWith
-             (Cardano.ScriptWitness Cardano.ScriptWitnessForSpending scriptWit)
-           )
+         in ( toCardanoTxIn inp
+            , Cardano.BuildTxWith
+                (Cardano.ScriptWitness Cardano.ScriptWitnessForSpending scriptWit)
+            )
     inputWits =
-        if inpsScripts == Map.empty then
-            (,Cardano.BuildTxWith (Cardano.KeyWitness Cardano.KeyWitnessForSpending))
-            . toCardanoTxIn
-            . fst <$> F.toList (view #inputs cs)
-        else
-            constructInpScriptWit . fst <$> F.toList (view #inputs cs)
+        if inpsScripts == Map.empty
+            then
+                (,Cardano.BuildTxWith (Cardano.KeyWitness Cardano.KeyWitnessForSpending))
+                    . toCardanoTxIn
+                    . fst
+                    <$> F.toList (view #inputs cs)
+            else constructInpScriptWit . fst <$> F.toList (view #inputs cs)
 
 mkWithdrawals
     :: NetworkId
@@ -2503,7 +2760,7 @@ mkWithdrawals
     -> [(Cardano.StakeAddress, Cardano.Lovelace)]
 mkWithdrawals networkId acc amount
     | amount == Coin 0 = mempty
-    | otherwise = [ (stakeAddress, toCardanoLovelace amount) ]
+    | otherwise = [(stakeAddress, toCardanoLovelace amount)]
   where
     cred = toCardanoStakeCredential acc
     stakeAddress = Cardano.makeStakeAddress networkId cred
@@ -2516,12 +2773,14 @@ mkShelleyWitness
 mkShelleyWitness body key =
     Cardano.makeShelleyKeyWitness body (unencrypt key)
   where
-    unencrypt (xprv, pwd) = Cardano.WitnessPaymentExtendedKey
-        $ Cardano.PaymentExtendedSigningKey
-        $ Crypto.HD.xPrvChangePass pwd BS.empty xprv
+    unencrypt (xprv, pwd) =
+        Cardano.WitnessPaymentExtendedKey $
+            Cardano.PaymentExtendedSigningKey $
+                Crypto.HD.xPrvChangePass pwd BS.empty xprv
 
 mkByronWitness
-    :: forall era. (EraConstraints era)
+    :: forall era
+     . (EraConstraints era)
     => Cardano.TxBody era
     -> Cardano.NetworkId
     -> Address
@@ -2532,17 +2791,20 @@ mkByronWitness
     nw
     addr
     encryptedKey =
-    Cardano.ShelleyBootstrapWitness era $
-        SL.makeBootstrapWitness txHash (unencrypt encryptedKey) addrAttr
-  where
-    txHash = Crypto.castHash $ Crypto.hashWith serialize' body
+        Cardano.ShelleyBootstrapWitness era $
+            SL.makeBootstrapWitness txHash (unencrypt encryptedKey) addrAttr
+      where
+        txHash = Crypto.castHash $ Crypto.hashWith serialize' body
 
-    unencrypt (xprv, pwd) = CC.SigningKey
-        $ Crypto.HD.xPrvChangePass pwd BS.empty xprv
+        unencrypt (xprv, pwd) =
+            CC.SigningKey $
+                Crypto.HD.xPrvChangePass pwd BS.empty xprv
 
-    addrAttr = Byron.mkAttributes $ Byron.AddrAttributes
-        (toHDPayloadAddress addr)
-        (Byron.toByronNetworkMagic nw)
+        addrAttr =
+            Byron.mkAttributes $
+                Byron.AddrAttributes
+                    (toHDPayloadAddress addr)
+                    (Byron.toByronNetworkMagic nw)
 
 explicitFees :: ShelleyBasedEra era -> Cardano.Lovelace -> Cardano.TxFee era
 explicitFees era = case era of
@@ -2558,16 +2820,16 @@ explicitFees era = case era of
         Cardano.TxFeeExplicit Cardano.TxFeesExplicitInBabbageEra
 
 toLedgerUTxO
-    :: forall era.
-        ( Cardano.IsShelleyBasedEra era
-        , Crypto (Cardano.ShelleyLedgerEra era) ~ Compatibility.StandardCrypto
-        )
+    :: forall era
+     . ( Cardano.IsShelleyBasedEra era
+       , Crypto (Cardano.ShelleyLedgerEra era) ~ Compatibility.StandardCrypto
+       )
     => Cardano.UTxO era
     -> Ledger.UTxO (Cardano.ShelleyLedgerEra era)
 toLedgerUTxO =
     Shelley.UTxO
-    . Map.mapKeys Cardano.toShelleyTxIn
-    . Map.map (Cardano.toShelleyTxOut (shelleyBasedEra @era))
-    . unCardanoUTxO
+        . Map.mapKeys Cardano.toShelleyTxIn
+        . Map.map (Cardano.toShelleyTxOut (shelleyBasedEra @era))
+        . unCardanoUTxO
   where
     unCardanoUTxO (Cardano.UTxO m) = m

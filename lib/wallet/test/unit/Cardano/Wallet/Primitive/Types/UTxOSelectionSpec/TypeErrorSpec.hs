@@ -6,16 +6,23 @@
 
 module Cardano.Wallet.Primitive.Types.UTxOSelectionSpec.TypeErrorSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Types.UTxOSelection
-    ( UTxOSelection (..), UTxOSelectionNonEmpty (..) )
+    ( UTxOSelection (..)
+    , UTxOSelectionNonEmpty (..)
+    )
 import Test.Hspec
-    ( Expectation, Spec, describe, it )
+    ( Expectation
+    , Spec
+    , describe
+    , it
+    )
 import Test.ShouldNotTypecheck
-    ( shouldNotTypecheck )
+    ( shouldNotTypecheck
+    )
+import Prelude
 
 -- The data constructors for 'UTxOSelection' and 'UTxOSelectionNonEmpty' are
 -- not exported, by design, as their internal data structures have invariants
@@ -28,10 +35,11 @@ import Test.ShouldNotTypecheck
 --
 spec :: Spec
 spec = describe "UTxOSelection type error tests" $ do
-
-    it "Data constructor is not exported for UTxOSelection"
+    it
+        "Data constructor is not exported for UTxOSelection"
         testDataConstructorNotExportedForUTxOSelection
-    it "Data constructor is not exported for UTxOSelectionNonEmpty"
+    it
+        "Data constructor is not exported for UTxOSelectionNonEmpty"
         testDataConstructorNotExportedForUTxOSelectionNonEmpty
 
 testDataConstructorNotExportedForUTxOSelection :: Expectation

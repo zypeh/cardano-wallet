@@ -6,22 +6,29 @@
 
 module Data.Map.Strict.NonEmptyMap.TypeErrorSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Data.Map.Strict.NonEmptyMap.Internal
-    ( NonEmptyMap (..) )
+    ( NonEmptyMap (..)
+    )
 import Test.Hspec
-    ( Expectation, Spec, describe, it )
+    ( Expectation
+    , Spec
+    , describe
+    , it
+    )
 import Test.ShouldNotTypecheck
-    ( shouldNotTypecheck )
+    ( shouldNotTypecheck
+    )
+import Prelude
 
 spec :: Spec
-spec = describe "Strict non-empty map type error tests" $
-
-    it "Default data constructor is not exported"
-        testDefaultDataConstructorNotExported
+spec =
+    describe "Strict non-empty map type error tests" $
+        it
+            "Default data constructor is not exported"
+            testDefaultDataConstructorNotExported
 
 -- Test that the default data constructor for 'NonEmptyMap' is not exported.
 --

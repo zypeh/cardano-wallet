@@ -7,34 +7,35 @@
 -- |
 -- Copyright: © 2018-2022 IOHK
 -- License: Apache-2.0
-
 module Cardano.Wallet.Api.Types.Address
     ( DecodeAddress (..)
     , DecodeStakeAddress (..)
     , EncodeAddress (..)
     , EncodeStakeAddress (..)
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( NetworkDiscriminant (..) )
+    ( NetworkDiscriminant (..)
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
+import Cardano.Wallet.Primitive.Types.RewardAccount qualified as W
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Data.Text.Class
-    ( TextDecodingError (..) )
-
-import qualified Cardano.Wallet.Primitive.Types.RewardAccount as W
+    ( TextDecodingError (..)
+    )
+import Prelude
 
 -- | An abstract class to allow encoding of addresses depending on the target
 -- backend used.
 class EncodeAddress (n :: NetworkDiscriminant) where
     encodeAddress :: Address -> Text
 
-instance EncodeAddress 'Mainnet => EncodeAddress ('Staging pm) where
+instance EncodeAddress 'Mainnet => EncodeAddress ( 'Staging pm) where
     encodeAddress = encodeAddress @Mainnet
 
 -- | An abstract class to allow decoding of addresses depending on the target
@@ -42,17 +43,17 @@ instance EncodeAddress 'Mainnet => EncodeAddress ('Staging pm) where
 class DecodeAddress (n :: NetworkDiscriminant) where
     decodeAddress :: Text -> Either TextDecodingError Address
 
-instance DecodeAddress 'Mainnet => DecodeAddress ('Staging pm) where
+instance DecodeAddress 'Mainnet => DecodeAddress ( 'Staging pm) where
     decodeAddress = decodeAddress @Mainnet
 
 class EncodeStakeAddress (n :: NetworkDiscriminant) where
     encodeStakeAddress :: W.RewardAccount -> Text
 
-instance EncodeStakeAddress 'Mainnet => EncodeStakeAddress ('Staging pm) where
+instance EncodeStakeAddress 'Mainnet => EncodeStakeAddress ( 'Staging pm) where
     encodeStakeAddress = encodeStakeAddress @Mainnet
 
 class DecodeStakeAddress (n :: NetworkDiscriminant) where
     decodeStakeAddress :: Text -> Either TextDecodingError W.RewardAccount
 
-instance DecodeStakeAddress 'Mainnet => DecodeStakeAddress ('Staging pm) where
+instance DecodeStakeAddress 'Mainnet => DecodeStakeAddress ( 'Staging pm) where
     decodeStakeAddress = decodeStakeAddress @Mainnet

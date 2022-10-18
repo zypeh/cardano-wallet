@@ -7,55 +7,56 @@
 -- License: Apache-2.0
 --
 -- Provides a strict implementation of a non-empty set.
---
 module Data.Set.Strict.NonEmptySet
-    (
-    -- * Type
+    ( -- * Type
       NonEmptySet
 
-    -- * Construction
+      -- * Construction
     , fromList
     , fromSet
     , singleton
 
-    -- * Deconstruction
+      -- * Deconstruction
     , toList
     , toSet
 
-    -- * Insertion
+      -- * Insertion
     , insert
 
-    -- * Deletion
+      -- * Deletion
     , delete
 
-    -- * Membership
+      -- * Membership
     , member
 
-    -- * Combination
+      -- * Combination
     , union
-
-    ) where
-
-import Prelude
+    )
+where
 
 import Control.DeepSeq
-    ( NFData )
+    ( NFData
+    )
 import Data.List.NonEmpty
-    ( NonEmpty (..) )
+    ( NonEmpty (..)
+    )
+import Data.Map.Strict qualified as Map
 import Data.Map.Strict.NonEmptyMap
-    ( NonEmptyMap )
+    ( NonEmptyMap
+    )
+import Data.Map.Strict.NonEmptyMap qualified as NonEmptyMap
 import Data.Maybe
-    ( isJust )
+    ( isJust
+    )
 import Data.Set
-    ( Set )
+    ( Set
+    )
 import GHC.Generics
-    ( Generic (..) )
-
-import qualified Data.Map.Strict as Map
-import qualified Data.Map.Strict.NonEmptyMap as NonEmptyMap
+    ( Generic (..)
+    )
+import Prelude
 
 -- | A non-empty set of elements of type 'a'.
---
 newtype NonEmptySet a = NonEmptySet
     { elements :: NonEmptyMap a ()
     }
@@ -67,7 +68,7 @@ instance Foldable NonEmptySet where
 instance NFData a => NFData (NonEmptySet a)
 
 fromList :: Ord a => NonEmpty a -> NonEmptySet a
-fromList = NonEmptySet . NonEmptyMap.fromList . fmap (, ())
+fromList = NonEmptySet . NonEmptyMap.fromList . fmap (,())
 
 fromSet :: Set a -> Maybe (NonEmptySet a)
 fromSet = fmap NonEmptySet . NonEmptyMap.fromMap . Map.fromSet (const ())
@@ -91,5 +92,6 @@ singleton :: Ord a => a -> NonEmptySet a
 singleton a = NonEmptySet $ NonEmptyMap.singleton a ()
 
 union :: Ord a => NonEmptySet a -> NonEmptySet a -> NonEmptySet a
-union (NonEmptySet x) (NonEmptySet y) = NonEmptySet $
-    NonEmptyMap.unionWith const x y
+union (NonEmptySet x) (NonEmptySet y) =
+    NonEmptySet $
+        NonEmptyMap.unionWith const x y

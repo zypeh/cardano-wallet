@@ -20,40 +20,61 @@ module Cardano.Wallet.DB.Fixtures
     , withStoreProp
     , StoreProperty
     , elementsOrArbitrary
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.DB.Sqlite
-    ( ForeignKeysSetting, SqliteContext, newInMemorySqliteContext, runQuery )
+    ( ForeignKeysSetting
+    , SqliteContext
+    , newInMemorySqliteContext
+    , runQuery
+    )
 import Cardano.Wallet.DB.Sqlite.Schema
-    ( Wallet (..), migrateAll )
+    ( Wallet (..)
+    , migrateAll
+    )
+import Cardano.Wallet.DB.Sqlite.Schema qualified as TH
 import Cardano.Wallet.DB.Sqlite.Types
-    ( BlockId (..) )
+    ( BlockId (..)
+    )
 import Cardano.Wallet.Primitive.Types
-    ( WalletId (..) )
+    ( WalletId (..)
+    )
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
+    ( Hash (..)
+    )
 import Cardano.Wallet.Unsafe
-    ( unsafeFromHex )
+    ( unsafeFromHex
+    )
 import Control.Tracer
-    ( nullTracer )
+    ( nullTracer
+    )
 import Data.Bifunctor
-    ( second )
+    ( second
+    )
 import Data.DBVar
-    ( Store (loadS, updateS) )
+    ( Store (loadS, updateS)
+    )
 import Data.Delta
-    ( Delta (Base) )
+    ( Delta (Base)
+    )
 import Data.Either
-    ( fromRight )
+    ( fromRight
+    )
 import Data.Time.Clock
-    ( UTCTime )
+    ( UTCTime
+    )
 import Data.Time.Clock.POSIX
-    ( posixSecondsToUTCTime )
+    ( posixSecondsToUTCTime
+    )
 import Database.Persist.Sql
-    ( deleteWhere, insert_ )
+    ( deleteWhere
+    , insert_
+    )
 import Database.Persist.Sqlite
-    ( SqlPersistT, (==.) )
+    ( SqlPersistT
+    , (==.)
+    )
 import Test.QuickCheck
     ( Arbitrary
     , Gen
@@ -68,11 +89,16 @@ import Test.QuickCheck
     , suchThat
     )
 import Test.QuickCheck.Monadic
-    ( PropertyM, assert, monadicIO, monitor, run )
+    ( PropertyM
+    , assert
+    , monadicIO
+    , monitor
+    , run
+    )
 import UnliftIO.Exception
-    ( bracket )
-
-import qualified Cardano.Wallet.DB.Sqlite.Schema as TH
+    ( bracket
+    )
+import Prelude
 
 {-------------------------------------------------------------------------------
     DB setup
@@ -90,15 +116,17 @@ initializeWallet wid = do
 
 -- | Insert a wallet table in order to satisfy  FOREIGN PRIMARY constraints
 insertWalletTable :: WalletId -> SqlPersistT IO ()
-insertWalletTable wid = insert_ $ Wallet
-    { walId = wid
-    , walName = "Stores"
-    , walCreationTime = dummyUTCTime
-    , walPassphraseLastUpdatedAt = Nothing
-    , walPassphraseScheme = Nothing
-    , walGenesisHash = BlockId dummyHash
-    , walGenesisStart = dummyUTCTime
-    }
+insertWalletTable wid =
+    insert_ $
+        Wallet
+            { walId = wid
+            , walName = "Stores"
+            , walCreationTime = dummyUTCTime
+            , walPassphraseLastUpdatedAt = Nothing
+            , walPassphraseScheme = Nothing
+            , walGenesisHash = BlockId dummyHash
+            , walGenesisStart = dummyUTCTime
+            }
 
 {-------------------------------------------------------------------------------
     Arbitrary
@@ -107,12 +135,15 @@ dummyUTCTime :: UTCTime
 dummyUTCTime = posixSecondsToUTCTime 1506203091
 
 dummyHash :: Hash "BlockHeader"
-dummyHash = Hash $ unsafeFromHex
-    "5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb"
+dummyHash =
+    Hash $
+        unsafeFromHex
+            "5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb"
 
 {-------------------------------------------------------------------------------
     QuickCheck utilities
 -------------------------------------------------------------------------------}
+
 -- | Like 'assert', but allow giving a label / title before running a assertion
 assertWith :: String -> Bool -> PropertyM IO ()
 assertWith lbl condition = do
@@ -168,7 +199,7 @@ withInitializedWalletProp
     => (WalletId -> RunQuery -> PropertyM IO a)
     -> WalletProperty
 withInitializedWalletProp prop db wid = monadicIO $ do
-    let runQ = run .runQuery db
+    let runQ = run . runQuery db
     runQ $ initializeWallet wid
     prop wid runQ
 

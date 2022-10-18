@@ -22,18 +22,17 @@
 --
 -- Network Layer implementation that uses Blockfrost API
 module Cardano.Wallet.Shelley.Network.Blockfrost
-    ( withNetworkLayer,
-        Log,
+    ( withNetworkLayer
+    , Log
 
-        -- * Internal
-        getPoolPerformanceEstimate,
-        unmarshalMetadata,
-        eraByEpoch
+      -- * Internal
+    , getPoolPerformanceEstimate
+    , unmarshalMetadata
+    , eraByEpoch
     )
 where
 
-import Prelude
-
+import Blockfrost.Client qualified as BF
 import Cardano.Api
     ( AnyCardanoEra (..)
     , AnyPlutusScriptVersion (AnyPlutusScriptVersion)
@@ -48,26 +47,51 @@ import Cardano.Api
     , deserialiseFromCBOR
     , proxyToAsType
     )
+import Cardano.Api.Shelley qualified as Node
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Tracer
-    ( Tracer )
+    ( Tracer
+    )
 import Cardano.BM.Tracing
-    ( HasSeverityAnnotation (getSeverityAnnotation), traceWith )
+    ( HasSeverityAnnotation (getSeverityAnnotation)
+    , traceWith
+    )
+import Cardano.Ledger.Alonzo.PParams qualified as Alonzo
+import Cardano.Ledger.Coin qualified as Ledger
 import Cardano.Pool.Rank
-    ( RewardParams (..) )
+    ( RewardParams (..)
+    )
 import Cardano.Pool.Rank.Likelihood
-    ( BlockProduction (..), PerformanceEstimate (..), estimatePoolPerformance )
+    ( BlockProduction (..)
+    , PerformanceEstimate (..)
+    , estimatePoolPerformance
+    )
 import Cardano.Slotting.Slot
-    ( unEpochSize )
+    ( unEpochSize
+    )
+import Cardano.Slotting.Time qualified as ST
 import Cardano.Wallet.Api.Types
-    ( Base (Base16), decodeStakeAddress, encodeAddress, encodeStakeAddress )
+    ( Base (Base16)
+    , decodeStakeAddress
+    , encodeAddress
+    , encodeStakeAddress
+    )
 import Cardano.Wallet.Logging
-    ( BracketLog, bracketTracer )
+    ( BracketLog
+    , bracketTracer
+    )
 import Cardano.Wallet.Network
-    ( ChainFollower, ErrPostTx (..), NetworkLayer (..) )
+    ( ChainFollower
+    , ErrPostTx (..)
+    , NetworkLayer (..)
+    )
 import Cardano.Wallet.Network.Light
-    ( Consensual (..), LightSyncSource (..) )
+    ( Consensual (..)
+    , LightSyncSource (..)
+    )
+import Cardano.Wallet.Network.Light qualified as LN
 import Cardano.Wallet.Primitive.BlockSummary
     ( BlockEvents (..)
     , ChainEvents
@@ -83,7 +107,8 @@ import Cardano.Wallet.Primitive.Slotting
     , mkTimeInterpreter
     )
 import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncProgress (..) )
+    ( SyncProgress (..)
+    )
 import Cardano.Wallet.Primitive.Types
     ( ActiveSlotCoefficient (ActiveSlotCoefficient)
     , Block (..)
@@ -120,21 +145,32 @@ import Cardano.Wallet.Primitive.Types
     , toSlot
     )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address )
+    ( Address
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (Coin, unCoin) )
+    ( Coin (Coin, unCoin)
+    )
+import Cardano.Wallet.Primitive.Types.Coin qualified as Coin
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash )
+    ( Hash
+    )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( MinimumUTxO, minimumUTxOForShelleyBasedEra )
+    ( MinimumUTxO
+    , minimumUTxOForShelleyBasedEra
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount )
+    ( RewardAccount
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle
-    ( TokenBundle (..) )
+    ( TokenBundle (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId (..) )
+    ( AssetId (..)
+    )
+import Cardano.Wallet.Primitive.Types.TokenMap qualified as TokenMap
 import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity (..) )
+    ( TokenQuantity (..)
+    )
 import Cardano.Wallet.Primitive.Types.Tx
     ( SealedTx
     , Tx (..)
@@ -144,7 +180,8 @@ import Cardano.Wallet.Primitive.Types.Tx
     , serialisedTx
     )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
-    ( TxSize (..) )
+    ( TxSize (..)
+    )
 import Cardano.Wallet.Shelley.Network.Blockfrost.Conversion
     ( bfBlockHeader
     , fromBfAddress
@@ -159,54 +196,87 @@ import Cardano.Wallet.Shelley.Network.Blockfrost.Error
     , throwBlockfrostError
     , (<?#>)
     )
+import Cardano.Wallet.Shelley.Network.Blockfrost.Fixture qualified as Fixture
 import Cardano.Wallet.Shelley.Network.Blockfrost.Layer
     ( BlockfrostLayer (..)
     , PostTxResult (..)
     , rateLimitedBlockfrostLayer
     , withRecovery
     )
+import Cardano.Wallet.Shelley.Network.Blockfrost.Layer qualified as Layer
 import Cardano.Wallet.Shelley.Network.Discriminant
-    ( SomeNetworkDiscriminant (..), networkDiscriminantToId )
+    ( SomeNetworkDiscriminant (..)
+    , networkDiscriminantToId
+    )
 import Control.Concurrent
-    ( threadDelay )
+    ( threadDelay
+    )
 import Control.Concurrent.Async.Lifted
-    ( concurrently )
+    ( concurrently
+    )
 import Control.Exception
-    ( throwIO )
+    ( throwIO
+    )
 import Control.Monad
-    ( forever, join, unless )
+    ( forever
+    , join
+    , unless
+    )
 import Control.Monad.Error.Class
-    ( throwError )
+    ( throwError
+    )
 import Control.Monad.IO.Class
-    ( MonadIO (liftIO) )
+    ( MonadIO (liftIO)
+    )
 import Control.Monad.Trans.Except
-    ( ExceptT (..) )
+    ( ExceptT (..)
+    )
 import Data.Align
-    ( align )
+    ( align
+    )
 import Data.Bifunctor
-    ( first )
+    ( first
+    )
 import Data.Bitraversable
-    ( bitraverse )
+    ( bitraverse
+    )
+import Data.ByteArray.Encoding
+    ( convertFromBase
+    )
+import Data.ByteString.Lazy qualified as BL
 import Data.Default
-    ( Default (..) )
+    ( Default (..)
+    )
 import Data.Function
-    ( (&) )
+    ( (&)
+    )
 import Data.Functor
-    ( void )
+    ( void
+    )
 import Data.Functor.Contravariant
-    ( (>$<) )
+    ( (>$<)
+    )
 import Data.IntCast
-    ( intCast )
+    ( intCast
+    )
 import Data.List
-    ( partition, sortOn )
+    ( partition
+    , sortOn
+    )
 import Data.List.NonEmpty
-    ( NonEmpty (..) )
+    ( NonEmpty (..)
+    )
 import Data.Map
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-    ( catMaybes, fromMaybe )
+    ( catMaybes
+    , fromMaybe
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Quantity
     ( MkPercentageError (PercentageOutOfBoundsError)
     , Percentage
@@ -216,29 +286,53 @@ import Data.Quantity
     , percentageToDouble
     )
 import Data.Ratio
-    ( (%) )
+    ( (%)
+    )
+import Data.Sequence qualified as Seq
 import Data.Set
-    ( Set )
+    ( Set
+    )
+import Data.Set qualified as Set
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
-    ( ToText (..), fromText )
+    ( ToText (..)
+    , fromText
+    )
 import Data.Text.Encoding
-    ( encodeUtf8 )
+    ( encodeUtf8
+    )
 import Data.These
-    ( These (That, These, This) )
+    ( These (That, These, This)
+    )
 import Data.Traversable
-    ( for )
+    ( for
+    )
 import Fmt
-    ( pretty )
+    ( pretty
+    )
+import Money qualified
 import Ouroboros.Consensus.Cardano.Block
-    ( CardanoBlock, StandardCrypto )
+    ( CardanoBlock
+    , StandardCrypto
+    )
 import Ouroboros.Consensus.HardFork.History.EraParams
-    ( EraParams (..) )
+    ( EraParams (..)
+    )
+import Ouroboros.Consensus.HardFork.History.Qry qualified as HF
 import Ouroboros.Consensus.HardFork.History.Summary
-    ( Bound (..), EraEnd (..), EraSummary (..), Summary (..) )
+    ( Bound (..)
+    , EraEnd (..)
+    , EraSummary (..)
+    , Summary (..)
+    )
+import Ouroboros.Consensus.Util.Counting qualified as UC
 import UnliftIO.Async
-    ( async, link )
+    ( async
+    , link
+    )
 import UnliftIO.STM
     ( TChan
     , atomically
@@ -248,27 +342,7 @@ import UnliftIO.STM
     , tryReadTChan
     , writeTChan
     )
-
-import qualified Blockfrost.Client as BF
-import qualified Cardano.Api.Shelley as Node
-import qualified Cardano.Ledger.Alonzo.PParams as Alonzo
-import qualified Cardano.Ledger.Coin as Ledger
-import qualified Cardano.Slotting.Time as ST
-import qualified Cardano.Wallet.Network.Light as LN
-import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
-import qualified Cardano.Wallet.Primitive.Types.TokenMap as TokenMap
-import qualified Cardano.Wallet.Shelley.Network.Blockfrost.Fixture as Fixture
-import qualified Cardano.Wallet.Shelley.Network.Blockfrost.Layer as Layer
-import Data.ByteArray.Encoding
-    ( convertFromBase )
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Map.Strict as Map
-import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
-import qualified Data.Text as T
-import qualified Money
-import qualified Ouroboros.Consensus.HardFork.History.Qry as HF
-import qualified Ouroboros.Consensus.Util.Counting as UC
+import Prelude
 
 {-------------------------------------------------------------------------------
     NetworkLayer
@@ -287,27 +361,29 @@ withNetworkLayer tr network np project k = do
         withRecovery layerLog <$> rateLimitedBlockfrostLayer layerLog project
     tipBroadcast <- newBroadcastTChanIO
     link =<< async (pollNodeTip bfLayer tipBroadcast)
-    k NetworkLayer
-        { chainSync = \_tr _chainFollower -> pure ()
-        , lightSync = Just $ blockfrostLightSync bfLayer
-        , currentNodeTip = currentNodeTip bfLayer
-        , currentNodeEra = currentNodeEra bfLayer
-        , currentProtocolParameters = currentProtocolParameters bfLayer
-        , currentSlottingParameters = currentSlottingParameters bfLayer
-        , watchNodeTip = subscribeNodeTip tipBroadcast
-        , postTx = postBFTransaction bfLayer
-        , stakeDistribution = stakePoolsSummary bfLayer
-        , getCachedRewardAccountBalance =
-            getCachedRewardAccountBalance bfLayer
-        , fetchRewardAccountBalances =
-            fetchNetworkRewardAccountBalances network bfLayer
-        , timeInterpreter =
-            timeInterpreterFromStartTime getGenesisBlockDate
-        , syncProgress = syncProgress bfLayer
-        }
+    k
+        NetworkLayer
+            { chainSync = \_tr _chainFollower -> pure ()
+            , lightSync = Just $ blockfrostLightSync bfLayer
+            , currentNodeTip = currentNodeTip bfLayer
+            , currentNodeEra = currentNodeEra bfLayer
+            , currentProtocolParameters = currentProtocolParameters bfLayer
+            , currentSlottingParameters = currentSlottingParameters bfLayer
+            , watchNodeTip = subscribeNodeTip tipBroadcast
+            , postTx = postBFTransaction bfLayer
+            , stakeDistribution = stakePoolsSummary bfLayer
+            , getCachedRewardAccountBalance =
+                getCachedRewardAccountBalance bfLayer
+            , fetchRewardAccountBalances =
+                fetchNetworkRewardAccountBalances network bfLayer
+            , timeInterpreter =
+                timeInterpreterFromStartTime getGenesisBlockDate
+            , syncProgress = syncProgress bfLayer
+            }
   where
     NetworkParameters
-        { genesisParameters = GenesisParameters{getGenesisBlockDate} } = np
+        { genesisParameters = GenesisParameters {getGenesisBlockDate}
+        } = np
 
     networkId = networkDiscriminantToId network
 
@@ -319,15 +395,14 @@ withNetworkLayer tr network np project k = do
         lastTip <- atomically $ dupTChan nodeTip
         link =<< async =<< forever do
             header <-
-                either (throwIO . BlockfrostException) pure . bfBlockHeader =<<
-                    bfGetLatestBlock bfLayer
+                either (throwIO . BlockfrostException) pure . bfBlockHeader
+                    =<< bfGetLatestBlock bfLayer
             atomically do
                 lastHeader <- tryReadTChan lastTip
                 unless (lastHeader == Just header) do
                     writeTChan nodeTip header
             traceWith tr $ MsgTipReceived header
             threadDelay 30_000_000 -- 30 seconds
-
     subscribeNodeTip :: TChan BlockHeader -> (BlockHeader -> IO ()) -> IO ()
     subscribeNodeTip nodeTipChan callback = do
         traceWith tr MsgTipWatcherRegistered
@@ -337,47 +412,53 @@ withNetworkLayer tr network np project k = do
 
     currentProtocolParameters :: BlockfrostLayer IO -> IO ProtocolParameters
     currentProtocolParameters bfLayer =
-         either (throwIO . BlockfrostException) pure . fromBlockfrostPP networkId
+        either (throwIO . BlockfrostException) pure . fromBlockfrostPP networkId
             =<< bfGetLatestEpochProtocolParams bfLayer
 
     currentSlottingParameters :: BlockfrostLayer IO -> IO SlottingParameters
     currentSlottingParameters bfLayer = do
         liftIO $ traceWith tr MsgCurrentSlottingParameters
-        BF.EpochInfo{_epochInfoEpoch} <- bfGetLatestEpoch bfLayer
-        let EraParams{..} = eraParams
-                $ epochEraSummary networkId
-                $ fromBfEpoch _epochInfoEpoch
-        epochLen <- throwBlockfrostError $
-            unEpochSize eraEpochSize <?#> "EpochSize"
+        BF.EpochInfo {_epochInfoEpoch} <- bfGetLatestEpoch bfLayer
+        let EraParams {..} =
+                eraParams $
+                    epochEraSummary networkId $
+                        fromBfEpoch _epochInfoEpoch
+        epochLen <-
+            throwBlockfrostError $
+                unEpochSize eraEpochSize <?#> "EpochSize"
         getSecurityParameter <-
             Quantity . fromIntegral . BF._genesisSecurityParam
                 <$> bfGetLedgerGenesis bfLayer
         getActiveSlotCoefficient <-
-            ActiveSlotCoefficient . BF._genesisActiveSlotsCoefficient <$>
-                bfGetLedgerGenesis bfLayer
-        pure SlottingParameters
-            { getSlotLength = SlotLength $ ST.getSlotLength eraSlotLength
-            , getEpochLength = EpochLength epochLen
-            , getActiveSlotCoefficient
-            , getSecurityParameter
-            }
+            ActiveSlotCoefficient . BF._genesisActiveSlotsCoefficient
+                <$> bfGetLedgerGenesis bfLayer
+        pure
+            SlottingParameters
+                { getSlotLength = SlotLength $ ST.getSlotLength eraSlotLength
+                , getEpochLength = EpochLength epochLen
+                , getActiveSlotCoefficient
+                , getSecurityParameter
+                }
 
     currentNodeEra :: BlockfrostLayer IO -> IO AnyCardanoEra
     currentNodeEra bfLayer = do
         (era, epoch) <- do
-            BF.EpochInfo{_epochInfoEpoch} <- bfGetLatestEpoch bfLayer
+            BF.EpochInfo {_epochInfoEpoch} <- bfGetLatestEpoch bfLayer
             let latestEpoch = fromBfEpoch _epochInfoEpoch
-            latestEra <- either (throwIO . BlockfrostException) pure $
-                eraByEpoch networkId latestEpoch
+            latestEra <-
+                either (throwIO . BlockfrostException) pure $
+                    eraByEpoch networkId latestEpoch
             pure (latestEra, latestEpoch)
         traceWith tr $ MsgEraByLatestEpoch era epoch
         pure era
 
-    timeInterpreterFromStartTime ::
-        StartTime -> TimeInterpreter (ExceptT PastHorizonException IO)
+    timeInterpreterFromStartTime
+        :: StartTime -> TimeInterpreter (ExceptT PastHorizonException IO)
     timeInterpreterFromStartTime startTime =
         mkTimeInterpreter (MsgTimeInterpreterLog >$< tr) startTime $
-            pure $ HF.mkInterpreter $ Fixture.networkSummary networkId
+            pure $
+                HF.mkInterpreter $
+                    Fixture.networkSummary networkId
 
     fetchNetworkRewardAccountBalances
         :: SomeNetworkDiscriminant
@@ -385,21 +466,27 @@ withNetworkLayer tr network np project k = do
         -> Set RewardAccount
         -> IO (Map RewardAccount Coin)
     fetchNetworkRewardAccountBalances
-        (SomeNetworkDiscriminant (Proxy :: Proxy nd)) bfLayer accounts = do
+        (SomeNetworkDiscriminant (Proxy :: Proxy nd))
+        bfLayer
+        accounts = do
             traceWith tr MsgFetchNetworkRewardAccountBalances
-            Map.fromList . catMaybes <$>
-                for (Set.toList accounts) \rewardAccount -> do
+            Map.fromList . catMaybes
+                <$> for (Set.toList accounts) \rewardAccount -> do
                     let addr = BF.mkAddress $ encodeStakeAddress @nd rewardAccount
                     bfGetAccount bfLayer addr
-                        >>= traverse \BF.AccountInfo{..} -> throwBlockfrostError $
-                            (rewardAccount,) . Coin <$>
-                                fromIntegral @_ @Integer _accountInfoWithdrawableAmount
+                        >>= traverse \BF.AccountInfo {..} ->
+                            throwBlockfrostError $
+                                (rewardAccount,)
+                                    . Coin
+                                    <$> fromIntegral @_ @Integer _accountInfoWithdrawableAmount
                                     <?#> "AccountInfoRewardsSum"
 
     getCachedRewardAccountBalance :: BlockfrostLayer IO -> RewardAccount -> IO Coin
     getCachedRewardAccountBalance bfLayer account =
         fromMaybe (Coin 0) . Map.lookup account
-            <$> fetchNetworkRewardAccountBalances network bfLayer
+            <$> fetchNetworkRewardAccountBalances
+                network
+                bfLayer
                 (Set.singleton account)
 
     blockfrostLightSync
@@ -410,10 +497,12 @@ withNetworkLayer tr network np project k = do
             BlockHeader
             (Either (NonEmpty Block) (LightSummary IO))
         -> IO ()
-    blockfrostLightSync bfLayer follower = void $
-        LN.lightSync (MsgLightLayerLog >$< tr)
-            (blockfrostLightSyncSource tr network bfLayer)
-            follower
+    blockfrostLightSync bfLayer follower =
+        void $
+            LN.lightSync
+                (MsgLightLayerLog >$< tr)
+                (blockfrostLightSyncSource tr network bfLayer)
+                follower
 
     syncProgress :: BlockfrostLayer IO -> SlotNo -> IO SyncProgress
     syncProgress bfLayer s = do
@@ -429,27 +518,33 @@ withNetworkLayer tr network np project k = do
     stakePoolsSummary :: BlockfrostLayer IO -> Coin -> IO StakePoolsSummary
     stakePoolsSummary bfLayer _coin = do
         protocolParameters <- currentProtocolParameters bfLayer
-        BF.Network{_networkStake = BF.NetworkStake{_stakeLive}} <-
+        BF.Network {_networkStake = BF.NetworkStake {_stakeLive}} <-
             bfGetNetworkInfo bfLayer
         totalLiveStake <-
             throwBlockfrostError $ fromBfLovelaces _stakeLive
         pools <- traverse BF.getPool =<< bfListPools bfLayer
         stake <- poolsStake totalLiveStake pools
-        pure StakePoolsSummary
-            { nOpt = intCast $ desiredNumberOfStakePools protocolParameters
-            , rewards = Map.empty
-            -- TODO: Update to new `Cardano.Pool.Rank.StakePoolsSummary`
-            -- ADP-1509
-            , stake
-            }
-          where
-            poolsStake :: Coin -> [BF.PoolInfo] -> IO (Map PoolId Percentage)
-            poolsStake total = fmap Map.fromList . traverse \BF.PoolInfo{..} ->
-                (,) <$>
-                    either (throwIO . BlockfrostException) pure
-                    (fromBfPoolId _poolInfoPoolId) <*> do
-                        live <- throwBlockfrostError $
-                            fromBfLovelaces _poolInfoLiveStake
+        pure
+            StakePoolsSummary
+                { nOpt = intCast $ desiredNumberOfStakePools protocolParameters
+                , rewards = Map.empty
+                , -- TODO: Update to new `Cardano.Pool.Rank.StakePoolsSummary`
+                  -- ADP-1509
+                  stake
+                }
+      where
+        poolsStake :: Coin -> [BF.PoolInfo] -> IO (Map PoolId Percentage)
+        poolsStake total =
+            fmap Map.fromList . traverse \BF.PoolInfo {..} ->
+                (,)
+                    <$> either
+                        (throwIO . BlockfrostException)
+                        pure
+                        (fromBfPoolId _poolInfoPoolId)
+                    <*> do
+                        live <-
+                            throwBlockfrostError $
+                                fromBfLovelaces _poolInfoLiveStake
                         let ratio = Coin.toInteger live % Coin.toInteger total
                         case mkPercentage ratio of
                             Right percentage -> pure percentage
@@ -457,24 +552,28 @@ withNetworkLayer tr network np project k = do
                                 throwIO . BlockfrostException $
                                     PoolStakePercentageError total live
 
-    postBFTransaction ::
-        BlockfrostLayer IO ->
-        SealedTx ->
-        ExceptT ErrPostTx IO ()
-    postBFTransaction BlockfrostLayer{..} sealed = ExceptT $ do
-            result <- bfPostTx $ BF.CBORString
-                $ BL.fromStrict $ serialisedTx sealed
-            pure $ case result of
-                Accepted _ -> Right ()
-                NotAcceptedMempoolFull -> Left ErrPostTxMempoolFull
+    postBFTransaction
+        :: BlockfrostLayer IO
+        -> SealedTx
+        -> ExceptT ErrPostTx IO ()
+    postBFTransaction BlockfrostLayer {..} sealed = ExceptT $ do
+        result <-
+            bfPostTx $
+                BF.CBORString $
+                    BL.fromStrict $
+                        serialisedTx sealed
+        pure $ case result of
+            Accepted _ -> Right ()
+            NotAcceptedMempoolFull -> Left ErrPostTxMempoolFull
 
 {-------------------------------------------------------------------------------
     LightSyncSource
 -------------------------------------------------------------------------------}
 fetchCurrentNodeTip :: Tracer IO Log -> BlockfrostLayer IO -> IO BlockHeader
 fetchCurrentNodeTip tr bfLayer = do
-    tip <- either (throwIO . BlockfrostException) pure . bfBlockHeader =<<
-        bfGetLatestBlock bfLayer
+    tip <-
+        either (throwIO . BlockfrostException) pure . bfBlockHeader
+            =<< bfGetLatestBlock bfLayer
     traceWith tr $ MsgFetchedLatestBlockHeader tip
     pure tip
 
@@ -486,181 +585,197 @@ blockfrostLightSyncSource
 blockfrostLightSyncSource
     tr
     network@(SomeNetworkDiscriminant (Proxy :: Proxy nd))
-    bfLayer@BlockfrostLayer{..}
-  = LightSyncSource
-        { getHeader = header
-        , getTip = fetchCurrentNodeTip tr bfLayer
-        , getBlockHeaderAtHeight
-        , getNextBlockHeader
-        , getBlockHeaderAt
-        , getNextBlocks
-        , getAddressTxs
-        }
-  where
-    networkId = networkDiscriminantToId network
+    bfLayer@BlockfrostLayer {..} =
+        LightSyncSource
+            { getHeader = header
+            , getTip = fetchCurrentNodeTip tr bfLayer
+            , getBlockHeaderAtHeight
+            , getNextBlockHeader
+            , getBlockHeaderAt
+            , getNextBlocks
+            , getAddressTxs
+            }
+      where
+        networkId = networkDiscriminantToId network
 
-    getBlockHeaderAtHeight :: Integer -> IO (Consensual BlockHeader)
-    getBlockHeaderAtHeight height = do
-        header <-
-            either
-                (throwIO . BlockfrostException)
-                (pure . Consensual)
-            . bfBlockHeader =<< bfGetBlockAtHeight height
-        traceWith tr $ MsgBlockHeaderAtHeight height header
-        pure header
+        getBlockHeaderAtHeight :: Integer -> IO (Consensual BlockHeader)
+        getBlockHeaderAtHeight height = do
+            header <-
+                either
+                    (throwIO . BlockfrostException)
+                    (pure . Consensual)
+                    . bfBlockHeader
+                    =<< bfGetBlockAtHeight height
+            traceWith tr $ MsgBlockHeaderAtHeight height header
+            pure header
 
-    getNextBlockHeader ::
-        BlockHeader -> IO (Consensual (Maybe BlockHeader))
-    getNextBlockHeader prev@BlockHeader{headerHash} = do
-        consensualBlocks <-
-            bfGetBlockAfterHash (BF.BlockHash (toText headerHash))
-        nextHeader <-
-            for consensualBlocks $ traverse $
-                either (throwIO . BlockfrostException) pure
-                .  bfBlockHeader
-        liftIO $ traceWith tr $ MsgNextBlockHeader prev nextHeader
-        pure nextHeader
+        getNextBlockHeader
+            :: BlockHeader -> IO (Consensual (Maybe BlockHeader))
+        getNextBlockHeader prev@BlockHeader {headerHash} = do
+            consensualBlocks <-
+                bfGetBlockAfterHash (BF.BlockHash (toText headerHash))
+            nextHeader <-
+                for consensualBlocks $
+                    traverse $
+                        either (throwIO . BlockfrostException) pure
+                            . bfBlockHeader
+            liftIO $ traceWith tr $ MsgNextBlockHeader prev nextHeader
+            pure nextHeader
 
-    getBlockHeaderAt :: ChainPoint -> IO (Consensual BlockHeader)
-    getBlockHeaderAt cp = do
-        consensualBlockHeader <- case cp of
-            ChainPointAtGenesis ->
-                pure . Consensual $
-                    Fixture.genesisBlockHeader networkId
-            ChainPoint (SlotNo slot) blockHeaderHash -> do
-                bfGetBlockSlot (BF.Slot (toInteger slot)) >>= \case
-                    NotConsensual -> pure NotConsensual
-                    Consensual b@BF.Block{_blockHash =
-                        BF.BlockHash bfHeaderHash} ->
-                        if bfHeaderHash == toText blockHeaderHash
-                            then
-                                either
-                                (throwIO . BlockfrostException)
-                                (pure . Consensual)
-                                (bfBlockHeader b)
-                            else pure NotConsensual
-        traceWith tr $ MsgBlockHeaderAt cp consensualBlockHeader
-        pure consensualBlockHeader
+        getBlockHeaderAt :: ChainPoint -> IO (Consensual BlockHeader)
+        getBlockHeaderAt cp = do
+            consensualBlockHeader <- case cp of
+                ChainPointAtGenesis ->
+                    pure . Consensual $
+                        Fixture.genesisBlockHeader networkId
+                ChainPoint (SlotNo slot) blockHeaderHash -> do
+                    bfGetBlockSlot (BF.Slot (toInteger slot)) >>= \case
+                        NotConsensual -> pure NotConsensual
+                        Consensual
+                            b@BF.Block
+                                { _blockHash =
+                                    BF.BlockHash bfHeaderHash
+                                } ->
+                                if bfHeaderHash == toText blockHeaderHash
+                                    then
+                                        either
+                                            (throwIO . BlockfrostException)
+                                            (pure . Consensual)
+                                            (bfBlockHeader b)
+                                    else pure NotConsensual
+            traceWith tr $ MsgBlockHeaderAt cp consensualBlockHeader
+            pure consensualBlockHeader
 
-    getNextBlocks :: ChainPoint -> IO (Consensual [Block])
-    getNextBlocks cp = do
-        let b = case cp of
-                ChainPoint _slotNo hash -> hash
-                ChainPointAtGenesis -> headerHash $
-                    Fixture.genesisBlockHeader networkId
-        consensualBlocks <- fetchNextBlocks tr network bfLayer b
-        traceWith tr $ uncurry (MsgGotNextBlocks b) $
-            case consensualBlocks of
-                NotConsensual ->
-                    (0, Nothing)
-                Consensual bls ->
-                    ( length bls
-                    , case bls of
-                        [] -> Nothing
-                        h : _ -> Just (header h)
-                    )
-        pure consensualBlocks
-
-    getAddressTxs ::
-        BlockHeader ->
-        BlockHeader ->
-        Either Address RewardAccount ->
-        IO ChainEvents
-    getAddressTxs bhFrom bhTo addrOrAcc = do
-        traceWith tr $ MsgGetAddressTxs bhFrom bhTo addrOrAcc
-        fromBlockEvents <$> case addrOrAcc of
-            Left address -> do
-                txs <-
-                    bfGetAddressTransactions
-                        (BF.Address (encodeAddress @nd address))
-                        (Just $ headerToIndex bhFrom)
-                        (Just $ headerToIndex bhTo)
-                for txs \BF.AddressTransaction{..} -> do
-                    (bftx, tx) <-
-                        fetchTransaction
-                            tr
-                            network
-                            bfLayer
-                            _addressTransactionTxHash
-                    txIndex <- throwBlockfrostError $
-                        _addressTransactionTxIndex
-                            <?#> "_addressTransactionTxIndex"
-                    txBlockEvents
-                        bftx
-                        (unsafeMkSublist [((txIndex, 0), tx)])
-                        (unsafeMkSublist [])
-            Right account -> do
-                let address = BF.Address $ encodeStakeAddress @nd account
-                regTxHashes <-
-                    fmap BF._accountRegistrationTxHash
-                        <$> bfGetAccountRegistrations address
-                delTxHashes <-
-                    fmap BF._accountDelegationTxHash
-                        <$> bfGetAccountDelegations address
-                blockEventsRegDeleg <-
-                    for (regTxHashes <> delTxHashes) \hash -> do
-                        (tx@BF.Transaction{_transactionIndex}, dcerts) <-
-                            concurrently
-                                (bfGetTx hash)
-                                (fetchDelegation tr network bfLayer hash)
-                        txIndex <- throwBlockfrostError $
-                            _transactionIndex <?#> "_transactionIndex"
-                        txBlockEvents
-                            tx
-                            ( unsafeMkSublist [] )
-                            ( unsafeMkSublist $
-                                (\(n, dc) -> ((txIndex, n), dc))
-                                    <$> zip [0 ..] dcerts
+        getNextBlocks :: ChainPoint -> IO (Consensual [Block])
+        getNextBlocks cp = do
+            let b = case cp of
+                    ChainPoint _slotNo hash -> hash
+                    ChainPointAtGenesis ->
+                        headerHash $
+                            Fixture.genesisBlockHeader networkId
+            consensualBlocks <- fetchNextBlocks tr network bfLayer b
+            traceWith tr $
+                uncurry (MsgGotNextBlocks b) $
+                    case consensualBlocks of
+                        NotConsensual ->
+                            (0, Nothing)
+                        Consensual bls ->
+                            ( length bls
+                            , case bls of
+                                [] -> Nothing
+                                h : _ -> Just (header h)
                             )
-                ws <- bfGetAccountWithdrawals address
-                blockEventsWithdrawUnfiltered <-
-                    for ws \BF.AccountWithdrawal{..} -> do
-                        (bftx@BF.Transaction{_transactionIndex}, tx) <-
+            pure consensualBlocks
+
+        getAddressTxs
+            :: BlockHeader
+            -> BlockHeader
+            -> Either Address RewardAccount
+            -> IO ChainEvents
+        getAddressTxs bhFrom bhTo addrOrAcc = do
+            traceWith tr $ MsgGetAddressTxs bhFrom bhTo addrOrAcc
+            fromBlockEvents <$> case addrOrAcc of
+                Left address -> do
+                    txs <-
+                        bfGetAddressTransactions
+                            (BF.Address (encodeAddress @nd address))
+                            (Just $ headerToIndex bhFrom)
+                            (Just $ headerToIndex bhTo)
+                    for txs \BF.AddressTransaction {..} -> do
+                        (bftx, tx) <-
                             fetchTransaction
                                 tr
                                 network
                                 bfLayer
-                                _accountWithdrawalTxHash
-                        txIndex <- throwBlockfrostError $
-                            _transactionIndex <?#> "_transactionIndex"
+                                _addressTransactionTxHash
+                        txIndex <-
+                            throwBlockfrostError $
+                                _addressTransactionTxIndex
+                                    <?#> "_addressTransactionTxIndex"
                         txBlockEvents
                             bftx
                             (unsafeMkSublist [((txIndex, 0), tx)])
                             (unsafeMkSublist [])
-                let inRange x = slotFrom <= slot x && slot x <= slotTo
-                    blockEventsWithdraw =
-                        filter inRange blockEventsWithdrawUnfiltered
-                pure $ blockEventsRegDeleg <> blockEventsWithdraw
-      where
-        slotFromBlockHeader = toSlot . chainPointFromBlockHeader
-        slotFrom = slotFromBlockHeader bhFrom
-        slotTo = slotFromBlockHeader bhTo
+                Right account -> do
+                    let address = BF.Address $ encodeStakeAddress @nd account
+                    regTxHashes <-
+                        fmap BF._accountRegistrationTxHash
+                            <$> bfGetAccountRegistrations address
+                    delTxHashes <-
+                        fmap BF._accountDelegationTxHash
+                            <$> bfGetAccountDelegations address
+                    blockEventsRegDeleg <-
+                        for (regTxHashes <> delTxHashes) \hash -> do
+                            (tx@BF.Transaction {_transactionIndex}, dcerts) <-
+                                concurrently
+                                    (bfGetTx hash)
+                                    (fetchDelegation tr network bfLayer hash)
+                            txIndex <-
+                                throwBlockfrostError $
+                                    _transactionIndex <?#> "_transactionIndex"
+                            txBlockEvents
+                                tx
+                                (unsafeMkSublist [])
+                                ( unsafeMkSublist $
+                                    (\(n, dc) -> ((txIndex, n), dc))
+                                        <$> zip [0 ..] dcerts
+                                )
+                    ws <- bfGetAccountWithdrawals address
+                    blockEventsWithdrawUnfiltered <-
+                        for ws \BF.AccountWithdrawal {..} -> do
+                            (bftx@BF.Transaction {_transactionIndex}, tx) <-
+                                fetchTransaction
+                                    tr
+                                    network
+                                    bfLayer
+                                    _accountWithdrawalTxHash
+                            txIndex <-
+                                throwBlockfrostError $
+                                    _transactionIndex <?#> "_transactionIndex"
+                            txBlockEvents
+                                bftx
+                                (unsafeMkSublist [((txIndex, 0), tx)])
+                                (unsafeMkSublist [])
+                    let inRange x = slotFrom <= slot x && slot x <= slotTo
+                        blockEventsWithdraw =
+                            filter inRange blockEventsWithdrawUnfiltered
+                    pure $ blockEventsRegDeleg <> blockEventsWithdraw
+          where
+            slotFromBlockHeader = toSlot . chainPointFromBlockHeader
+            slotFrom = slotFromBlockHeader bhFrom
+            slotTo = slotFromBlockHeader bhTo
 
-        txBlockEvents ::
-            BF.Transaction ->
-            Sublist Tx ->
-            Sublist DelegationCertificate ->
-            IO BlockEvents
-        txBlockEvents BF.Transaction{..} txs ds = do
-            slot <- throwBlockfrostError $
-                At . SlotNo <$> toInteger _transactionSlot
-                    <?#> "_transactionSlot"
-            blockHeight <- throwBlockfrostError $
-                Quantity <$> _transactionBlockHeight
-                    <?#> "_transactionBlockHeight"
-            pure BlockEvents
-                { slot
-                , blockHeight
-                , transactions = txs
-                , delegations = ds
+            txBlockEvents
+                :: BF.Transaction
+                -> Sublist Tx
+                -> Sublist DelegationCertificate
+                -> IO BlockEvents
+            txBlockEvents BF.Transaction {..} txs ds = do
+                slot <-
+                    throwBlockfrostError $
+                        At
+                            . SlotNo
+                            <$> toInteger _transactionSlot
+                            <?#> "_transactionSlot"
+                blockHeight <-
+                    throwBlockfrostError $
+                        Quantity
+                            <$> _transactionBlockHeight
+                            <?#> "_transactionBlockHeight"
+                pure
+                    BlockEvents
+                        { slot
+                        , blockHeight
+                        , transactions = txs
+                        , delegations = ds
+                        }
+
+        headerToIndex :: BlockHeader -> BF.BlockIndex
+        headerToIndex BlockHeader {blockHeight} =
+            BF.BlockIndex
+                { blockIndexHeight = intCast $ getQuantity blockHeight
+                , blockIndexIndex = Nothing
                 }
-
-    headerToIndex :: BlockHeader -> BF.BlockIndex
-    headerToIndex BlockHeader{blockHeight} =
-        BF.BlockIndex
-            { blockIndexHeight = intCast $ getQuantity blockHeight
-            , blockIndexIndex = Nothing
-            }
 
 {-------------------------------------------------------------------------------
     Fetching blocks and transactions
@@ -675,16 +790,17 @@ fetchNextBlocks tr nd bfLayer hash = do
     let prevBlockHash = BF.BlockHash $ toText hash
     bfGetBlocksAfterHash bfLayer prevBlockHash >>= \case
         NotConsensual -> pure NotConsensual
-        Consensual bl -> Consensual <$> for bl \block@BF.Block{..} -> do
-            header <-
-                either (throwIO . BlockfrostException) pure $
-                    bfBlockHeader block
-            txhs <- bfGetBlockTxs bfLayer _blockHash
-            transactions <-
-                fmap snd <$> traverse (fetchTransaction tr nd bfLayer) txhs
-            delegations <-
-                join <$> traverse (fetchDelegation tr nd bfLayer) txhs
-            pure Block{header, transactions, delegations}
+        Consensual bl ->
+            Consensual <$> for bl \block@BF.Block {..} -> do
+                header <-
+                    either (throwIO . BlockfrostException) pure $
+                        bfBlockHeader block
+                txhs <- bfGetBlockTxs bfLayer _blockHash
+                transactions <-
+                    fmap snd <$> traverse (fetchTransaction tr nd bfLayer) txhs
+                delegations <-
+                    join <$> traverse (fetchDelegation tr nd bfLayer) txhs
+                pure Block {header, transactions, delegations}
 
 fetchDelegation
     :: Tracer IO Log
@@ -693,40 +809,43 @@ fetchDelegation
     -> BF.TxHash
     -> IO [DelegationCertificate]
 fetchDelegation
-    tr (SomeNetworkDiscriminant (Proxy :: Proxy nd)) bfLayer hash = do
-    liftIO $ traceWith tr $ MsgFetchDelegation hash
-    delegations <-
-        concurrently
-            (bfGetTxDelegations bfLayer hash)
-            (bfGetTxStakes bfLayer hash)
-    certs <- either (throwIO . BlockfrostException) pure $
-        for (uncurry align delegations) \case
-            This txDelegation -> pure <$> parseTxDelegation txDelegation
-            That txStake -> pure <$> parseTxStake txStake
-            These txDelegation txStake ->
-                (\d s -> [d, s])
-                    <$> parseTxDelegation txDelegation
-                    <*> parseTxStake txStake
-    pure $ snd <$> sortOn fst (concat certs)
-  where
-    parseTxDelegation BF.TransactionDelegation{..} = do
-        let addr = BF.unAddress _transactionDelegationAddress
-        rewardAccount <-
-            first (InvalidAddress addr) $ decodeStakeAddress @nd addr
-        poolId <- fromBfPoolId _transactionDelegationPoolId
-        pure
-            ( _transactionDelegationCertIndex
-            , CertDelegateFull rewardAccount poolId
-            )
-    parseTxStake BF.TransactionStake{..} = do
-        let addr = BF.unAddress _transactionStakeAddress
-        rewardAccount <-
-            first (InvalidAddress addr) $ decodeStakeAddress @nd addr
-        let action =
-                if _transactionStakeRegistration
-                    then CertRegisterKey
-                    else CertDelegateNone
-        pure (_transactionStakeCertIndex, action rewardAccount)
+    tr
+    (SomeNetworkDiscriminant (Proxy :: Proxy nd))
+    bfLayer
+    hash = do
+        liftIO $ traceWith tr $ MsgFetchDelegation hash
+        delegations <-
+            concurrently
+                (bfGetTxDelegations bfLayer hash)
+                (bfGetTxStakes bfLayer hash)
+        certs <- either (throwIO . BlockfrostException) pure $
+            for (uncurry align delegations) \case
+                This txDelegation -> pure <$> parseTxDelegation txDelegation
+                That txStake -> pure <$> parseTxStake txStake
+                These txDelegation txStake ->
+                    (\d s -> [d, s])
+                        <$> parseTxDelegation txDelegation
+                        <*> parseTxStake txStake
+        pure $ snd <$> sortOn fst (concat certs)
+      where
+        parseTxDelegation BF.TransactionDelegation {..} = do
+            let addr = BF.unAddress _transactionDelegationAddress
+            rewardAccount <-
+                first (InvalidAddress addr) $ decodeStakeAddress @nd addr
+            poolId <- fromBfPoolId _transactionDelegationPoolId
+            pure
+                ( _transactionDelegationCertIndex
+                , CertDelegateFull rewardAccount poolId
+                )
+        parseTxStake BF.TransactionStake {..} = do
+            let addr = BF.unAddress _transactionStakeAddress
+            rewardAccount <-
+                first (InvalidAddress addr) $ decodeStakeAddress @nd addr
+            let action =
+                    if _transactionStakeRegistration
+                        then CertRegisterKey
+                        else CertDelegateNone
+            pure (_transactionStakeCertIndex, action rewardAccount)
 
 fetchTransaction
     :: Tracer IO Log
@@ -734,7 +853,7 @@ fetchTransaction
     -> BlockfrostLayer IO
     -> BF.TxHash
     -> IO (BF.Transaction, Tx)
-fetchTransaction tr nd BlockfrostLayer{..} hash = do
+fetchTransaction tr nd BlockfrostLayer {..} hash = do
     liftIO $ traceWith tr $ MsgFetchTransaction hash
     transaction <- bfGetTx hash
     utxos <- bfGetTxUtxos hash
@@ -752,8 +871,8 @@ assembleTransaction
     -> IO Tx
 assembleTransaction
     network@(SomeNetworkDiscriminant (Proxy :: Proxy nd))
-    BF.Transaction{..}
-    BF.TransactionUtxos{..}
+    BF.Transaction {..}
+    BF.TransactionUtxos {..}
     txWithdrawals
     metadataCBOR = either (throwIO . BlockfrostException) pure do
         txId <- fromBfTxHash $ BF.TxHash _transactionHash
@@ -762,7 +881,7 @@ assembleTransaction
             fromInputs _transactionUtxosInputs
         let sortedTransactionUtxosOutputs =
                 sortOn BF._utxoOutputOutputIndex _transactionUtxosOutputs
-        outputs <- for sortedTransactionUtxosOutputs \out@BF.UtxoOutput{..} -> do
+        outputs <- for sortedTransactionUtxosOutputs \out@BF.UtxoOutput {..} -> do
             address <- fromBfAddress network _utxoOutputAddress
             tokens <- do
                 coin <- case [ lovelaces
@@ -770,15 +889,16 @@ assembleTransaction
                              ] of
                     [l] -> fromBfLovelaces l
                     _ -> throwError $ InvalidUtxoOutputAmount out
-                let bfAssets = [ ( Money.someDiscreteCurrency sd
-                                 , Money.someDiscreteAmount sd
-                                 )
-                               | BF.AssetAmount sd <- _utxoOutputAmount
-                               ]
+                let bfAssets =
+                        [ ( Money.someDiscreteCurrency sd
+                          , Money.someDiscreteAmount sd
+                          )
+                        | BF.AssetAmount sd <- _utxoOutputAmount
+                        ]
                 tokens <- for bfAssets \(textValue, a) -> do
                     -- textValue is hex-encoded,
                     -- the first 28 bytes are the policy script hash
-                    let (policy, name) = T.splitAt (2*28) textValue
+                    let (policy, name) = T.splitAt (2 * 28) textValue
                     policyId <-
                         first (InvalidTokenPolicyId policy) (fromText policy)
                     assetName <-
@@ -786,10 +906,10 @@ assembleTransaction
                     assetQuantity <- TokenQuantity <$> (a <?#> "TokenQuantity")
                     pure (AssetId policyId assetName, assetQuantity)
                 pure $ TokenBundle coin (TokenMap.fromFlatList tokens)
-            pure TxOut{..}
+            pure TxOut {..}
         withdrawals <-
             Map.fromList
-                <$> for txWithdrawals \BF.TransactionWithdrawal{..} -> do
+                <$> for txWithdrawals \BF.TransactionWithdrawal {..} -> do
                     let addr = BF.unAddress _transactionWithdrawalAddress
                     rewardAccount <-
                         first (InvalidAddress addr) $ decodeStakeAddress @nd addr
@@ -800,21 +920,23 @@ assembleTransaction
                 then pure Nothing
                 else Just <$> unmarshalMetadata metadataCBOR
         let scriptValidity =
-                Just if _transactionValidContract
+                Just
+                    if _transactionValidContract
                         then TxScriptValid
                         else TxScriptInvalid
-        pure Tx
-            { txId
-            , txCBOR = Nothing
-            , fee
-            , resolvedInputs
-            , resolvedCollateralInputs
-            , outputs
-            , collateralOutput = Nothing
-            , withdrawals
-            , metadata
-            , scriptValidity
-            }
+        pure
+            Tx
+                { txId
+                , txCBOR = Nothing
+                , fee
+                , resolvedInputs
+                , resolvedCollateralInputs
+                , outputs
+                , collateralOutput = Nothing
+                , withdrawals
+                , metadata
+                , scriptValidity
+                }
       where
         fromInputs
             :: [BF.UtxoInput]
@@ -824,7 +946,7 @@ assembleTransaction
           where
             isRegularTxIn = not . BF._utxoInputCollateral
             f :: [BF.UtxoInput] -> Either BlockfrostError [(TxIn, Coin)]
-            f = traverse \input@BF.UtxoInput{..} -> do
+            f = traverse \input@BF.UtxoInput {..} -> do
                 txHash <- fromBfTxHash _utxoInputTxHash
                 txIndex <- _utxoInputOutputIndex <?#> "_utxoInputOutputIndex"
                 coin <-
@@ -833,13 +955,15 @@ assembleTransaction
                         _ -> throwError $ InvalidUtxoInputAmount input
                 pure (TxIn txHash txIndex, coin)
 
-unmarshalMetadata ::
-    [BF.TransactionMetaCBOR] -> Either BlockfrostError TxMetadata
+unmarshalMetadata
+    :: [BF.TransactionMetaCBOR] -> Either BlockfrostError TxMetadata
 unmarshalMetadata cbor =
-    mconcat . catMaybes <$> for cbor \BF.TransactionMetaCBOR{..} ->
+    mconcat . catMaybes <$> for cbor \BF.TransactionMetaCBOR {..} ->
         for _transactionMetaCBORMetadata $ \b16 -> do
-            decoded <- first MetadataBase16Error $
-                convertFromBase Base16 $ encodeUtf8 b16
+            decoded <-
+                first MetadataBase16Error $
+                    convertFromBase Base16 $
+                        encodeUtf8 b16
             first MetadataCborError $
                 deserialiseFromCBOR (proxyToAsType (Proxy @TxMetadata)) decoded
 
@@ -850,11 +974,11 @@ fromBlockfrostPP
     :: NetworkId
     -> BF.ProtocolParams
     -> Either BlockfrostError ProtocolParameters
-fromBlockfrostPP network pp@BF.ProtocolParams{..} = do
+fromBlockfrostPP network pp@BF.ProtocolParams {..} = do
     decentralizationLevel <-
         let percentage =
                 mkPercentage $ toRational _protocolParamsDecentralisationParam
-            in case percentage of
+         in case percentage of
                 Left PercentageOutOfBoundsError ->
                     throwError $
                         InvalidDecentralizationLevelPercentage
@@ -882,7 +1006,8 @@ fromBlockfrostPP network pp@BF.ProtocolParams{..} = do
         getMinimumUTxOFunction pp
     stakeKeyDeposit <-
         Coin
-            <$> intCast @_ @Integer _protocolParamsKeyDeposit <?#> "KeyDeposit"
+            <$> intCast @_ @Integer _protocolParamsKeyDeposit
+            <?#> "KeyDeposit"
     maxCollateralInputs <-
         _protocolParamsMaxCollateralInputs <?#> "MaxCollateralInputs"
     collateralPercent <-
@@ -900,101 +1025,103 @@ fromBlockfrostPP network pp@BF.ProtocolParams{..} = do
     nOpt <-
         _protocolParamsNOpt <?#> "NOpt"
 
-    pure ProtocolParameters
-        { eras = protocolParametersEras (Fixture.eraBoundaries network)
-        , txParameters =
-            TxParameters
-                { getFeePolicy =
-                    LinearFee $
-                        LinearFunction
-                            { intercept = fromIntegral minFeeB
-                            , slope = fromIntegral minFeeA
+    pure
+        ProtocolParameters
+            { eras = protocolParametersEras (Fixture.eraBoundaries network)
+            , txParameters =
+                TxParameters
+                    { getFeePolicy =
+                        LinearFee $
+                            LinearFunction
+                                { intercept = fromIntegral minFeeB
+                                , slope = fromIntegral minFeeA
+                                }
+                    , getTxMaxSize =
+                        Quantity maxTxSize
+                    , getTokenBundleMaxSize =
+                        TokenBundleMaxSize $ TxSize maxValSize
+                    , getMaxExecutionUnits =
+                        ExecutionUnits
+                            { executionSteps = maxTxExSteps
+                            , executionMemory = maxTxExMem
                             }
-                , getTxMaxSize =
-                    Quantity maxTxSize
-                , getTokenBundleMaxSize =
-                    TokenBundleMaxSize $ TxSize maxValSize
-                , getMaxExecutionUnits =
-                    ExecutionUnits
-                        { executionSteps = maxTxExSteps
-                        , executionMemory = maxTxExMem
+                    }
+            , executionUnitPrices =
+                Just $
+                    ExecutionUnitPrices
+                        { pricePerStep = toRational _protocolParamsPriceStep
+                        , pricePerMemoryUnit = toRational _protocolParamsPriceMem
                         }
-                }
-        , executionUnitPrices =
-            Just $
-                ExecutionUnitPrices
-                    { pricePerStep = toRational _protocolParamsPriceStep
-                    , pricePerMemoryUnit = toRational _protocolParamsPriceMem
-                    }
-        , maximumCollateralInputCount = maxCollateralInputs
-        , minimumCollateralPercentage = collateralPercent
-        , currentNodeProtocolParameters =
-            Just
-                Node.ProtocolParameters
-                    { protocolParamProtocolVersion =
-                        (protoMajorVer, protoMinorVer)
-                    , protocolParamDecentralization =
-                        Just $ toRational _protocolParamsDecentralisationParam
-                    , protocolParamExtraPraosEntropy = Nothing
-                    , protocolParamMaxBlockHeaderSize = maxBlockHeaderSize
-                    , protocolParamMaxBlockBodySize = maxBlockBodySize
-                    , protocolParamMaxTxSize = intCast maxTxSize
-                    , protocolParamTxFeeFixed = minFeeB
-                    , protocolParamTxFeePerByte = minFeeA
-                    , protocolParamMinUTxOValue =
-                        Just $ Node.Lovelace $ intCast _protocolParamsMinUtxo
-                    , protocolParamStakeAddressDeposit =
-                        Node.Lovelace $
-                            intCast @_ @Integer _protocolParamsKeyDeposit
-                    , protocolParamStakePoolDeposit =
-                        Node.Lovelace $
-                            intCast @_ @Integer _protocolParamsPoolDeposit
-                    , protocolParamMinPoolCost =
-                        Node.Lovelace $
-                            intCast @_ @Integer _protocolParamsMinPoolCost
-                    , protocolParamPoolRetireMaxEpoch = Node.EpochNo eMax
-                    , protocolParamStakePoolTargetNum = nOpt
-                    , protocolParamPoolPledgeInfluence =
-                        toRational _protocolParamsA0
-                    , protocolParamMonetaryExpansion = toRational _protocolParamsRho
-                    , protocolParamTreasuryCut = toRational _protocolParamsTau
-                    , protocolParamUTxOCostPerWord =
-                        Just $
+            , maximumCollateralInputCount = maxCollateralInputs
+            , minimumCollateralPercentage = collateralPercent
+            , currentNodeProtocolParameters =
+                Just
+                    Node.ProtocolParameters
+                        { protocolParamProtocolVersion =
+                            (protoMajorVer, protoMinorVer)
+                        , protocolParamDecentralization =
+                            Just $ toRational _protocolParamsDecentralisationParam
+                        , protocolParamExtraPraosEntropy = Nothing
+                        , protocolParamMaxBlockHeaderSize = maxBlockHeaderSize
+                        , protocolParamMaxBlockBodySize = maxBlockBodySize
+                        , protocolParamMaxTxSize = intCast maxTxSize
+                        , protocolParamTxFeeFixed = minFeeB
+                        , protocolParamTxFeePerByte = minFeeA
+                        , protocolParamMinUTxOValue =
+                            Just $ Node.Lovelace $ intCast _protocolParamsMinUtxo
+                        , protocolParamStakeAddressDeposit =
                             Node.Lovelace $
-                                intCast _protocolParamsCoinsPerUtxoWord
-                    -- TODO Blockfrost has not yet updated their API to include
-                    -- the "UTxO Cost Per Byte" protocol parameter.
-                    , protocolParamUTxOCostPerByte = Nothing
-                    , protocolParamCostModels =
-                        Map.singleton
-                            (AnyPlutusScriptVersion PlutusScriptV1)
-                            (Fixture.costModels network)
-                    , protocolParamPrices =
-                        Just $
-                            Node.ExecutionUnitPrices
-                                { priceExecutionSteps =
-                                    toRational _protocolParamsPriceStep
-                                , priceExecutionMemory =
-                                    toRational _protocolParamsPriceMem
-                                }
-                    , protocolParamMaxTxExUnits =
-                        Just $
-                            Node.ExecutionUnits
-                                { executionSteps = maxTxExSteps
-                                , executionMemory = maxTxExMem
-                                }
-                    , protocolParamMaxBlockExUnits =
-                        Just $
-                            Node.ExecutionUnits
-                                { executionSteps = maxBlockExSteps
-                                , executionMemory = maxBlockExMem
-                                }
-                    , protocolParamMaxValueSize = Just maxValSize
-                    , protocolParamCollateralPercent = Just collateralPercent
-                    , protocolParamMaxCollateralInputs =
-                        Just $ intCast maxCollateralInputs
-                    }
-        , .. }
+                                intCast @_ @Integer _protocolParamsKeyDeposit
+                        , protocolParamStakePoolDeposit =
+                            Node.Lovelace $
+                                intCast @_ @Integer _protocolParamsPoolDeposit
+                        , protocolParamMinPoolCost =
+                            Node.Lovelace $
+                                intCast @_ @Integer _protocolParamsMinPoolCost
+                        , protocolParamPoolRetireMaxEpoch = Node.EpochNo eMax
+                        , protocolParamStakePoolTargetNum = nOpt
+                        , protocolParamPoolPledgeInfluence =
+                            toRational _protocolParamsA0
+                        , protocolParamMonetaryExpansion = toRational _protocolParamsRho
+                        , protocolParamTreasuryCut = toRational _protocolParamsTau
+                        , protocolParamUTxOCostPerWord =
+                            Just $
+                                Node.Lovelace $
+                                    intCast _protocolParamsCoinsPerUtxoWord
+                        , -- TODO Blockfrost has not yet updated their API to include
+                          -- the "UTxO Cost Per Byte" protocol parameter.
+                          protocolParamUTxOCostPerByte = Nothing
+                        , protocolParamCostModels =
+                            Map.singleton
+                                (AnyPlutusScriptVersion PlutusScriptV1)
+                                (Fixture.costModels network)
+                        , protocolParamPrices =
+                            Just $
+                                Node.ExecutionUnitPrices
+                                    { priceExecutionSteps =
+                                        toRational _protocolParamsPriceStep
+                                    , priceExecutionMemory =
+                                        toRational _protocolParamsPriceMem
+                                    }
+                        , protocolParamMaxTxExUnits =
+                            Just $
+                                Node.ExecutionUnits
+                                    { executionSteps = maxTxExSteps
+                                    , executionMemory = maxTxExMem
+                                    }
+                        , protocolParamMaxBlockExUnits =
+                            Just $
+                                Node.ExecutionUnits
+                                    { executionSteps = maxBlockExSteps
+                                    , executionMemory = maxBlockExMem
+                                    }
+                        , protocolParamMaxValueSize = Just maxValSize
+                        , protocolParamCollateralPercent = Just collateralPercent
+                        , protocolParamMaxCollateralInputs =
+                            Just $ intCast maxCollateralInputs
+                        }
+            , ..
+            }
   where
     protocolParametersEras :: [(AnyCardanoEra, EpochNo)] -> EraInfo EpochNo
     protocolParametersEras eraEpochs =
@@ -1027,24 +1154,25 @@ fromBlockfrostPP network pp@BF.ProtocolParams{..} = do
 --
 -- We should revise this function so that it's capable of selecting a minimum
 -- UTxO function that's appropriate for the current era.
---
 getMinimumUTxOFunction
     :: BF.ProtocolParams
     -> Either BlockfrostError MinimumUTxO
 getMinimumUTxOFunction BF.ProtocolParams {_protocolParamsCoinsPerUtxoWord} =
-    minimumUTxOForAlonzoEra . Ledger.Coin
+    minimumUTxOForAlonzoEra
+        . Ledger.Coin
         <$> intCast @_ @Integer _protocolParamsCoinsPerUtxoWord
         <?#> "CoinsPerUtxoWord"
   where
     minimumUTxOForAlonzoEra :: Ledger.Coin -> MinimumUTxO
-    minimumUTxOForAlonzoEra coinsPerUTxOWord = minimumUTxOForShelleyBasedEra
-        ShelleyBasedEraAlonzo
-        def {Alonzo._coinsPerUTxOWord = coinsPerUTxOWord}
+    minimumUTxOForAlonzoEra coinsPerUTxOWord =
+        minimumUTxOForShelleyBasedEra
+            ShelleyBasedEraAlonzo
+            def {Alonzo._coinsPerUTxOWord = coinsPerUTxOWord}
 
 eraByEpoch :: NetworkId -> EpochNo -> Either BlockfrostError AnyCardanoEra
 eraByEpoch networkId epoch =
-    dropWhile ((> epoch) . snd) (reverse (Fixture.eraBoundaries networkId)) &
-        \case
+    dropWhile ((> epoch) . snd) (reverse (Fixture.eraBoundaries networkId))
+        & \case
             (era, _) : _ -> Right era
             _ -> Left $ UnknownEraForEpoch epoch
 
@@ -1055,20 +1183,19 @@ epochEraSummary networkId (EpochNo epoch) =
     go :: UC.NonEmpty xs EraSummary -> EraSummary
     go = \case
         UC.NonEmptyOne era -> era
-        UC.NonEmptyCons era@EraSummary{eraEnd=EraUnbounded} _eras -> era
-        UC.NonEmptyCons era@EraSummary{eraEnd=EraEnd Bound{boundEpoch}} eras ->
+        UC.NonEmptyCons era@EraSummary {eraEnd = EraUnbounded} _eras -> era
+        UC.NonEmptyCons era@EraSummary {eraEnd = EraEnd Bound {boundEpoch}} eras ->
             if boundEpoch > fromIntegral epoch then era else go eras
 
 {-------------------------------------------------------------------------------
     Stake Pools
 -------------------------------------------------------------------------------}
 
-{- | Estimate the performance of a stake pool based on
- the past 50 epochs (or less if the pool is younger than that).
-
- Uses 'estimatePoolPerformance' from "Cardano.Pool.Rank.Likelihood"
- for this purpose.
--}
+-- | Estimate the performance of a stake pool based on
+-- the past 50 epochs (or less if the pool is younger than that).
+--
+-- Uses 'estimatePoolPerformance' from "Cardano.Pool.Rank.Likelihood"
+-- for this purpose.
 getPoolPerformanceEstimate
     :: BlockfrostLayer IO
     -> SlottingParameters
@@ -1081,7 +1208,7 @@ getPoolPerformanceEstimate bfLayer sp dl rp pid = do
     pure . estimatePoolPerformance sp dl . Seq.fromList $
         map toBlockProduction hist
   where
-    get50 = BF.Paged{BF.countPerPage = 50, BF.pageNumber = 1}
+    get50 = BF.Paged {BF.countPerPage = 50, BF.pageNumber = 1}
     toBlockProduction p =
         BlockProduction
             { blocksProduced = fromIntegral $ BF._poolHistoryBlocks p
@@ -1169,38 +1296,48 @@ instance ToText Log where
         MsgBlockHeaderAtHeight height cbh ->
             case cbh of
                 NotConsensual ->
-                    "Block at height " <> pretty height <>
-                    " isn't a part of consensus anymore (rollback)."
+                    "Block at height "
+                        <> pretty height
+                        <> " isn't a part of consensus anymore (rollback)."
                 Consensual bh ->
-                    "Fetched BlockHeader at height " <> pretty height
-                        <> ": " <> pretty bh
+                    "Fetched BlockHeader at height "
+                        <> pretty height
+                        <> ": "
+                        <> pretty bh
         MsgBlockHeaderAt cp cbh ->
             case cbh of
                 NotConsensual ->
-                    "Block at point " <> pretty cp <>
-                    " isn't a part of consensus anymore (rollback)."
+                    "Block at point "
+                        <> pretty cp
+                        <> " isn't a part of consensus anymore (rollback)."
                 Consensual bh ->
                     "Fetched BlockHeader at " <> pretty cp <> ": " <> pretty bh
         MsgNextBlockHeader prev cnext ->
             case cnext of
                 NotConsensual ->
-                    "Block header " <> pretty prev <>
-                    " isn't a part of consensus anymore (rollback)."
+                    "Block header "
+                        <> pretty prev
+                        <> " isn't a part of consensus anymore (rollback)."
                 Consensual Nothing ->
                     "Fetched no new block headers after " <> pretty prev
                 Consensual (Just next) ->
-                    "Fetched next block header " <> pretty next
-                    <> " after the previous " <> pretty prev
+                    "Fetched next block header "
+                        <> pretty next
+                        <> " after the previous "
+                        <> pretty prev
         MsgGotNextBlocks f n m ->
-            "Fetched " <> pretty n <> " blocks after " <> toText f <>
-                maybe "." ((", starting from " <>) . pretty) m
+            "Fetched "
+                <> pretty n
+                <> " blocks after "
+                <> toText f
+                <> maybe "." ((", starting from " <>) . pretty) m
         MsgBlockfrostLayer l ->
             toText l
 
 instance HasSeverityAnnotation Log where
     getSeverityAnnotation = \case
-        MsgTipReceived{} -> Info
-        MsgTipWatcherNotified{} -> Debug
+        MsgTipReceived {} -> Info
+        MsgTipWatcherNotified {} -> Debug
         MsgTipWatcherRegistered -> Notice
         MsgTimeInterpreterLog {} -> Info
         MsgLightLayerLog l -> getSeverityAnnotation l
@@ -1215,6 +1352,6 @@ instance HasSeverityAnnotation Log where
         MsgIsConsensus {} -> Notice
         MsgBlockHeaderAtHeight {} -> Notice
         MsgBlockHeaderAt {} -> Notice
-        MsgNextBlockHeader{} -> Notice
+        MsgNextBlockHeader {} -> Notice
         MsgGotNextBlocks {} -> Notice
         MsgBlockfrostLayer l -> getSeverityAnnotation l

@@ -19,10 +19,10 @@
 --
 -- Where purpose' and coin_type' are fixed, and each new policy_ix' represents a
 -- different policy key.
-
 module Cardano.Wallet.Primitive.AddressDerivation.MintBurn
     ( -- * Constants
       purposeCIP1855
+
       -- * Helpers
     , derivePolicyKeyAndHash
     , derivePolicyPrivateKey
@@ -31,18 +31,27 @@ module Cardano.Wallet.Primitive.AddressDerivation.MintBurn
     , toTokenPolicyId
     , scriptSlotIntervals
     , withinSlotInterval
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv, XPub )
+    ( XPrv
+    , XPub
+    )
 import Cardano.Address.Script
-    ( Cosigner, KeyHash, Script (..), ScriptHash (..), toScriptHash )
+    ( Cosigner
+    , KeyHash
+    , Script (..)
+    , ScriptHash (..)
+    , toScriptHash
+    )
+import Cardano.Address.Script qualified as CA
 import Cardano.Crypto.Wallet
-    ( deriveXPrv )
+    ( deriveXPrv
+    )
 import Cardano.Crypto.Wallet.Types
-    ( DerivationScheme (DerivationScheme2) )
+    ( DerivationScheme (DerivationScheme2)
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( Depth (..)
     , DerivationIndex (..)
@@ -56,42 +65,57 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , publicKey
     )
 import Cardano.Wallet.Primitive.AddressDiscovery
-    ( coinTypeAda )
+    ( coinTypeAda
+    )
 import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase (..) )
+    ( Passphrase (..)
+    )
 import Cardano.Wallet.Primitive.Types
-    ( SlotNo (..) )
+    ( SlotNo (..)
+    )
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
+    ( Hash (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId (..) )
+    ( AssetId (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName, TokenPolicyId (..) )
+    ( TokenName
+    , TokenPolicyId (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity (..) )
+    ( TokenQuantity (..)
+    )
 import Cardano.Wallet.Util
-    ( invariant )
+    ( invariant
+    )
 import Data.IntCast
-    ( intCast )
+    ( intCast
+    )
 import Data.Interval
-    ( Interval, (<=..<=) )
+    ( Interval
+    , (<=..<=)
+    )
+import Data.Interval qualified as I
+import Data.List qualified as L
 import Data.List.NonEmpty
-    ( NonEmpty )
+    ( NonEmpty
+    )
+import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-    ( isJust )
+    ( isJust
+    )
 import Data.Word
-    ( Word64 )
+    ( Word64
+    )
 import Numeric.Natural
-    ( Natural )
-
-import qualified Cardano.Address.Script as CA
-import qualified Data.Interval as I
-import qualified Data.List as L
-import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
-
+    ( Natural
+    )
+import Prelude
 
 -- | Purpose for forged policy keys is a constant set to 1855' (or 0x8000073F)
 -- following the original CIP-1855: "Forging policy keys for HD Wallets".
@@ -115,26 +139,27 @@ derivePolicyPrivateKey
     -> XPrv
     -- ^ Policy private key
 derivePolicyPrivateKey (Passphrase pwd) rootXPrv (Index policyIx) =
-    let
-        purposeXPrv = -- lvl1 derivation; hardened derivation of purpose'
+    let purposeXPrv =
+            -- lvl1 derivation; hardened derivation of purpose'
             deriveXPrv DerivationScheme2 pwd rootXPrv (getIndex purposeCIP1855)
-        coinTypeXPrv = -- lvl2 derivation; hardened derivation of coin_type'
+        coinTypeXPrv =
+            -- lvl2 derivation; hardened derivation of coin_type'
             deriveXPrv DerivationScheme2 pwd purposeXPrv (getIndex coinTypeAda)
-     -- lvl3 derivation; hardened derivation of policy' index
-    in deriveXPrv DerivationScheme2 pwd coinTypeXPrv policyIx
+     in -- lvl3 derivation; hardened derivation of policy' index
+        deriveXPrv DerivationScheme2 pwd coinTypeXPrv policyIx
 
 -- | Derive the policy private key that should be used to create mint/burn
 -- scripts, as well as the key hash of the policy public key.
 derivePolicyKeyAndHash
-  :: WalletKey key
-  => Passphrase "encryption"
-  -- ^ Passphrase for wallet
-  -> key 'RootK XPrv
-  -- ^ Root private key to derive policy private key from
-  -> Index 'Hardened 'PolicyK
-  -- ^ Index of policy script
-  -> (key 'PolicyK XPrv, KeyHash)
-  -- ^ Policy private key
+    :: WalletKey key
+    => Passphrase "encryption"
+    -- ^ Passphrase for wallet
+    -> key 'RootK XPrv
+    -- ^ Root private key to derive policy private key from
+    -> Index 'Hardened 'PolicyK
+    -- ^ Index of policy script
+    -> (key 'PolicyK XPrv, KeyHash)
+    -- ^ Policy private key
 derivePolicyKeyAndHash pwd rootPrv policyIx = (policyK, vkeyHash)
   where
     policyK = liftRawKey policyPrv
@@ -143,29 +168,32 @@ derivePolicyKeyAndHash pwd rootPrv policyIx = (policyK, vkeyHash)
 
 policyDerivationPath
     :: NonEmpty DerivationIndex
-policyDerivationPath =  NE.fromList
-    [ DerivationIndex $ getIndex purposeCIP1855
-    , DerivationIndex $ getIndex coinTypeAda
-    , DerivationIndex $ getIndex policyIx
-    ]
+policyDerivationPath =
+    NE.fromList
+        [ DerivationIndex $ getIndex purposeCIP1855
+        , DerivationIndex $ getIndex coinTypeAda
+        , DerivationIndex $ getIndex policyIx
+        ]
   where
     policyIx :: Index 'Hardened 'PolicyK
     policyIx = minBound
 
 toTokenPolicyId
-    :: forall key. WalletKey key
+    :: forall key
+     . WalletKey key
     => Script Cosigner
     -> Map Cosigner XPub
     -> TokenPolicyId
 toTokenPolicyId scriptTempl cosignerMap =
-      UnsafeTokenPolicyId
-    . Hash
-    . unScriptHash
-    . toScriptHash
-    $ replaceCosigner @key cosignerMap scriptTempl
+    UnsafeTokenPolicyId
+        . Hash
+        . unScriptHash
+        . toScriptHash
+        $ replaceCosigner @key cosignerMap scriptTempl
 
 toTokenMapAndScript
-    :: forall key. WalletKey key
+    :: forall key
+     . WalletKey key
     => Script Cosigner
     -> Map Cosigner XPub
     -> TokenName
@@ -178,7 +206,8 @@ toTokenMapAndScript scriptTempl cosignerMap tName val =
     )
 
 replaceCosigner
-    :: forall key. WalletKey key
+    :: forall key
+     . WalletKey key
     => Map Cosigner XPub
     -> Script Cosigner
     -> Script KeyHash
@@ -199,10 +228,11 @@ replaceCosigner cosignerMap = \case
     toKeyHash :: Cosigner -> KeyHash
     toKeyHash c =
         let Just xpub =
-                invariant "we should have xpubs of all cosigners at this point"
-                (Map.lookup c cosignerMap)
-                isJust
-        in hashVerificationKey @key CA.Policy (liftRawKey xpub)
+                invariant
+                    "we should have xpubs of all cosigners at this point"
+                    (Map.lookup c cosignerMap)
+                    isJust
+         in hashVerificationKey @key CA.Policy (liftRawKey xpub)
 
 scriptSlotIntervals
     :: Script a
@@ -212,10 +242,9 @@ scriptSlotIntervals = \case
         [allSlots]
     RequireAllOf xs ->
         let (timelocks, rest) = L.partition isTimelockOrSig xs
-        in
-        trimAllSlots
-            $ I.intersections (concatMap scriptSlotIntervals timelocks)
-            : concatMap scriptSlotIntervals rest
+         in trimAllSlots $
+                I.intersections (concatMap scriptSlotIntervals timelocks)
+                    : concatMap scriptSlotIntervals rest
     RequireAnyOf xs ->
         trimAllSlots $ concatMap scriptSlotIntervals xs
     RequireSomeOf _ xs ->
@@ -237,10 +266,9 @@ scriptSlotIntervals = \case
 
     trimAllSlots interval =
         let notAllSlots = filter (/= allSlots) interval
-        in
-        if L.null notAllSlots
-        then interval
-        else notAllSlots
+         in if L.null notAllSlots
+                then interval
+                else notAllSlots
 
 -- tx validity interval must be a subset of a interval from script's timelock
 -- tx validity interval is defined by specifying (from,to) slot interval

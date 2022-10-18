@@ -1,12 +1,11 @@
-
 module Cardano.Wallet.Primitive.Types.TokenPolicySpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
+    ( Hash (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenPolicy
     ( TokenFingerprint (..)
     , TokenName (..)
@@ -14,17 +13,26 @@ import Cardano.Wallet.Primitive.Types.TokenPolicy
     , mkTokenFingerprint
     )
 import Cardano.Wallet.Unsafe
-    ( unsafeFromHex )
+    ( unsafeFromHex
+    )
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Test.Hspec
-    ( Spec, SpecWith, describe, it, shouldBe )
+    ( Spec
+    , SpecWith
+    , describe
+    , it
+    , shouldBe
+    )
 import Test.Hspec.Extra
-    ( parallel )
-
-import qualified Data.Text as T
+    ( parallel
+    )
+import Prelude
 
 spec :: Spec
 spec = parallel $ describe "mkAssetFingerprint" $ do

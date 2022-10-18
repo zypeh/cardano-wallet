@@ -5,31 +5,44 @@
 -- License: Apache-2.0
 --
 -- Provides laws for the 'PartialOrd' class.
---
 module Test.Utils.Laws.PartialOrd
     ( partialOrdLaws
-    ) where
-
-import Prelude
+    )
+where
 
 import Algebra.PartialOrd
-    ( PartialOrd (..) )
+    ( PartialOrd (..)
+    )
 import Data.Proxy
-    ( Proxy )
+    ( Proxy
+    )
 import Test.QuickCheck
-    ( Arbitrary, Property, property )
+    ( Arbitrary
+    , Property
+    , property
+    )
 import Test.QuickCheck.Classes
-    ( Laws (..) )
+    ( Laws (..)
+    )
+import Prelude
 
 partialOrdLaws :: (PartialOrd a, Arbitrary a, Show a) => Proxy a -> Laws
-partialOrdLaws p = Laws "PartialOrd"
-    [ ( "Antisymmetry"
-      , partialOrdAntisymmetric p)
-    , ( "Reflexivity"
-      , partialOrdReflexive p)
-    , ( "Transitivity"
-      , partialOrdTransitive p)
-    ]
+partialOrdLaws p =
+    Laws
+        "PartialOrd"
+        [
+            ( "Antisymmetry"
+            , partialOrdAntisymmetric p
+            )
+        ,
+            ( "Reflexivity"
+            , partialOrdReflexive p
+            )
+        ,
+            ( "Transitivity"
+            , partialOrdTransitive p
+            )
+        ]
 
 partialOrdAntisymmetric
     :: forall a. (Show a, PartialOrd a, Arbitrary a) => Proxy a -> Property

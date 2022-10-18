@@ -5,21 +5,26 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.Primitive.AddressDerivationSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv, XPub )
+    ( XPrv
+    , XPub
+    )
+import Cardano.Crypto.Wallet qualified as CC
 import Cardano.Mnemonic
-    ( MkSomeMnemonic (..), MkSomeMnemonicError (..), SomeMnemonic (..) )
+    ( MkSomeMnemonic (..)
+    , MkSomeMnemonicError (..)
+    , SomeMnemonic (..)
+    )
 import Cardano.Wallet.Gen
-    ( genMnemonic )
+    ( genMnemonic
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( Depth (..)
     , DerivationIndex (..)
@@ -31,13 +36,21 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , getIndex
     )
 import Cardano.Wallet.Primitive.AddressDerivation.Byron
-    ( ByronKey (..) )
+    ( ByronKey (..)
+    )
+import Cardano.Wallet.Primitive.AddressDerivation.Byron qualified as Byron
 import Cardano.Wallet.Primitive.AddressDerivation.Icarus
-    ( IcarusKey (..) )
+    ( IcarusKey (..)
+    )
+import Cardano.Wallet.Primitive.AddressDerivation.Icarus qualified as Icarus
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( ShelleyKey (..) )
+    ( ShelleyKey (..)
+    )
+import Cardano.Wallet.Primitive.AddressDerivation.Shelley qualified as Shelley
 import Cardano.Wallet.Primitive.Passphrase
-    ( PassphraseHash (..), preparePassphrase )
+    ( PassphraseHash (..)
+    , preparePassphrase
+    )
 import Cardano.Wallet.Primitive.Passphrase.Types
     ( Passphrase (..)
     , PassphraseMaxLength (..)
@@ -45,15 +58,29 @@ import Cardano.Wallet.Primitive.Passphrase.Types
     , PassphraseScheme (..)
     )
 import Control.Monad
-    ( replicateM )
+    ( replicateM
+    )
+import Data.ByteArray qualified as BA
+import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as B8
 import Data.Either
-    ( isRight )
+    ( isRight
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
 import Test.Hspec
-    ( Spec, describe, it, shouldBe, shouldSatisfy )
+    ( Spec
+    , describe
+    , it
+    , shouldBe
+    , shouldSatisfy
+    )
 import Test.Hspec.Extra
-    ( parallel )
+    ( parallel
+    )
 import Test.QuickCheck
     ( Arbitrary (..)
     , Gen
@@ -71,30 +98,27 @@ import Test.QuickCheck
     , (===)
     )
 import Test.QuickCheck.Arbitrary.Generic
-    ( genericArbitrary )
+    ( genericArbitrary
+    )
 import Test.Text.Roundtrip
-    ( textRoundtrip )
-
-import qualified Cardano.Crypto.Wallet as CC
-import qualified Cardano.Wallet.Primitive.AddressDerivation.Byron as Byron
-import qualified Cardano.Wallet.Primitive.AddressDerivation.Icarus as Icarus
-import qualified Cardano.Wallet.Primitive.AddressDerivation.Shelley as Shelley
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+    ( textRoundtrip
+    )
+import Prelude
 
 spec :: Spec
 spec = do
     parallel $ describe "Bounded / Enum relationship" $ do
-        it "The calls Index.succ maxBound should result in a runtime err (hard)"
+        it
+            "The calls Index.succ maxBound should result in a runtime err (hard)"
             prop_succMaxBoundHardIx
-        it "The calls Index.pred minBound should result in a runtime err (hard)"
+        it
+            "The calls Index.pred minBound should result in a runtime err (hard)"
             prop_predMinBoundHardIx
-        it "The calls Index.succ maxBound should result in a runtime err (soft)"
+        it
+            "The calls Index.succ maxBound should result in a runtime err (soft)"
             prop_succMaxBoundSoftIx
-        it "The calls Index.pred minBound should result in a runtime err (soft)"
+        it
+            "The calls Index.pred minBound should result in a runtime err (soft)"
             prop_predMinBoundSoftIx
 
     parallel $ describe "Enum Roundtrip" $ do
@@ -111,88 +135,224 @@ spec = do
                 \-output-hk/cardano-wallet/tree/master/specifications/mnemonic/english.txt"
 
         it "early error reported first (Invalid Entropy)" $ do
-            let res = mkSomeMnemonic @[15,18,21]
-                        [ "glimpse", "paper", "toward", "fine", "alert"
-                        , "baby", "pyramid", "alone", "shaft", "force"
-                        , "circle", "fancy", "squeeze", "cannon", "toilet"
+            let res =
+                    mkSomeMnemonic @[15, 18, 21]
+                        [ "glimpse"
+                        , "paper"
+                        , "toward"
+                        , "fine"
+                        , "alert"
+                        , "baby"
+                        , "pyramid"
+                        , "alone"
+                        , "shaft"
+                        , "force"
+                        , "circle"
+                        , "fancy"
+                        , "squeeze"
+                        , "cannon"
+                        , "toilet"
                         ]
-            res `shouldBe` Left (MkSomeMnemonicError "Invalid entropy checksum: \
-                \please double-check the last word of your mnemonic sentence.")
+            res
+                `shouldBe` Left
+                    ( MkSomeMnemonicError
+                        "Invalid entropy checksum: \
+                        \please double-check the last word of your mnemonic sentence."
+                    )
 
         it "early error reported first (Non-English Word)" $ do
-            let res = mkSomeMnemonic @[15,18,21]
-                        [ "baguette", "paper", "toward", "fine", "alert"
-                        , "baby", "pyramid", "alone", "shaft", "force"
-                        , "circle", "fancy", "squeeze", "cannon", "toilet"
+            let res =
+                    mkSomeMnemonic @[15, 18, 21]
+                        [ "baguette"
+                        , "paper"
+                        , "toward"
+                        , "fine"
+                        , "alert"
+                        , "baby"
+                        , "pyramid"
+                        , "alone"
+                        , "shaft"
+                        , "force"
+                        , "circle"
+                        , "fancy"
+                        , "squeeze"
+                        , "cannon"
+                        , "toilet"
                         ]
             res `shouldBe` Left (MkSomeMnemonicError noInDictErr)
 
         it "early error reported first (Wrong number of words - 1)" $ do
-            let res = mkSomeMnemonic @[15,18,21]
-                        ["mom", "unveil", "slim", "abandon"
-                        , "nut", "cash", "laugh", "impact"
-                        , "system", "split", "depth", "sun"
+            let res =
+                    mkSomeMnemonic @[15, 18, 21]
+                        [ "mom"
+                        , "unveil"
+                        , "slim"
+                        , "abandon"
+                        , "nut"
+                        , "cash"
+                        , "laugh"
+                        , "impact"
+                        , "system"
+                        , "split"
+                        , "depth"
+                        , "sun"
                         ]
-            res `shouldBe` Left (MkSomeMnemonicError "Invalid number of words: \
-                \15, 18 or 21 words are expected.")
+            res
+                `shouldBe` Left
+                    ( MkSomeMnemonicError
+                        "Invalid number of words: \
+                        \15, 18 or 21 words are expected."
+                    )
 
         it "early error reported first (Wrong number of words - 2)" $ do
-            let res = mkSomeMnemonic @('[15])
-                        ["mom", "unveil", "slim", "abandon"
-                        , "nut", "cash", "laugh", "impact"
-                        , "system", "split", "depth", "sun"
+            let res =
+                    mkSomeMnemonic @('[15])
+                        [ "mom"
+                        , "unveil"
+                        , "slim"
+                        , "abandon"
+                        , "nut"
+                        , "cash"
+                        , "laugh"
+                        , "impact"
+                        , "system"
+                        , "split"
+                        , "depth"
+                        , "sun"
                         ]
-            res `shouldBe` Left (MkSomeMnemonicError "Invalid number of words: \
-                \15 words are expected.")
+            res
+                `shouldBe` Left
+                    ( MkSomeMnemonicError
+                        "Invalid number of words: \
+                        \15 words are expected."
+                    )
 
         it "early error reported first (Error not in first constructor)" $ do
-            let res = mkSomeMnemonic @('[15,18,21,24])
-                        ["盗", "精", "序", "郎", "赋", "姿", "委", "善", "酵"
-                        ,"祥", "赛", "矩", "蜡", "注", "韦", "效", "义", "冻"
+            let res =
+                    mkSomeMnemonic @('[15, 18, 21, 24])
+                        [ "盗"
+                        , "精"
+                        , "序"
+                        , "郎"
+                        , "赋"
+                        , "姿"
+                        , "委"
+                        , "善"
+                        , "酵"
+                        , "祥"
+                        , "赛"
+                        , "矩"
+                        , "蜡"
+                        , "注"
+                        , "韦"
+                        , "效"
+                        , "义"
+                        , "冻"
                         ]
             res `shouldBe` Left (MkSomeMnemonicError noInDictErr)
 
         it "early error reported first (Error not in first constructor)" $ do
-            let res = mkSomeMnemonic @('[12,15,18])
-                        ["盗", "精", "序", "郎", "赋", "姿", "委", "善", "酵"
-                        ,"祥", "赛", "矩", "蜡", "注", "韦", "效", "义", "冻"
+            let res =
+                    mkSomeMnemonic @('[12, 15, 18])
+                        [ "盗"
+                        , "精"
+                        , "序"
+                        , "郎"
+                        , "赋"
+                        , "姿"
+                        , "委"
+                        , "善"
+                        , "酵"
+                        , "祥"
+                        , "赛"
+                        , "矩"
+                        , "蜡"
+                        , "注"
+                        , "韦"
+                        , "效"
+                        , "义"
+                        , "冻"
                         ]
             res `shouldBe` Left (MkSomeMnemonicError noInDictErr)
 
         it "successfully parse 15 words in [15,18,21]" $ do
-            let res = mkSomeMnemonic @[15,18,21]
-                        ["cushion", "anxiety", "oval", "village", "choose"
-                        , "shoot", "over", "behave", "category", "cruise"
-                        , "track", "either", "maid", "organ", "sock"
+            let res =
+                    mkSomeMnemonic @[15, 18, 21]
+                        [ "cushion"
+                        , "anxiety"
+                        , "oval"
+                        , "village"
+                        , "choose"
+                        , "shoot"
+                        , "over"
+                        , "behave"
+                        , "category"
+                        , "cruise"
+                        , "track"
+                        , "either"
+                        , "maid"
+                        , "organ"
+                        , "sock"
                         ]
             res `shouldSatisfy` isRight
 
         it "successfully parse 15 words in [12,15,18]" $ do
-            let res = mkSomeMnemonic @[12,15,18]
-                        ["cushion", "anxiety", "oval", "village", "choose"
-                        , "shoot", "over", "behave", "category", "cruise"
-                        , "track", "either", "maid", "organ", "sock"
+            let res =
+                    mkSomeMnemonic @[12, 15, 18]
+                        [ "cushion"
+                        , "anxiety"
+                        , "oval"
+                        , "village"
+                        , "choose"
+                        , "shoot"
+                        , "over"
+                        , "behave"
+                        , "category"
+                        , "cruise"
+                        , "track"
+                        , "either"
+                        , "maid"
+                        , "organ"
+                        , "sock"
                         ]
             res `shouldSatisfy` isRight
 
         it "successfully parse 15 words in [9,12,15]" $ do
-            let res = mkSomeMnemonic @[9,12,15]
-                        ["cushion", "anxiety", "oval", "village", "choose"
-                        , "shoot", "over", "behave", "category", "cruise"
-                        , "track", "either", "maid", "organ", "sock"
+            let res =
+                    mkSomeMnemonic @[9, 12, 15]
+                        [ "cushion"
+                        , "anxiety"
+                        , "oval"
+                        , "village"
+                        , "choose"
+                        , "shoot"
+                        , "over"
+                        , "behave"
+                        , "category"
+                        , "cruise"
+                        , "track"
+                        , "either"
+                        , "maid"
+                        , "organ"
+                        , "sock"
                         ]
             res `shouldSatisfy` isRight
 
     parallel $ describe "Keys storing and retrieving roundtrips" $ do
-        it "XPrv ShelleyKey"
+        it
+            "XPrv ShelleyKey"
             (property $ prop_roundtripXPrv @ShelleyKey)
-        it "XPrv IcarusKey"
+        it
+            "XPrv IcarusKey"
             (property $ prop_roundtripXPrv @IcarusKey)
-        it "XPrv ByronKey"
+        it
+            "XPrv ByronKey"
             (property $ prop_roundtripXPrv @ByronKey)
-        it "XPub ShelleyKey"
+        it
+            "XPub ShelleyKey"
             (property $ prop_roundtripXPub @ShelleyKey)
-        it "XPub IcarusKey"
+        it
+            "XPub IcarusKey"
             (property $ prop_roundtripXPub @IcarusKey)
 
 {-------------------------------------------------------------------------------
@@ -200,20 +360,32 @@ spec = do
 -------------------------------------------------------------------------------}
 
 prop_succMaxBoundHardIx :: Property
-prop_succMaxBoundHardIx = expectFailure $
-    property $ succ (maxBound @(Index 'Hardened _)) `seq` ()
+prop_succMaxBoundHardIx =
+    expectFailure $
+        property $
+            succ (maxBound @(Index 'Hardened _)) `seq`
+                ()
 
 prop_predMinBoundHardIx :: Property
-prop_predMinBoundHardIx = expectFailure $
-    property $ pred (minBound @(Index 'Hardened _)) `seq` ()
+prop_predMinBoundHardIx =
+    expectFailure $
+        property $
+            pred (minBound @(Index 'Hardened _)) `seq`
+                ()
 
 prop_succMaxBoundSoftIx :: Property
-prop_succMaxBoundSoftIx = expectFailure $
-    property $ succ (maxBound @(Index 'Soft _)) `seq` ()
+prop_succMaxBoundSoftIx =
+    expectFailure $
+        property $
+            succ (maxBound @(Index 'Soft _)) `seq`
+                ()
 
 prop_predMinBoundSoftIx :: Property
-prop_predMinBoundSoftIx = expectFailure $
-    property $ pred (minBound @(Index 'Soft _)) `seq` ()
+prop_predMinBoundSoftIx =
+    expectFailure $
+        property $
+            pred (minBound @(Index 'Soft _)) `seq`
+                ()
 
 prop_roundtripEnumIndexHard :: Index 'WholeDomain 'AccountK -> Property
 prop_roundtripEnumIndexHard ix =
@@ -232,10 +404,10 @@ prop_roundtripXPrv xpriv = do
     xpriv' === xpriv
 
 prop_roundtripXPub
-    ::  ( PersistPublicKey (k 'AccountK)
-        , Eq (k 'AccountK XPub)
-        , Show (k 'AccountK XPub)
-        )
+    :: ( PersistPublicKey (k 'AccountK)
+       , Eq (k 'AccountK XPub)
+       , Show (k 'AccountK XPub)
+       )
     => k 'AccountK XPub
     -> Property
 prop_roundtripXPub key = do
@@ -271,25 +443,28 @@ instance Arbitrary (Passphrase "user") where
         n <- choose (passphraseMinLength p, passphraseMaxLength p)
         bytes <- T.encodeUtf8 . T.pack <$> replicateM n arbitraryPrintableChar
         return $ Passphrase $ BA.convert bytes
-      where p = Proxy :: Proxy "user"
+      where
+        p = Proxy :: Proxy "user"
 
     shrink (Passphrase bytes)
         | BA.length bytes <= passphraseMinLength p = []
         | otherwise =
-            [ Passphrase
-            $ BA.convert
-            $ B8.take (passphraseMinLength p)
-            $ BA.convert bytes
+            [ Passphrase $
+                BA.convert $
+                    B8.take (passphraseMinLength p) $
+                        BA.convert bytes
             ]
-      where p = Proxy :: Proxy "user"
+      where
+        p = Proxy :: Proxy "user"
 
 instance Arbitrary (Passphrase "encryption") where
-    arbitrary = preparePassphrase EncryptWithPBKDF2
-        <$> arbitrary @(Passphrase "user")
+    arbitrary =
+        preparePassphrase EncryptWithPBKDF2
+            <$> arbitrary @(Passphrase "user")
 
 instance {-# OVERLAPS #-} Arbitrary (Passphrase "generation") where
     shrink (Passphrase "") = []
-    shrink (Passphrase _ ) = [Passphrase ""]
+    shrink (Passphrase _) = [Passphrase ""]
     arbitrary = do
         n <- choose (0, 32)
         InfiniteList bytes _ <- arbitrary
@@ -336,7 +511,7 @@ instance Arbitrary (IcarusKey 'AccountK XPub) where
     shrink _ = []
     arbitrary = publicKey <$> (genRootKeysIcaWithPass =<< genPassphrase (0, 16))
 
-newtype Unencrypted a = Unencrypted { getUnencrypted :: a }
+newtype Unencrypted a = Unencrypted {getUnencrypted :: a}
     deriving (Eq, Show)
 
 instance Arbitrary (Unencrypted XPrv) where
@@ -349,10 +524,11 @@ data XPrvWithPass = XPrvWithPass XPrv (Passphrase "encryption")
 instance Arbitrary XPrvWithPass where
     shrink _ = []
     arbitrary = do
-        pwd <- oneof
-            [ genPassphrase (0, 16)
-            , return $ Passphrase ""
-            ]
+        pwd <-
+            oneof
+                [ genPassphrase (0, 16)
+                , return $ Passphrase ""
+                ]
         flip XPrvWithPass pwd <$> genAnyKeyWithPass pwd
 
 instance Arbitrary DerivationIndex where
@@ -362,14 +538,15 @@ instance Arbitrary DerivationIndex where
 genAnyKeyWithPass
     :: Passphrase "encryption"
     -> Gen XPrv
-genAnyKeyWithPass pwd = oneof
-    [ getRawKey
-        <$> genRootKeysSeqWithPass pwd
-    , getRawKey
-        <$> genRootKeysRndWithPass pwd
-    , getRawKey
-        <$> genRootKeysIcaWithPass pwd
-    ]
+genAnyKeyWithPass pwd =
+    oneof
+        [ getRawKey
+            <$> genRootKeysSeqWithPass pwd
+        , getRawKey
+            <$> genRootKeysRndWithPass pwd
+        , getRawKey
+            <$> genRootKeysIcaWithPass pwd
+        ]
 
 genRootKeysSeqWithPass
     :: Passphrase "encryption"
@@ -382,16 +559,18 @@ genRootKeysSeqWithPass encryptionPass = do
 genRootKeysRndWithPass
     :: Passphrase "encryption"
     -> Gen (ByronKey 'RootK XPrv)
-genRootKeysRndWithPass encryptionPass = Byron.generateKeyFromSeed
-    <$> (SomeMnemonic <$> genMnemonic @12)
-    <*> (pure encryptionPass)
+genRootKeysRndWithPass encryptionPass =
+    Byron.generateKeyFromSeed
+        <$> (SomeMnemonic <$> genMnemonic @12)
+        <*> (pure encryptionPass)
 
 genRootKeysIcaWithPass
     :: Passphrase "encryption"
     -> Gen (IcarusKey depth XPrv)
-genRootKeysIcaWithPass encryptionPass = Icarus.unsafeGenerateKeyFromSeed
-    <$> (SomeMnemonic <$> genMnemonic @15)
-    <*> (pure encryptionPass)
+genRootKeysIcaWithPass encryptionPass =
+    Icarus.unsafeGenerateKeyFromSeed
+        <$> (SomeMnemonic <$> genMnemonic @15)
+        <*> (pure encryptionPass)
 
 genPassphrase :: (Int, Int) -> Gen (Passphrase purpose)
 genPassphrase range = do

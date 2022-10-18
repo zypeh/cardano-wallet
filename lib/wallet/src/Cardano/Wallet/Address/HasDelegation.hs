@@ -8,18 +8,22 @@
 -- address state supports delegation.
 module Cardano.Wallet.Address.HasDelegation
     ( HasDelegation (..)
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.AddressDerivation.Icarus
-    ( IcarusKey )
+    ( IcarusKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( ShelleyKey )
+    ( ShelleyKey
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery.Random
-    ( RndState (..) )
+    ( RndState (..)
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
-    ( SeqState )
+    ( SeqState
+    )
+import Prelude
 
 -- | Discriminate whether an address state supports delegation.
 class HasDelegation s where

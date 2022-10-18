@@ -6,36 +6,44 @@
 -- License: Apache-2.0
 --
 -- Generating and verifying hashes of wallet passwords.
---
-
 module Cardano.Wallet.Primitive.Passphrase.Current
     ( encryptPassphrase
     , checkPassphrase
     , preparePassphrase
     , genSalt
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Passphrase.Types
-    ( ErrWrongPassphrase (..), Passphrase (..), PassphraseHash (..) )
+    ( ErrWrongPassphrase (..)
+    , Passphrase (..)
+    , PassphraseHash (..)
+    )
 import Control.Monad
-    ( unless )
+    ( unless
+    )
 import Crypto.KDF.PBKDF2
-    ( Parameters (..), fastPBKDF2_SHA512 )
+    ( Parameters (..)
+    , fastPBKDF2_SHA512
+    )
 import Crypto.Random.Types
-    ( MonadRandom (..) )
+    ( MonadRandom (..)
+    )
 import Data.ByteArray
-    ( ScrubbedBytes )
+    ( ScrubbedBytes
+    )
+import Data.ByteArray qualified as BA
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
+import Data.ByteString qualified as BS
 import Data.Coerce
-    ( coerce )
+    ( coerce
+    )
 import Data.Function
-    ( on )
-
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
+    ( on
+    )
+import Prelude
 
 -- | Encrypt a 'Passphrase' into a format that is suitable for storing on disk
 encryptPassphrase
@@ -44,15 +52,19 @@ encryptPassphrase
     -> m PassphraseHash
 encryptPassphrase (Passphrase bytes) = mkPassphraseHash <$> genSalt
   where
-    mkPassphraseHash (Passphrase salt) = PassphraseHash $ BA.convert $ mempty
-        <> BS.singleton (fromIntegral (BA.length salt))
-        <> BA.convert salt
-        <> fastPBKDF2_SHA512 params bytes salt
+    mkPassphraseHash (Passphrase salt) =
+        PassphraseHash $
+            BA.convert $
+                mempty
+                    <> BS.singleton (fromIntegral (BA.length salt))
+                    <> BA.convert salt
+                    <> fastPBKDF2_SHA512 params bytes salt
 
-    params = Parameters
-        { iterCounts = 20000
-        , outputLength = 64
-        }
+    params =
+        Parameters
+            { iterCounts = 20000
+            , outputLength = 64
+            }
 
 genSalt :: MonadRandom m => m (Passphrase "salt")
 genSalt = Passphrase <$> getRandomBytes 16

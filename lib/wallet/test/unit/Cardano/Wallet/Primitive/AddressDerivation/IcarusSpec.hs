@@ -5,21 +5,22 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.Primitive.AddressDerivation.IcarusSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv )
+    ( XPrv
+    )
 import Cardano.Mnemonic
-    ( SomeMnemonic (..) )
+    ( SomeMnemonic (..)
+    )
 import Cardano.Wallet.Gen
-    ( genLegacyAddress )
+    ( genLegacyAddress
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( Depth (..)
     , DerivationType (..)
@@ -39,15 +40,24 @@ import Cardano.Wallet.Primitive.AddressDerivation.Icarus
     , unsafeGenerateKeyFromSeed
     )
 import Cardano.Wallet.Primitive.AddressDerivationSpec
-    ()
+    (
+    )
 import Cardano.Wallet.Primitive.Passphrase.Types
-    ( Passphrase (..) )
+    ( Passphrase (..)
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address )
+    ( Address
+    )
+import Data.ByteArray qualified as BA
+import Data.ByteString qualified as BS
 import Test.Hspec
-    ( Spec, describe, it )
+    ( Spec
+    , describe
+    , it
+    )
 import Test.Hspec.Extra
-    ( parallel )
+    ( parallel
+    )
 import Test.QuickCheck
     ( Arbitrary (..)
     , Property
@@ -57,9 +67,7 @@ import Test.QuickCheck
     , vector
     , (===)
     )
-
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
+import Prelude
 
 spec :: Spec
 spec = do
@@ -122,11 +130,9 @@ prop_roundtripFingerprintLift
     :: Address
     -> Property
 prop_roundtripFingerprintLift addr =
-    let
-        fingerprint = paymentKeyFingerprint @IcarusKey addr
+    let fingerprint = paymentKeyFingerprint @IcarusKey addr
         eAddr = liftPaymentAddress @Mainnet @IcarusKey @CredFromKeyK <$> fingerprint
-    in
-        eAddr === Right addr
+     in eAddr === Right addr
 
 {-------------------------------------------------------------------------------
                              Arbitrary Instances

@@ -23,44 +23,62 @@
 -- More than 6K lines end-up being generated from the instructions below! As a
 -- result, we're going to ignore code-coverage on the following module and, no
 -- hand-written functions should be written in this module!
-
 module Cardano.Wallet.DB.Sqlite.Schema where
 
-import Prelude
-
 import Cardano.Address.Script
-    ( Cosigner, Script )
+    ( Cosigner
+    , Script
+    )
 import Cardano.Slotting.Slot
-    ( SlotNo )
+    ( SlotNo
+    )
 import Cardano.Wallet.DB.Sqlite.Types
-    ( BlockId, HDPassphrase, TxId, sqlSettings' )
+    ( BlockId
+    , HDPassphrase
+    , TxId
+    , sqlSettings'
+    )
+import Cardano.Wallet.Primitive.AddressDerivation qualified as W
+import Cardano.Wallet.Primitive.AddressDiscovery.Sequential qualified as W
 import Cardano.Wallet.Primitive.AddressDiscovery.Shared
-    ( CredentialType )
+    ( CredentialType
+    )
+import Cardano.Wallet.Primitive.Passphrase.Types qualified as W
+import Cardano.Wallet.Primitive.Types qualified as W
+import Cardano.Wallet.Primitive.Types.Address qualified as W
+import Cardano.Wallet.Primitive.Types.Coin qualified as W
+import Cardano.Wallet.Primitive.Types.TokenPolicy qualified as W
+import Cardano.Wallet.Primitive.Types.TokenQuantity qualified as W
+import Cardano.Wallet.Primitive.Types.Tx qualified as W
+import Data.ByteString.Char8 qualified as B8
 import Data.Quantity
-    ( Percentage (..) )
+    ( Percentage (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Data.Time.Clock
-    ( UTCTime )
+    ( UTCTime
+    )
 import Data.Word
-    ( Word16, Word32, Word64, Word8 )
+    ( Word16
+    , Word32
+    , Word64
+    , Word8
+    )
 import Database.Persist.TH
-    ( mkMigrate, mkPersist, persistLowerCase, share )
+    ( mkMigrate
+    , mkPersist
+    , persistLowerCase
+    , share
+    )
 import GHC.Generics
-    ( Generic (..) )
+    ( Generic (..)
+    )
 import System.Random
-    ( StdGen )
-
-import qualified Cardano.Wallet.Primitive.AddressDerivation as W
-import qualified Cardano.Wallet.Primitive.AddressDiscovery.Sequential as W
-import qualified Cardano.Wallet.Primitive.Passphrase.Types as W
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Cardano.Wallet.Primitive.Types.Address as W
-import qualified Cardano.Wallet.Primitive.Types.Coin as W
-import qualified Cardano.Wallet.Primitive.Types.TokenPolicy as W
-import qualified Cardano.Wallet.Primitive.Types.TokenQuantity as W
-import qualified Cardano.Wallet.Primitive.Types.Tx as W
-import qualified Data.ByteString.Char8 as B8
+    ( StdGen
+    )
+import Prelude
 
 share
     [ mkPersist sqlSettings'

@@ -2,17 +2,16 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.DB.Sqlite.TypesSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.DB.Sqlite.Types
-    ( stdGenFromString )
+    ( stdGenFromString
+    )
 import Cardano.Wallet.Gen
     ( genNestedTxMetadata
     , genSimpleTxMetadata
@@ -21,37 +20,64 @@ import Cardano.Wallet.Gen
     , shrinkTxMetadata
     )
 import Cardano.Wallet.Primitive.Types
-    ( EpochNo (..), SlotInEpoch (..), SlotNo )
+    ( EpochNo (..)
+    , SlotInEpoch (..)
+    , SlotNo
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity (..) )
+    ( TokenQuantity (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity.Gen
-    ( genTokenQuantityFullRange, shrinkTokenQuantityFullRange )
+    ( genTokenQuantityFullRange
+    , shrinkTokenQuantityFullRange
+    )
 import Cardano.Wallet.Primitive.Types.Tx
-    ( TxMetadata, TxScriptValidity )
+    ( TxMetadata
+    , TxScriptValidity
+    )
 import Cardano.Wallet.Primitive.Types.Tx.Gen
-    ( genTxScriptValidity, shrinkTxScriptValidity )
+    ( genTxScriptValidity
+    , shrinkTxScriptValidity
+    )
 import Data.Either
-    ( isLeft )
+    ( isLeft
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Time.Clock.POSIX
-    ( POSIXTime )
+    ( POSIXTime
+    )
 import Data.Typeable
-    ( Typeable, typeRep )
+    ( Typeable
+    , typeRep
+    )
 import Data.Word
-    ( Word64 )
+    ( Word64
+    )
 import Data.Word.Odd
-    ( Word31 )
+    ( Word31
+    )
 import Database.Persist.Class
-    ( PersistField (..) )
+    ( PersistField (..)
+    )
 import System.Random
-    ( StdGen, mkStdGen )
+    ( StdGen
+    , mkStdGen
+    )
 import System.Random.Internal
-    ( StdGen (..) )
+    ( StdGen (..)
+    )
 import System.Random.SplitMix
-    ( seedSMGen )
+    ( seedSMGen
+    )
 import Test.Hspec
-    ( Spec, describe, it, shouldBe, shouldSatisfy )
+    ( Spec
+    , describe
+    , it
+    , shouldBe
+    , shouldSatisfy
+    )
 import Test.QuickCheck
     ( Arbitrary (..)
     , NonNegative (..)
@@ -64,6 +90,7 @@ import Test.QuickCheck
     , shrinkMapBy
     , (===)
     )
+import Prelude
 
 spec :: Spec
 spec = do
@@ -80,11 +107,11 @@ spec = do
         it "rnd_state empty" $
             stdGenFromString "1233322640 1"
                 `shouldBe` Right
-                (StdGen $ seedSMGen 1233322640 1)
+                    (StdGen $ seedSMGen 1233322640 1)
         it "rnd_state" $
             stdGenFromString "444941957 1872071452"
                 `shouldBe` Right
-                (StdGen $ seedSMGen 444941957 1872071452)
+                    (StdGen $ seedSMGen 444941957 1872071452)
         it "malformed" $
             stdGenFromString "1233322640" `shouldSatisfy` isLeft
 
@@ -95,25 +122,36 @@ spec = do
 -- | Constructs a test to check that roundtrip persistence and unpersistence is
 --   possible for values of the given type.
 persistRoundtrip
-    :: forall a. (Arbitrary a, Eq a, Show a, PersistField a, Typeable a)
+    :: forall a
+     . (Arbitrary a, Eq a, Show a, PersistField a, Typeable a)
     => Proxy a
     -> Spec
-persistRoundtrip proxy = it
-    ("can persist and unpersist values of type '"
-        <> show (typeRep proxy)
-        <> "'")
-    (property $ \a ->
-        fromPersistValue (toPersistValue @a a) === Right a)
+persistRoundtrip proxy =
+    it
+        ( "can persist and unpersist values of type '"
+            <> show (typeRep proxy)
+            <> "'"
+        )
+        ( property $ \a ->
+            fromPersistValue (toPersistValue @a a) === Right a
+        )
 
 prop_checkTokenQuantityCoverage :: TokenQuantity -> Property
-prop_checkTokenQuantityCoverage q = checkCoverage
-    $ cover 2 (q == minTokenQuantity)
-        "token quantity is smallest allowable"
-    $ cover 2 (q == maxTokenQuantity)
-        "token quantity is greatest allowable"
-    $ cover 2 (q > minTokenQuantity && q < maxTokenQuantity)
-        "token quantity is between smallest and greatest"
-    True
+prop_checkTokenQuantityCoverage q =
+    checkCoverage
+        $ cover
+            2
+            (q == minTokenQuantity)
+            "token quantity is smallest allowable"
+        $ cover
+            2
+            (q == maxTokenQuantity)
+            "token quantity is greatest allowable"
+        $ cover
+            2
+            (q > minTokenQuantity && q < maxTokenQuantity)
+            "token quantity is between smallest and greatest"
+            True
   where
     minTokenQuantity :: TokenQuantity
     minTokenQuantity = TokenQuantity 0
@@ -149,8 +187,9 @@ instance Arbitrary TokenQuantity where
     arbitrary = genTokenQuantityFullRange
     shrink = shrinkTokenQuantityFullRange
 
-newtype Nested a = Nested { unNested :: a } deriving (Eq, Show)
-newtype Simple a = Simple { unSimple :: a } deriving (Eq, Show)
+newtype Nested a = Nested {unNested :: a} deriving (Eq, Show)
+
+newtype Simple a = Simple {unSimple :: a} deriving (Eq, Show)
 
 instance Arbitrary (Nested TxMetadata) where
     arbitrary = Nested <$> genNestedTxMetadata

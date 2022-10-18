@@ -9,32 +9,41 @@
 -- License: Apache-2.0
 --
 -- Logging functionality for the Shelley wallet
---
 module Cardano.Wallet.Shelley.Logging
-    ( ApplicationLog(..)
-    ) where
+    ( ApplicationLog (..)
+    )
+where
 
-import Prelude
-
+import Blockfrost.Client qualified as Blockfrost
 import Cardano.BM.Data.Tracer
-    ( getSeverityAnnotation )
+    ( getSeverityAnnotation
+    )
 import Cardano.BM.Tracing
-    ( HasPrivacyAnnotation, HasSeverityAnnotation, Severity (..) )
+    ( HasPrivacyAnnotation
+    , HasSeverityAnnotation
+    , Severity (..)
+    )
 import Cardano.Launcher.Node
-    ( CardanoNodeConn )
+    ( CardanoNodeConn
+    )
 import Cardano.Wallet.Api.Server
-    ( ListenError (..) )
+    ( ListenError (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
-    ( ToText (..) )
+    ( ToText (..)
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import Network.URI
-    ( URI, uriToString )
-
-import qualified Blockfrost.Client as Blockfrost
-import qualified Data.Text as T
+    ( URI
+    , uriToString
+    )
+import Prelude
 
 -- | Log messages related to application startup and shutdown.
 data ApplicationLog
@@ -49,35 +58,42 @@ instance ToText ApplicationLog where
     toText = \case
         MsgStartingNode conn ->
             "Wallet backend server starting. Using " <> toText conn <> "."
-        MsgStartingLite Blockfrost.Project{..} ->
-            "Wallet backend server starting. Using lite mode: Blockfrost, " <>
-            T.pack (show projectEnv) <> "."
+        MsgStartingLite Blockfrost.Project {..} ->
+            "Wallet backend server starting. Using lite mode: Blockfrost, "
+                <> T.pack (show projectEnv)
+                <> "."
         MsgNetworkName network ->
             "Node is Haskell Node on " <> network <> "."
         MsgServerStartupError startupErr -> case startupErr of
-            ListenErrorHostDoesNotExist host -> mempty
-                <> "Can't listen on "
-                <> T.pack (show host)
-                <> ". It does not exist."
-            ListenErrorInvalidAddress host -> mempty
-                <> "Can't listen on "
-                <> T.pack (show host)
-                <> ". Invalid address."
-            ListenErrorAddressAlreadyInUse mPort -> mempty
-                <> "The API server listen port "
-                <> maybe "(unknown)" (T.pack . show) mPort
-                <> " is already in use."
-            ListenErrorOperationNotPermitted -> mempty
-                <> "Cannot listen on the given port. "
-                <> "The operation is not permitted."
-        MsgFailedConnectSMASH uri -> T.unwords
-            [ "Failed connect to the given smash server\
-              \ or validate a healthy status."
-            , "SMASH uri was: "
-            , T.pack $ uriToString id uri ""
-            ]
+            ListenErrorHostDoesNotExist host ->
+                mempty
+                    <> "Can't listen on "
+                    <> T.pack (show host)
+                    <> ". It does not exist."
+            ListenErrorInvalidAddress host ->
+                mempty
+                    <> "Can't listen on "
+                    <> T.pack (show host)
+                    <> ". Invalid address."
+            ListenErrorAddressAlreadyInUse mPort ->
+                mempty
+                    <> "The API server listen port "
+                    <> maybe "(unknown)" (T.pack . show) mPort
+                    <> " is already in use."
+            ListenErrorOperationNotPermitted ->
+                mempty
+                    <> "Cannot listen on the given port. "
+                    <> "The operation is not permitted."
+        MsgFailedConnectSMASH uri ->
+            T.unwords
+                [ "Failed connect to the given smash server\
+                  \ or validate a healthy status."
+                , "SMASH uri was: "
+                , T.pack $ uriToString id uri ""
+                ]
 
 instance HasPrivacyAnnotation ApplicationLog
+
 instance HasSeverityAnnotation ApplicationLog where
     getSeverityAnnotation = \case
         MsgStartingNode _ -> Info

@@ -5,24 +5,35 @@
 
 module Cardano.LauncherSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.BM.Configuration.Model
-    ( setMinSeverity )
+    ( setMinSeverity
+    )
 import Cardano.BM.Configuration.Static
-    ( defaultConfigStdout )
+    ( defaultConfigStdout
+    )
 import Cardano.BM.Data.LogItem
-    ( LOContent (LogMessage), LogObject (..), LoggerName, mkLOMeta )
+    ( LOContent (LogMessage)
+    , LogObject (..)
+    , LoggerName
+    , mkLOMeta
+    )
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
+    ( HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
+    )
 import Cardano.BM.Setup
-    ( setupTrace_, shutdown )
+    ( setupTrace_
+    , shutdown
+    )
 import Cardano.BM.Trace
-    ( logDebug )
+    ( logDebug
+    )
 import Cardano.Launcher
     ( Command (..)
     , LauncherLog
@@ -31,27 +42,43 @@ import Cardano.Launcher
     , withBackendProcess
     )
 import Control.Monad
-    ( forever )
+    ( forever
+    )
 import Control.Monad.IO.Class
-    ( MonadIO (..) )
+    ( MonadIO (..)
+    )
 import Control.Retry
-    ( constantDelay, limitRetriesByCumulativeDelay, recoverAll )
+    ( constantDelay
+    , limitRetriesByCumulativeDelay
+    , recoverAll
+    )
 import Control.Tracer
-    ( Tracer (..), nullTracer, traceWith )
+    ( Tracer (..)
+    , nullTracer
+    , traceWith
+    )
 import Data.Maybe
-    ( isJust )
+    ( isJust
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Data.Text.Class
-    ( ToText (..) )
+    ( ToText (..)
+    )
 import Data.Time.Clock
-    ( diffUTCTime, getCurrentTime )
+    ( diffUTCTime
+    , getCurrentTime
+    )
 import Fmt
-    ( pretty )
+    ( pretty
+    )
 import System.Exit
-    ( ExitCode (..) )
+    ( ExitCode (..)
+    )
 import System.Info
-    ( os )
+    ( os
+    )
 import Test.Hspec
     ( Spec
     , beforeAll
@@ -62,13 +89,21 @@ import Test.Hspec
     , shouldSatisfy
     )
 import Test.Utils.Platform
-    ( isWindows, pendingOnWine, skipOnWindows )
+    ( isWindows
+    , pendingOnWine
+    , skipOnWindows
+    )
 import UnliftIO.Async
-    ( async, race_, waitAnyCancel )
+    ( async
+    , race_
+    , waitAnyCancel
+    )
 import UnliftIO.Concurrent
-    ( threadDelay )
+    ( threadDelay
+    )
 import UnliftIO.Exception
-    ( bracket )
+    ( bracket
+    )
 import UnliftIO.MVar
     ( modifyMVar_
     , newEmptyMVar
@@ -79,72 +114,80 @@ import UnliftIO.MVar
     , tryReadMVar
     )
 import UnliftIO.Process
-    ( ProcessHandle, getProcessExitCode )
+    ( ProcessHandle
+    , getProcessExitCode
+    )
+import Prelude
 
 {- HLINT ignore spec "Use head" -}
 
 spec :: Spec
 spec = beforeAll setupMockCommands $ do
     it "Buildable Command" $ \_ -> do
-        let command = Command "server"
-                [ "start"
-                , "--port", "8080"
-                , "--template", "mainnet"
-                ] (pure ())
-                Inherit
-                Inherit
+        let command =
+                Command
+                    "server"
+                    [ "start"
+                    , "--port"
+                    , "8080"
+                    , "--template"
+                    , "mainnet"
+                    ]
+                    (pure ())
+                    Inherit
+                    Inherit
 
-        pretty @_ @Text command `shouldBe`
-            "server\n\
-            \     start\n\
-            \     --port 8080\n\
-            \     --template mainnet\n"
+        pretty @_ @Text command
+            `shouldBe` "server\n\
+                       \     start\n\
+                       \     --port 8080\n\
+                       \     --template mainnet\n"
 
-    it "1st process exits with 0, others are cancelled" $ \MockCommands{..} -> withTestLogging $ \tr -> do
+    it "1st process exits with 0, others are cancelled" $ \MockCommands {..} -> withTestLogging $ \tr -> do
         pendingOnWine "SYSTEM32 commands not available under wine"
         let commands =
-              [ mockCommand True (pure ())
-              , foreverCommand
-              ]
+                [ mockCommand True (pure ())
+                , foreverCommand
+                ]
         (phs, ProcessHasExited name code) <- launch tr commands
         name `shouldBe` cmdName (commands !! 0)
         code `shouldBe` ExitSuccess
         assertProcessesExited phs
 
-    it "2nd process exits with 0, others are cancelled" $ \MockCommands{..} -> withTestLogging $ \tr -> do
+    it "2nd process exits with 0, others are cancelled" $ \MockCommands {..} -> withTestLogging $ \tr -> do
         pendingOnWine "SYSTEM32 commands not available under wine"
         let commands =
-              [ foreverCommand
-              , mockCommand True (pure ())
-              ]
+                [ foreverCommand
+                , mockCommand True (pure ())
+                ]
         (phs, ProcessHasExited name code) <- launch tr commands
         name `shouldBe` cmdName (commands !! 1)
         code `shouldBe` ExitSuccess
         assertProcessesExited phs
 
-    it "1st process exits with 1, others are cancelled" $ \MockCommands{..} -> withTestLogging $ \tr -> do
+    it "1st process exits with 1, others are cancelled" $ \MockCommands {..} -> withTestLogging $ \tr -> do
         pendingOnWine "SYSTEM32 commands not available under wine"
         let commands =
-              [ mockCommand False (pure ())
-              , foreverCommand
-              ]
+                [ mockCommand False (pure ())
+                , foreverCommand
+                ]
         (phs, ProcessHasExited name code) <- launch tr commands
         name `shouldBe` cmdName (commands !! 0)
         code `shouldBe` (ExitFailure 1)
         assertProcessesExited phs
 
-    it "2nd process exits with 1, others are cancelled" $ \MockCommands{..} -> withTestLogging $ \tr -> do
+    it "2nd process exits with 1, others are cancelled" $ \MockCommands {..} -> withTestLogging $ \tr -> do
         pendingOnWine "SYSTEM32 commands not available under wine"
         let commands =
-              [ foreverCommand
-              , mockCommand False (pure ())
-              ]
+                [ foreverCommand
+                , mockCommand False (pure ())
+                ]
         (phs, ProcessHasExited name code) <- launch tr commands
         name `shouldBe` cmdName (commands !! 1)
         code `shouldBe` (ExitFailure 1)
         assertProcessesExited phs
 
-    it "Process executes a command before they start" $ \MockCommands{..} -> withTestLogging $ \tr -> do
+    it "Process executes a command before they start" $ \MockCommands {..} -> withTestLogging $ \tr -> do
         pendingOnWine "SYSTEM32 commands not available under wine"
         mvar <- newEmptyMVar
         let before = putMVar mvar "executed"
@@ -164,7 +207,7 @@ spec = beforeAll setupMockCommands $ do
         name `shouldBe` "foobar"
         assertProcessesExited phs
 
-    it "Backend process is terminated when Async thread is cancelled" $ \MockCommands{..} -> withTestLogging $ \tr -> do
+    it "Backend process is terminated when Async thread is cancelled" $ \MockCommands {..} -> withTestLogging $ \tr -> do
         pendingOnWine "SYSTEM32 commands not available under wine"
         mvar <- newEmptyMVar
         let backend = withBackendProcess tr foreverCommand $ \_ ph -> do
@@ -209,18 +252,21 @@ setupMockCommands
     | isWindows = pure mockCommandsWin
     | otherwise = pure mockCommandsShell
   where
-    mockCommandsShell = MockCommands
-        { mockCommand = \success before ->
+    mockCommandsShell =
+        MockCommands
+            { mockCommand = \success before ->
                 let exitStatus = if success then 0 else 1 :: Int
-                in Command "sh" ["-c", "sleep 1; exit " ++ show exitStatus] before Inherit Inherit
-        , foreverCommand = Command "sleep" ["20"] (pure ()) Inherit Inherit
-        }
-    mockCommandsWin = MockCommands
-        { mockCommand = \success before -> if success
-            then Command "TIMEOUT" ["1"] before Inherit Inherit
-            else Command "CHOICE" ["/T", "1", "/C", "wat", "/D", "w"] before Inherit Inherit
-        , foreverCommand = Command "TIMEOUT" ["20"] (pure ()) Inherit Inherit
-        }
+                 in Command "sh" ["-c", "sleep 1; exit " ++ show exitStatus] before Inherit Inherit
+            , foreverCommand = Command "sleep" ["20"] (pure ()) Inherit Inherit
+            }
+    mockCommandsWin =
+        MockCommands
+            { mockCommand = \success before ->
+                if success
+                    then Command "TIMEOUT" ["1"] before Inherit Inherit
+                    else Command "CHOICE" ["/T", "1", "/C", "wat", "/D", "w"] before Inherit Inherit
+            , foreverCommand = Command "TIMEOUT" ["20"] (pure ()) Inherit Inherit
+            }
 
 -- | A command that ignores SIGTERM (POSIX only)
 unkillableCommand :: Command
@@ -232,9 +278,8 @@ unkillableCommand = Command "sh" ["-c", "trap \" \" TERM; sleep 20"] (pure ()) I
 launch :: Tracer IO LauncherLog -> [Command] -> IO ([ProcessHandle], ProcessHasExited)
 launch tr cmds = do
     phsVar <- newMVar []
-    let
-        waitForOthers _ ph = do
-            modifyMVar_ phsVar (pure . (ph:))
+    let waitForOthers _ ph = do
+            modifyMVar_ phsVar (pure . (ph :))
             forever $ threadDelay maxBound
         start = async . flip (withBackendProcess tr) waitForOthers
 
@@ -242,9 +287,10 @@ launch tr cmds = do
         (_, Left e) -> do
             phs <- readMVar phsVar
             return (phs, e)
-        (_, Right _) -> error $
-                "Unreachable. Supervising threads should never finish. " <>
-                "They should stay running or throw @ProcessHasExited@."
+        (_, Right _) ->
+            error $
+                "Unreachable. Supervising threads should never finish. "
+                    <> "They should stay running or throw @ProcessHasExited@."
 
 -- | Check that all processes eventually exit somehow. This will wait for up to
 -- 10 seconds for that to happen.
@@ -273,7 +319,7 @@ trMessageText
     => Tracer m (LoggerName, LogObject Text)
     -> Tracer m a
 trMessageText tr = Tracer $ \arg -> do
-   let msg = toText arg
-       tracer = if msg == mempty then nullTracer else tr
-   meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
-   traceWith tracer (mempty, LogObject mempty meta (LogMessage msg))
+    let msg = toText arg
+        tracer = if msg == mempty then nullTracer else tr
+    meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
+    traceWith tracer (mempty, LogObject mempty meta (LogMessage msg))

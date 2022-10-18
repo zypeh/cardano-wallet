@@ -9,21 +9,24 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Main where
 
-import Prelude
-
+import Cardano.BM.Backend.EKGView qualified as EKG
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
+    ( HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
+    )
 import Cardano.BM.Plugin
-    ( loadPlugin )
+    ( loadPlugin
+    )
 import Cardano.BM.Trace
-    ( appendName )
+    ( appendName
+    )
 import Cardano.CLI
     ( LogOutput (..)
     , Port (..)
@@ -33,24 +36,37 @@ import Cardano.CLI
     , withLogging
     )
 import Cardano.Launcher
-    ( ProcessHasExited (..) )
+    ( ProcessHasExited (..)
+    )
+import Cardano.Pool.DB qualified as Pool
+import Cardano.Pool.DB.Sqlite qualified as Pool
 import Cardano.Startup
     ( installSignalHandlersNoLogging
     , setDefaultFilePermissions
     , withUtf8Encoding
     )
 import Cardano.Wallet.Api.Types
-    ( DecodeAddress (..), EncodeAddress (..) )
+    ( DecodeAddress (..)
+    , EncodeAddress (..)
+    )
 import Cardano.Wallet.Logging
-    ( BracketLog, bracketTracer, stdoutTextTracer, trMessageText )
+    ( BracketLog
+    , bracketTracer
+    , stdoutTextTracer
+    , trMessageText
+    )
 import Cardano.Wallet.Network.Ports
-    ( portFromURL )
+    ( portFromURL
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( NetworkDiscriminant (..) )
+    ( NetworkDiscriminant (..)
+    )
 import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncTolerance (..) )
+    ( SyncTolerance (..)
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
 import Cardano.Wallet.Shelley
     ( SomeNetworkDiscriminant (..)
     , Tracers
@@ -59,11 +75,14 @@ import Cardano.Wallet.Shelley
     , tracerSeverities
     )
 import Cardano.Wallet.Shelley.BlockchainSource
-    ( BlockchainSource (..) )
+    ( BlockchainSource (..)
+    )
 import Cardano.Wallet.Shelley.Faucet
-    ( initFaucet )
+    ( initFaucet
+    )
 import Cardano.Wallet.Shelley.Launch
-    ( withSystemTempDir )
+    ( withSystemTempDir
+    )
 import Cardano.Wallet.Shelley.Launch.Cluster
     ( ClusterLog
     , Credential (..)
@@ -84,27 +103,44 @@ import Cardano.Wallet.Shelley.Launch.Cluster
     , withSMASH
     )
 import Cardano.Wallet.TokenMetadata.MockServer
-    ( queryServerStatic, withMetadataServer )
+    ( queryServerStatic
+    , withMetadataServer
+    )
 import Control.Arrow
-    ( first )
+    ( first
+    )
 import Control.Monad
-    ( when )
+    ( when
+    )
 import Control.Monad.IO.Class
-    ( liftIO )
+    ( liftIO
+    )
 import Control.Tracer
-    ( Tracer (..), contramap, traceWith )
+    ( Tracer (..)
+    , contramap
+    , traceWith
+    )
 import Data.Either.Combinators
-    ( whenLeft )
+    ( whenLeft
+    )
 import Data.IORef
-    ( IORef, atomicModifyIORef', newIORef )
+    ( IORef
+    , atomicModifyIORef'
+    , newIORef
+    )
 import Data.Maybe
-    ( fromMaybe )
+    ( fromMaybe
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
-    ( ToText (..) )
+    ( ToText (..)
+    )
 import Network.HTTP.Client
     ( defaultManagerSettings
     , managerResponseTimeout
@@ -112,19 +148,31 @@ import Network.HTTP.Client
     , responseTimeoutMicro
     )
 import Network.URI
-    ( URI )
+    ( URI
+    )
 import Ouroboros.Network.Client.Wallet
-    ( tunedForMainnetPipeliningStrategy )
+    ( tunedForMainnetPipeliningStrategy
+    )
 import System.Directory
-    ( createDirectory )
+    ( createDirectory
+    )
 import System.Environment
-    ( setEnv )
+    ( setEnv
+    )
 import System.FilePath
-    ( (</>) )
+    ( (</>)
+    )
 import Test.Hspec.Core.Spec
-    ( Spec, SpecWith, describe, parallel, sequential )
+    ( Spec
+    , SpecWith
+    , describe
+    , parallel
+    , sequential
+    )
 import Test.Hspec.Extra
-    ( aroundAll, hspecMain )
+    ( aroundAll
+    , hspecMain
+    )
 import Test.Integration.Faucet
     ( byronIntegrationTestFunds
     , genRewardAccounts
@@ -135,56 +183,68 @@ import Test.Integration.Faucet
     , shelleyIntegrationTestFunds
     )
 import Test.Integration.Framework.Context
-    ( Context (..), PoolGarbageCollectionEvent (..) )
+    ( Context (..)
+    , PoolGarbageCollectionEvent (..)
+    )
+import Test.Integration.Scenario.API.Blocks qualified as Blocks
+import Test.Integration.Scenario.API.Byron.Addresses qualified as ByronAddresses
+import Test.Integration.Scenario.API.Byron.CoinSelections qualified as ByronCoinSelections
+import Test.Integration.Scenario.API.Byron.HWWallets qualified as ByronHWWallets
+import Test.Integration.Scenario.API.Byron.Migrations qualified as ByronMigrations
+import Test.Integration.Scenario.API.Byron.Transactions qualified as ByronTransactions
+import Test.Integration.Scenario.API.Byron.Wallets qualified as ByronWallets
+import Test.Integration.Scenario.API.Network qualified as Network
+import Test.Integration.Scenario.API.Shared.Addresses qualified as SharedAddresses
+import Test.Integration.Scenario.API.Shared.Transactions qualified as SharedTransactions
+import Test.Integration.Scenario.API.Shared.Wallets qualified as SharedWallets
+import Test.Integration.Scenario.API.Shelley.Addresses qualified as Addresses
+import Test.Integration.Scenario.API.Shelley.CoinSelections qualified as CoinSelections
+import Test.Integration.Scenario.API.Shelley.HWWallets qualified as HWWallets
+import Test.Integration.Scenario.API.Shelley.Migrations qualified as Migrations
+import Test.Integration.Scenario.API.Shelley.Network qualified as Network_
+import Test.Integration.Scenario.API.Shelley.Settings qualified as Settings
+import Test.Integration.Scenario.API.Shelley.StakePools qualified as StakePools
+import Test.Integration.Scenario.API.Shelley.Transactions qualified as Transactions
+import Test.Integration.Scenario.API.Shelley.TransactionsNew qualified as TransactionsNew
+import Test.Integration.Scenario.API.Shelley.Wallets qualified as Wallets
+import Test.Integration.Scenario.CLI.Miscellaneous qualified as MiscellaneousCLI
+import Test.Integration.Scenario.CLI.Network qualified as NetworkCLI
+import Test.Integration.Scenario.CLI.Port qualified as PortCLI
+import Test.Integration.Scenario.CLI.Shelley.Addresses qualified as AddressesCLI
+import Test.Integration.Scenario.CLI.Shelley.HWWallets qualified as HWWalletsCLI
+import Test.Integration.Scenario.CLI.Shelley.Transactions qualified as TransactionsCLI
+import Test.Integration.Scenario.CLI.Shelley.Wallets qualified as WalletsCLI
 import Test.Utils.Paths
-    ( getTestData, inNixBuild )
+    ( getTestData
+    , inNixBuild
+    )
 import UnliftIO.Async
-    ( race )
+    ( race
+    )
 import UnliftIO.Exception
-    ( SomeException, isAsyncException, throwIO, withException )
+    ( SomeException
+    , isAsyncException
+    , throwIO
+    , withException
+    )
 import UnliftIO.MVar
-    ( newEmptyMVar, newMVar, putMVar, takeMVar, withMVar )
-
-import qualified Cardano.BM.Backend.EKGView as EKG
-import qualified Cardano.Pool.DB as Pool
-import qualified Cardano.Pool.DB.Sqlite as Pool
-import qualified Data.Text as T
-import qualified Test.Integration.Scenario.API.Blocks as Blocks
-import qualified Test.Integration.Scenario.API.Byron.Addresses as ByronAddresses
-import qualified Test.Integration.Scenario.API.Byron.CoinSelections as ByronCoinSelections
-import qualified Test.Integration.Scenario.API.Byron.HWWallets as ByronHWWallets
-import qualified Test.Integration.Scenario.API.Byron.Migrations as ByronMigrations
-import qualified Test.Integration.Scenario.API.Byron.Transactions as ByronTransactions
-import qualified Test.Integration.Scenario.API.Byron.Wallets as ByronWallets
-import qualified Test.Integration.Scenario.API.Network as Network
-import qualified Test.Integration.Scenario.API.Shared.Addresses as SharedAddresses
-import qualified Test.Integration.Scenario.API.Shared.Transactions as SharedTransactions
-import qualified Test.Integration.Scenario.API.Shared.Wallets as SharedWallets
-import qualified Test.Integration.Scenario.API.Shelley.Addresses as Addresses
-import qualified Test.Integration.Scenario.API.Shelley.CoinSelections as CoinSelections
-import qualified Test.Integration.Scenario.API.Shelley.HWWallets as HWWallets
-import qualified Test.Integration.Scenario.API.Shelley.Migrations as Migrations
-import qualified Test.Integration.Scenario.API.Shelley.Network as Network_
-import qualified Test.Integration.Scenario.API.Shelley.Settings as Settings
-import qualified Test.Integration.Scenario.API.Shelley.StakePools as StakePools
-import qualified Test.Integration.Scenario.API.Shelley.Transactions as Transactions
-import qualified Test.Integration.Scenario.API.Shelley.TransactionsNew as TransactionsNew
-import qualified Test.Integration.Scenario.API.Shelley.Wallets as Wallets
-import qualified Test.Integration.Scenario.CLI.Miscellaneous as MiscellaneousCLI
-import qualified Test.Integration.Scenario.CLI.Network as NetworkCLI
-import qualified Test.Integration.Scenario.CLI.Port as PortCLI
-import qualified Test.Integration.Scenario.CLI.Shelley.Addresses as AddressesCLI
-import qualified Test.Integration.Scenario.CLI.Shelley.HWWallets as HWWalletsCLI
-import qualified Test.Integration.Scenario.CLI.Shelley.Transactions as TransactionsCLI
-import qualified Test.Integration.Scenario.CLI.Shelley.Wallets as WalletsCLI
+    ( newEmptyMVar
+    , newMVar
+    , putMVar
+    , takeMVar
+    , withMVar
+    )
+import Prelude
 
 main :: forall n. (n ~ 'Mainnet) => IO ()
 main = withTestsSetup $ \testDir tracers -> do
     nix <- inNixBuild
     hspecMain $ do
         describe "No backend required" $
-            parallelIf (not nix) $ describe "Miscellaneous CLI tests"
-                MiscellaneousCLI.spec
+            parallelIf (not nix) $
+                describe
+                    "Miscellaneous CLI tests"
+                    MiscellaneousCLI.spec
         specWithServer testDir tracers $ do
             describe "API Specifications" $ do
                 parallel $ do
@@ -265,38 +325,45 @@ specWithServer testDir (tr, tracers) = aroundAll withContext
                 ekgUrl <- (maybe "none" (\(h, p) -> T.pack h <> ":" <> toText @(Port "EKG") p)) <$> getEKGURL
                 traceWith tr $ MsgBaseUrl baseUrl ekgUrl prometheusUrl smashUrl
                 let fiveMinutes = 300 * 1000 * 1000 -- 5 minutes in microseconds
-                manager <- newManager $ defaultManagerSettings
-                    { managerResponseTimeout = responseTimeoutMicro fiveMinutes
-                    }
+                manager <-
+                    newManager $
+                        defaultManagerSettings
+                            { managerResponseTimeout = responseTimeoutMicro fiveMinutes
+                            }
                 faucet <- initFaucet
 
                 era <- clusterToApiEra <$> clusterEraFromEnv
 
                 mintSeaHorseAssetsLock <- newMVar ()
 
-                putMVar ctx $ Context
-                    { _cleanup = pure ()
-                    , _manager = (baseUrl, manager)
-                    , _walletPort = Port . fromIntegral $ portFromURL baseUrl
-                    , _faucet = faucet
-                    , _feeEstimator = error "feeEstimator: unused in shelley specs"
-                    , _networkParameters = np
-                    , _poolGarbageCollectionEvents = poolGarbageCollectionEvents
-                    , _mainEra = era
-                    , _smashUrl = smashUrl
-                    , _mintSeaHorseAssets = \nPerAddr batchSize c addrs ->
-                        withMVar mintSeaHorseAssetsLock $ \() ->
-                            sendFaucetAssetsTo tr' conn testDir batchSize
-                                $ encodeAddresses
-                                $ seaHorseTestAssets nPerAddr c addrs
-                    , _moveRewardsToScript = \(script, coin) ->
-                            moveInstantaneousRewardsTo tr' conn testDir
-                            [(ScriptCredential script, coin)]
-                    }
+                putMVar ctx $
+                    Context
+                        { _cleanup = pure ()
+                        , _manager = (baseUrl, manager)
+                        , _walletPort = Port . fromIntegral $ portFromURL baseUrl
+                        , _faucet = faucet
+                        , _feeEstimator = error "feeEstimator: unused in shelley specs"
+                        , _networkParameters = np
+                        , _poolGarbageCollectionEvents = poolGarbageCollectionEvents
+                        , _mainEra = era
+                        , _smashUrl = smashUrl
+                        , _mintSeaHorseAssets = \nPerAddr batchSize c addrs ->
+                            withMVar mintSeaHorseAssetsLock $ \() ->
+                                sendFaucetAssetsTo tr' conn testDir batchSize $
+                                    encodeAddresses $
+                                        seaHorseTestAssets nPerAddr c addrs
+                        , _moveRewardsToScript = \(script, coin) ->
+                            moveInstantaneousRewardsTo
+                                tr'
+                                conn
+                                testDir
+                                [(ScriptCredential script, coin)]
+                        }
         let action' = bracketTracer' tr "spec" . action
-        res <- race
-            (withServer dbEventRecorder setupContext)
-            (takeMVar ctx >>= action')
+        res <-
+            race
+                (withServer dbEventRecorder setupContext)
+                (takeMVar ctx >>= action')
         whenLeft res (throwIO . ProcessHasExited "integration")
 
     -- A decorator for the pool database that records all calls to the
@@ -324,24 +391,25 @@ specWithServer testDir (tr, tracers) = aroundAll withContext
     withServer dbDecorator onReady = bracketTracer' tr "withServer" $
         withSMASH tr' testDir $ \smashUrl -> do
             clusterCfg <- localClusterConfigFromEnv
-            withCluster tr' testDir clusterCfg faucetFunds
-                $ onClusterStart (onReady $ T.pack smashUrl) dbDecorator
+            withCluster tr' testDir clusterCfg faucetFunds $
+                onClusterStart (onReady $ T.pack smashUrl) dbDecorator
 
     tr' = contramap MsgCluster tr
     encodeAddresses = map (first (T.unpack . encodeAddress @Mainnet))
 
-    faucetFunds = FaucetFunds
-        { pureAdaFunds =
-            shelleyIntegrationTestFunds
-             <> byronIntegrationTestFunds
-             <> map (first unsafeDecodeAddr) hwWalletFunds
-        , maFunds =
-            maryIntegrationTestAssets (Coin 10_000_000)
-        , mirFunds =
-            first KeyCredential
-            . (,Coin $ fromIntegral oneMillionAda)
-            <$> concatMap genRewardAccounts mirMnemonics
-        }
+    faucetFunds =
+        FaucetFunds
+            { pureAdaFunds =
+                shelleyIntegrationTestFunds
+                    <> byronIntegrationTestFunds
+                    <> map (first unsafeDecodeAddr) hwWalletFunds
+            , maFunds =
+                maryIntegrationTestAssets (Coin 10_000_000)
+            , mirFunds =
+                first KeyCredential
+                    . (,Coin $ fromIntegral oneMillionAda)
+                    <$> concatMap genRewardAccounts mirMnemonics
+            }
 
     unsafeDecodeAddr = either (error . show) id . decodeAddress @Mainnet
 
@@ -385,30 +453,34 @@ data TestsLog
 instance ToText TestsLog where
     toText = \case
         MsgBracket name b -> name <> ": " <> toText b
-        MsgBaseUrl walletUrl ekgUrl prometheusUrl smashUrl -> T.unlines
-            [ "Wallet url: " <> T.pack (show walletUrl)
-            , "EKG url: " <> ekgUrl
-            , "Prometheus url: " <> prometheusUrl
-            , "SMASH url: " <> smashUrl
-            ]
+        MsgBaseUrl walletUrl ekgUrl prometheusUrl smashUrl ->
+            T.unlines
+                [ "Wallet url: " <> T.pack (show walletUrl)
+                , "EKG url: " <> ekgUrl
+                , "Prometheus url: " <> prometheusUrl
+                , "SMASH url: " <> smashUrl
+                ]
         MsgSettingUpFaucet -> "Setting up faucet..."
         MsgCluster msg -> toText msg
-        MsgPoolGarbageCollectionEvent e -> mconcat
-            [ "Intercepted pool garbage collection event for epoch "
-            , toText (poolGarbageCollectionEpochNo e)
-            , ". "
-            , case poolGarbageCollectionCertificates e of
-                [] -> "No pools were removed from the database."
-                ps -> mconcat
-                    [ "The following pools were removed from the database: "
-                    , T.unwords (T.pack . show <$> ps)
-                    ]
-            ]
+        MsgPoolGarbageCollectionEvent e ->
+            mconcat
+                [ "Intercepted pool garbage collection event for epoch "
+                , toText (poolGarbageCollectionEpochNo e)
+                , ". "
+                , case poolGarbageCollectionCertificates e of
+                    [] -> "No pools were removed from the database."
+                    ps ->
+                        mconcat
+                            [ "The following pools were removed from the database: "
+                            , T.unwords (T.pack . show <$> ps)
+                            ]
+                ]
         MsgServerError e
             | isAsyncException e -> "Server thread cancelled"
             | otherwise -> T.pack (show e)
 
 instance HasPrivacyAnnotation TestsLog
+
 instance HasSeverityAnnotation TestsLog where
     getSeverityAnnotation = \case
         MsgBracket _ _ -> Debug

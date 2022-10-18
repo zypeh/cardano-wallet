@@ -5,68 +5,93 @@
 
 module Cardano.Wallet.Shelley.Compatibility.LedgerSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle
-    ( TokenBundle )
+    ( TokenBundle
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle.Gen
-    ( genTokenBundleSmallRange, shrinkTokenBundleSmallRange )
+    ( genTokenBundleSmallRange
+    , shrinkTokenBundleSmallRange
+    )
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName, TokenPolicyId )
+    ( TokenName
+    , TokenPolicyId
+    )
 import Cardano.Wallet.Primitive.Types.TokenPolicy.Gen
-    ( genTokenNameLargeRange, genTokenPolicyIdLargeRange )
+    ( genTokenNameLargeRange
+    , genTokenPolicyIdLargeRange
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity (..) )
+    ( TokenQuantity (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity.Gen
-    ( genTokenQuantityFullRange, shrinkTokenQuantityFullRange )
+    ( genTokenQuantityFullRange
+    , shrinkTokenQuantityFullRange
+    )
 import Cardano.Wallet.Primitive.Types.Tx.Gen
-    ( genTxOutCoin, shrinkTxOutCoin )
+    ( genTxOutCoin
+    , shrinkTxOutCoin
+    )
 import Cardano.Wallet.Shelley.Compatibility.Ledger
-    ( Convert (..) )
+    ( Convert (..)
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Typeable
-    ( Typeable, typeRep )
+    ( Typeable
+    , typeRep
+    )
 import Test.Hspec
-    ( Spec, describe, it, parallel )
+    ( Spec
+    , describe
+    , it
+    , parallel
+    )
 import Test.Hspec.Core.QuickCheck
-    ( modifyMaxSuccess )
+    ( modifyMaxSuccess
+    )
 import Test.QuickCheck
-    ( Arbitrary (..), property, (===) )
+    ( Arbitrary (..)
+    , property
+    , (===)
+    )
+import Prelude
 
 spec :: Spec
 spec = describe "Cardano.Wallet.Shelley.Compatibility.LedgerSpec" $
-
     modifyMaxSuccess (const 1000) $ do
-
-    parallel $ describe "Roundtrip conversions" $ do
-
-        ledgerRoundtrip $ Proxy @Coin
-        ledgerRoundtrip $ Proxy @TokenBundle
-        ledgerRoundtrip $ Proxy @TokenName
-        ledgerRoundtrip $ Proxy @TokenPolicyId
-        ledgerRoundtrip $ Proxy @TokenQuantity
+        parallel $ describe "Roundtrip conversions" $ do
+            ledgerRoundtrip $ Proxy @Coin
+            ledgerRoundtrip $ Proxy @TokenBundle
+            ledgerRoundtrip $ Proxy @TokenName
+            ledgerRoundtrip $ Proxy @TokenPolicyId
+            ledgerRoundtrip $ Proxy @TokenQuantity
 
 --------------------------------------------------------------------------------
 -- Utilities
 --------------------------------------------------------------------------------
 
 ledgerRoundtrip
-    :: forall w l. (Arbitrary w, Eq w, Show w, Typeable w, Convert w l)
+    :: forall w l
+     . (Arbitrary w, Eq w, Show w, Typeable w, Convert w l)
     => Proxy w
     -> Spec
 ledgerRoundtrip proxy = it title $
-    property $ \a -> toWallet (toLedger @w a) === a
+    property $
+        \a -> toWallet (toLedger @w a) === a
   where
-    title = mconcat
-        [ "Can perform roundtrip conversion for values of type '"
-        , show (typeRep proxy)
-        , "'"
-        ]
+    title =
+        mconcat
+            [ "Can perform roundtrip conversion for values of type '"
+            , show (typeRep proxy)
+            , "'"
+            ]
 
 --------------------------------------------------------------------------------
 -- Arbitraries
@@ -84,11 +109,13 @@ instance Arbitrary TokenBundle where
 
 instance Arbitrary TokenName where
     arbitrary = genTokenNameLargeRange
-    -- No shrinking
+
+-- No shrinking
 
 instance Arbitrary TokenPolicyId where
     arbitrary = genTokenPolicyIdLargeRange
-    -- No shrinking
+
+-- No shrinking
 
 instance Arbitrary TokenQuantity where
     arbitrary = genTokenQuantityFullRange

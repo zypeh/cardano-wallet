@@ -7,10 +7,11 @@
 
 module Cardano.Wallet.Shelley.Network.Blockfrost.Conversion where
 
-import Prelude
-
+import Blockfrost.Client qualified as BF
 import Cardano.Wallet.Api.Types
-    ( decodeAddress, decodeStakeAddress )
+    ( decodeAddress
+    , decodeStakeAddress
+    )
 import Cardano.Wallet.Primitive.Types
     ( BlockHeader (..)
     , EpochNo
@@ -20,37 +21,54 @@ import Cardano.Wallet.Primitive.Types
     , decodePoolIdBech32
     )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address )
+    ( Address
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (Coin) )
+    ( Coin (Coin)
+    )
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash )
+    ( Hash
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount )
+    ( RewardAccount
+    )
 import Cardano.Wallet.Shelley.Network.Blockfrost.Error
-    ( BlockfrostError (..), (<?#>) )
+    ( BlockfrostError (..)
+    , (<?#>)
+    )
 import Cardano.Wallet.Shelley.Network.Discriminant
-    ( SomeNetworkDiscriminant (..) )
+    ( SomeNetworkDiscriminant (..)
+    )
 import Control.Monad.Error.Class
-    ( MonadError (throwError) )
+    ( MonadError (throwError)
+    )
 import Data.Bifunctor
-    ( first )
+    ( first
+    )
 import Data.IntCast
-    ( intCast )
+    ( intCast
+    )
 import Data.Maybe
-    ( fromMaybe )
+    ( fromMaybe
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Quantity
-    ( Percentage, Quantity (Quantity), mkPercentage )
+    ( Percentage
+    , Quantity (Quantity)
+    , mkPercentage
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Data.Text.Class
-    ( fromText )
+    ( fromText
+    )
 import Data.Traversable
-    ( for )
-
-import qualified Blockfrost.Client as BF
+    ( for
+    )
+import Prelude
 
 fromBfLovelaces :: MonadError BlockfrostError m => BF.Lovelaces -> m Coin
 fromBfLovelaces lovs = Coin <$> (intCast @_ @Integer lovs <?#> "Lovelaces")
@@ -89,12 +107,12 @@ stakePoolMetadataHashFromText text =
         Right a -> pure a
 
 bfBlockHeader :: BF.Block -> Either BlockfrostError BlockHeader
-bfBlockHeader BF.Block{..} = do
+bfBlockHeader BF.Block {..} = do
     slotNo <- fromMaybe 0 <$> for _blockSlot fromBfSlot
     blockHeight <- Quantity <$> fromMaybe 0 _blockHeight <?#> "BlockHeight"
     headerHash <- parseBlockHeader _blockHash
     parentHeaderHash <- for _blockPreviousBlock parseBlockHeader
-    pure BlockHeader{slotNo, blockHeight, headerHash, parentHeaderHash}
+    pure BlockHeader {slotNo, blockHeight, headerHash, parentHeaderHash}
   where
     parseBlockHeader blockHash =
         case fromText (BF.unBlockHash blockHash) of
@@ -103,14 +121,16 @@ bfBlockHeader BF.Block{..} = do
 
 fromBfTxHash :: BF.TxHash -> Either BlockfrostError (Hash "Tx")
 fromBfTxHash txHash = first (InvalidTxHash hash) $ fromText hash
-  where hash = BF.unTxHash txHash
+  where
+    hash = BF.unTxHash txHash
 
 fromBfSlot :: BF.Slot -> Either BlockfrostError SlotNo
 fromBfSlot = fmap SlotNo . (<?#> "SlotNo") . BF.unSlot
 
 fromBfPoolId :: BF.PoolId -> Either BlockfrostError PoolId
 fromBfPoolId poolId = first (InvalidPoolId addr) (decodePoolIdBech32 addr)
-  where addr = BF.unPoolId poolId
+  where
+    addr = BF.unPoolId poolId
 
 fromBfEpoch :: BF.Epoch -> EpochNo
 fromBfEpoch = fromIntegral

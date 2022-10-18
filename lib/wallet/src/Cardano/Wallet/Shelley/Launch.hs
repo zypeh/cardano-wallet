@@ -14,8 +14,6 @@
 -- License: Apache-2.0
 --
 -- Command-line option passing for cardano-wallet shelley.
---
-
 module Cardano.Wallet.Shelley.Launch
     ( -- * Network
       NetworkConfiguration (..)
@@ -31,81 +29,133 @@ module Cardano.Wallet.Shelley.Launch
     , envFromText
     , lookupEnvNonEmpty
 
-    -- * Logging
+      -- * Logging
     , TempDirLog (..)
 
-    -- * Light Mode
+      -- * Light Mode
     , Mode (..)
     , modeOption
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
-import Cardano.Chain.Genesis
-    ( GenesisData (..), readGenesisData )
+    ( HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
+    )
 import Cardano.CLI
-    ( optionT, syncToleranceOption )
+    ( optionT
+    , syncToleranceOption
+    )
+import Cardano.Chain.Genesis
+    ( GenesisData (..)
+    , readGenesisData
+    )
 import Cardano.Launcher
-    ( LauncherLog )
+    ( LauncherLog
+    )
 import Cardano.Launcher.Node
-    ( CardanoNodeConn, cardanoNodeConn, isWindows )
-import Cardano.Wallet.Logging
-    ( BracketLog, BracketLog' (..), bracketTracer )
-import Cardano.Wallet.Primitive.AddressDerivation
-    ( NetworkDiscriminant (..) )
-import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncTolerance )
-import Cardano.Wallet.Primitive.Types
-    ( Block (..), NetworkParameters (..) )
-import Cardano.Wallet.Primitive.Types.ProtocolMagic
-    ( ProtocolMagic (..) )
-import Cardano.Wallet.Shelley
-    ( SomeNetworkDiscriminant (..) )
-import Control.Monad.IO.Unlift
-    ( MonadUnliftIO, liftIO )
-import Control.Monad.Trans.Except
-    ( ExceptT (..), withExceptT )
-import Control.Tracer
-    ( Tracer (..), contramap )
-import Data.Bifunctor
-    ( first )
-import Data.Maybe
-    ( isJust )
-import Data.Proxy
-    ( Proxy (..) )
-import Data.Text
-    ( Text )
-import Data.Text.Class
-    ( FromText (..), TextDecodingError, ToText (..) )
-import GHC.TypeLits
-    ( KnownNat, Nat, SomeNat (..), someNatVal )
+    ( CardanoNodeConn
+    , cardanoNodeConn
+    , isWindows
+    )
 -- See ADP-1910
-import "optparse-applicative" Options.Applicative
-    ( Parser, eitherReader, flag', help, long, metavar, option, (<|>) )
-import Ouroboros.Network.Magic
-    ( NetworkMagic (..) )
-import Ouroboros.Network.NodeToClient
-    ( NodeToClientVersionData (..) )
-import System.Environment
-    ( lookupEnv )
-import System.Exit
-    ( ExitCode (..) )
-import System.IO.Temp
-    ( createTempDirectory, getCanonicalTemporaryDirectory )
-import UnliftIO.Temporary
-    ( withTempDirectory )
 
-import qualified Cardano.Wallet.Byron.Compatibility as Byron
-import qualified Cardano.Wallet.Primitive.Types.ProtocolMagic as W
-import qualified Cardano.Wallet.Shelley.Launch.Blockfrost as Blockfrost
-import qualified Data.ByteString.Lazy.Char8 as BL8
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Encoding.Error as T
+import Cardano.Wallet.Byron.Compatibility qualified as Byron
+import Cardano.Wallet.Logging
+    ( BracketLog
+    , BracketLog' (..)
+    , bracketTracer
+    )
+import Cardano.Wallet.Primitive.AddressDerivation
+    ( NetworkDiscriminant (..)
+    )
+import Cardano.Wallet.Primitive.SyncProgress
+    ( SyncTolerance
+    )
+import Cardano.Wallet.Primitive.Types
+    ( Block (..)
+    , NetworkParameters (..)
+    )
+import Cardano.Wallet.Primitive.Types.ProtocolMagic
+    ( ProtocolMagic (..)
+    )
+import Cardano.Wallet.Primitive.Types.ProtocolMagic qualified as W
+import Cardano.Wallet.Shelley
+    ( SomeNetworkDiscriminant (..)
+    )
+import Cardano.Wallet.Shelley.Launch.Blockfrost qualified as Blockfrost
+import Control.Monad.IO.Unlift
+    ( MonadUnliftIO
+    , liftIO
+    )
+import Control.Monad.Trans.Except
+    ( ExceptT (..)
+    , withExceptT
+    )
+import Control.Tracer
+    ( Tracer (..)
+    , contramap
+    )
+import Data.Bifunctor
+    ( first
+    )
+import Data.ByteString.Lazy.Char8 qualified as BL8
+import Data.Maybe
+    ( isJust
+    )
+import Data.Proxy
+    ( Proxy (..)
+    )
+import Data.Text
+    ( Text
+    )
+import Data.Text qualified as T
+import Data.Text.Class
+    ( FromText (..)
+    , TextDecodingError
+    , ToText (..)
+    )
+import Data.Text.Encoding qualified as T
+import Data.Text.Encoding.Error qualified as T
+import GHC.TypeLits
+    ( KnownNat
+    , Nat
+    , SomeNat (..)
+    , someNatVal
+    )
+import "optparse-applicative" Options.Applicative
+    ( Parser
+    , eitherReader
+    , flag'
+    , help
+    , long
+    , metavar
+    , option
+    , (<|>)
+    )
+import Ouroboros.Network.Magic
+    ( NetworkMagic (..)
+    )
+import Ouroboros.Network.NodeToClient
+    ( NodeToClientVersionData (..)
+    )
+import System.Environment
+    ( lookupEnv
+    )
+import System.Exit
+    ( ExitCode (..)
+    )
+import System.IO.Temp
+    ( createTempDirectory
+    , getCanonicalTemporaryDirectory
+    )
+import UnliftIO.Temporary
+    ( withTempDirectory
+    )
+import Prelude
 
 -- | Shelley hard fork network configuration has two genesis data.
 -- As a special case for mainnet, we hardcode the byron genesis data.
@@ -113,32 +163,35 @@ data NetworkConfiguration where
     -- | Mainnet does not have network discrimination.
     MainnetConfig
         :: NetworkConfiguration
-
     -- | Testnet has network magic.
     TestnetConfig
         :: FilePath
         -- ^ Genesis data in JSON format, for byron era.
         -> NetworkConfiguration
-
     -- | Staging does not have network discrimination.
     StagingConfig
         :: FilePath
         -- ^ Genesis data in JSON format, for byron era.
         -> NetworkConfiguration
-  deriving (Show, Eq)
+    deriving (Show, Eq)
 
 -- | --node-socket=FILE
 nodeSocketOption :: Parser CardanoNodeConn
-nodeSocketOption = option (eitherReader (addHelp . cardanoNodeConn)) $ mempty
-    <> long "node-socket"
-    <> metavar (if isWindows then "PIPENAME" else "FILE")
-    <> help helpText
+nodeSocketOption =
+    option (eitherReader (addHelp . cardanoNodeConn)) $
+        mempty
+            <> long "node-socket"
+            <> metavar (if isWindows then "PIPENAME" else "FILE")
+            <> help helpText
   where
-    helpText = mconcat
-        [ "Path to the node's domain socket file (POSIX) "
-        , "or pipe name (Windows). "
-        , "Note: Maximum length for POSIX socket files is approx. 100 bytes. "
-        , "Note:", pipeHelp ]
+    helpText =
+        mconcat
+            [ "Path to the node's domain socket file (POSIX) "
+            , "or pipe name (Windows). "
+            , "Note: Maximum length for POSIX socket files is approx. 100 bytes. "
+            , "Note:"
+            , pipeHelp
+            ]
     pipeHelp = " Windows named pipes are of the form \\\\.\\pipe\\cardano-node"
     addHelp = first (if isWindows then (++ pipeHelp) else id)
 
@@ -152,15 +205,19 @@ networkConfigurationOption = mainnet <|> testnet <|> staging
     testnet = TestnetConfig <$> genesisFileOption "byron" "testnet"
     staging = StagingConfig <$> genesisFileOption "byron" "staging"
 
-    mainnetFlag = flag' MainnetConfig $ mempty
-        <> long "mainnet"
-        <> help "Use Cardano mainnet protocol"
+    mainnetFlag =
+        flag' MainnetConfig $
+            mempty
+                <> long "mainnet"
+                <> help "Use Cardano mainnet protocol"
 
     genesisFileOption :: String -> String -> Parser FilePath
-    genesisFileOption era net = optionT $ mempty
-        <> long net
-        <> metavar "FILE"
-        <> help ("Path to the " <> era <> " genesis data in JSON format.")
+    genesisFileOption era net =
+        optionT $
+            mempty
+                <> long net
+                <> metavar "FILE"
+                <> help ("Path to the " <> era <> " genesis data in JSON format.")
 
 someCustomDiscriminant
     :: (forall (pm :: Nat). KnownNat pm => Proxy pm -> SomeNetworkDiscriminant)
@@ -171,14 +228,20 @@ someCustomDiscriminant mkSomeNetwork pm@(ProtocolMagic n) =
         Just (SomeNat proxy) ->
             ( mkSomeNetwork proxy
             , NodeToClientVersionData $
-                NetworkMagic $ fromIntegral $ W.getProtocolMagic pm
+                NetworkMagic $
+                    fromIntegral $
+                        W.getProtocolMagic pm
             )
-        _ -> error "networkDiscriminantFlag: failed to convert \
-            \ProtocolMagic to SomeNat."
+        _ ->
+            error
+                "networkDiscriminantFlag: failed to convert \
+                \ProtocolMagic to SomeNat."
 
 parseGenesisData
     :: NetworkConfiguration
-    -> ExceptT String IO
+    -> ExceptT
+        String
+        IO
         (SomeNetworkDiscriminant, NetworkParameters, NodeToClientVersionData, Block)
 parseGenesisData = \case
     MainnetConfig -> do
@@ -190,17 +253,16 @@ parseGenesisData = \case
             , mainnetVersionData
             , Byron.emptyGenesis (genesisParameters Byron.mainnetNetworkParameters)
             )
-
     TestnetConfig byronGenesisFile -> do
         (genesisData, genesisHash) <-
             withExceptT show $ readGenesisData byronGenesisFile
 
         let mkSomeNetwork
-                :: forall (pm :: Nat). KnownNat pm
+                :: forall (pm :: Nat)
+                 . KnownNat pm
                 => Proxy pm
                 -> SomeNetworkDiscriminant
-            mkSomeNetwork _ = SomeNetworkDiscriminant $ Proxy @('Testnet pm)
-
+            mkSomeNetwork _ = SomeNetworkDiscriminant $ Proxy @( 'Testnet pm)
 
         let pm = Byron.fromProtocolMagicId $ gdProtocolMagicId genesisData
         let (discriminant, vData) = someCustomDiscriminant mkSomeNetwork pm
@@ -213,16 +275,16 @@ parseGenesisData = \case
             , vData
             , block0
             )
-
     StagingConfig byronGenesisFile -> do
         (genesisData, genesisHash) <-
             withExceptT show $ readGenesisData byronGenesisFile
 
         let mkSomeNetwork
-                :: forall (pm :: Nat). KnownNat pm
+                :: forall (pm :: Nat)
+                 . KnownNat pm
                 => Proxy pm
                 -> SomeNetworkDiscriminant
-            mkSomeNetwork _ = SomeNetworkDiscriminant $ Proxy @('Staging pm)
+            mkSomeNetwork _ = SomeNetworkDiscriminant $ Proxy @( 'Staging pm)
 
         let pm = Byron.fromProtocolMagicId $ gdProtocolMagicId genesisData
         let (discriminant, vData) = someCustomDiscriminant mkSomeNetwork pm
@@ -268,34 +330,40 @@ envFromText = liftIO . fmap (fmap (fromText . T.pack)) . lookupEnv
 withTempDir
     :: MonadUnliftIO m
     => Tracer m TempDirLog
-    -> FilePath -- ^ Parent directory
-    -> String -- ^ Directory name template
-    -> (FilePath -> m a) -- ^ Callback that can use the directory
+    -> FilePath
+    -- ^ Parent directory
+    -> String
+    -- ^ Directory name template
+    -> (FilePath -> m a)
+    -- ^ Callback that can use the directory
     -> m a
-withTempDir tr parent name action = isEnvSet "NO_CLEANUP" >>= \case
-    True -> do
-        dir <- liftIO $ createTempDirectory parent name
-        let tr' = contramap (MsgNoCleanup dir) tr
-        bracketTracer tr' $ action dir
-    False -> withTempDirectory parent name action
+withTempDir tr parent name action =
+    isEnvSet "NO_CLEANUP" >>= \case
+        True -> do
+            dir <- liftIO $ createTempDirectory parent name
+            let tr' = contramap (MsgNoCleanup dir) tr
+            bracketTracer tr' $ action dir
+        False -> withTempDirectory parent name action
 
 withSystemTempDir
     :: MonadUnliftIO m
     => Tracer m TempDirLog
-    -> String   -- ^ Directory name template
-    -> (FilePath -> m a) -- ^ Callback that can use the directory
+    -> String
+    -- ^ Directory name template
+    -> (FilePath -> m a)
+    -- ^ Callback that can use the directory
     -> m a
 withSystemTempDir tr name action = do
     parent <- liftIO getCanonicalTemporaryDirectory
     withTempDir tr parent name action
-
 
 {-------------------------------------------------------------------------------
                                     Logging
 -------------------------------------------------------------------------------}
 
 data ClusterLog
-    = MsgRegisteringStakePools Int -- ^ How many pools
+    = -- | How many pools
+      MsgRegisteringStakePools Int
     | MsgStartingCluster FilePath
     | MsgLauncher String LauncherLog
     | MsgStartedStaticServer String FilePath
@@ -315,42 +383,61 @@ instance ToText ClusterLog where
     toText = \case
         MsgStartingCluster dir ->
             "Configuring cluster in " <> T.pack dir
-        MsgRegisteringStakePools n -> mconcat
+        MsgRegisteringStakePools n ->
+            mconcat
                 [ T.pack (show n)
                 , " stake pools are being registered on chain... "
                 ]
         MsgLauncher name msg ->
             T.pack name <> " " <> toText msg
         MsgStartedStaticServer baseUrl fp ->
-            "Started a static server for " <> T.pack fp
-                <> " at " <> T.pack baseUrl
+            "Started a static server for "
+                <> T.pack fp
+                <> " at "
+                <> T.pack baseUrl
         MsgTempDir msg -> toText msg
         MsgBracket name b -> name <> ": " <> toText b
         MsgCLIStatus msg st out err -> case st of
             ExitSuccess -> "Successfully finished " <> msg
-            ExitFailure code -> "Failed " <> msg <> " with exit code " <>
-                T.pack (show code)  <> ":\n" <> indent out <> "\n" <> indent err
+            ExitFailure code ->
+                "Failed "
+                    <> msg
+                    <> " with exit code "
+                    <> T.pack (show code)
+                    <> ":\n"
+                    <> indent out
+                    <> "\n"
+                    <> indent err
         MsgCLIRetry msg -> msg
         MsgCLIRetryResult msg code err ->
-            "Failed " <> msg <> " with exit code " <>
-                T.pack (show code) <> ":\n" <> indent err
+            "Failed "
+                <> msg
+                <> " with exit code "
+                <> T.pack (show code)
+                <> ":\n"
+                <> indent err
         MsgSocketIsReady conn ->
             toText conn <> " is ready."
         MsgStakeDistribution name st out err -> case st of
             ExitSuccess ->
-                "Stake distribution query for " <> T.pack name <>
-                ":\n" <> indent out
+                "Stake distribution query for "
+                    <> T.pack name
+                    <> ":\n"
+                    <> indent out
             ExitFailure code ->
-                "Query of stake-distribution failed with status " <>
-                T.pack (show code) <> ":\n" <> indent err
+                "Query of stake-distribution failed with status "
+                    <> T.pack (show code)
+                    <> ":\n"
+                    <> indent err
         MsgDebug msg -> msg
         MsgGenOperatorKeyPair dir ->
             "Generating stake pool operator key pair in " <> T.pack dir
-        MsgCLI args -> T.pack $ unwords ("cardano-cli":args)
+        MsgCLI args -> T.pack $ unwords ("cardano-cli" : args)
       where
         indent = T.unlines . map ("  " <>) . T.lines . T.decodeUtf8With T.lenientDecode . BL8.toStrict
 
 instance HasPrivacyAnnotation ClusterLog
+
 instance HasSeverityAnnotation ClusterLog where
     getSeverityAnnotation = \case
         MsgStartingCluster _ -> Notice
@@ -359,15 +446,15 @@ instance HasSeverityAnnotation ClusterLog where
         MsgStartedStaticServer _ _ -> Info
         MsgTempDir msg -> getSeverityAnnotation msg
         MsgBracket _ _ -> Debug
-        MsgCLIStatus _ ExitSuccess _ _-> Debug
-        MsgCLIStatus _ (ExitFailure _) _ _-> Error
+        MsgCLIStatus _ ExitSuccess _ _ -> Debug
+        MsgCLIStatus _ (ExitFailure _) _ _ -> Error
         MsgCLIRetry _ -> Info
-        MsgCLIRetryResult{} -> Info
+        MsgCLIRetryResult {} -> Info
         -- NOTE: ^ Some failures are expected, so for cleaner logs we use Info,
         -- instead of Warning.
         MsgSocketIsReady _ -> Info
-        MsgStakeDistribution _ ExitSuccess _ _-> Info
-        MsgStakeDistribution _ (ExitFailure _) _ _-> Info
+        MsgStakeDistribution _ ExitSuccess _ _ -> Info
+        MsgStakeDistribution _ (ExitFailure _) _ _ -> Info
         -- NOTE: ^ Some failures are expected, so for cleaner logs we use Info,
         -- instead of Warning.
         MsgDebug _ -> Debug
@@ -382,6 +469,7 @@ instance ToText TempDirLog where
         MsgNoCleanup dir _ -> "NO_CLEANUP of temporary directory " <> T.pack dir
 
 instance HasPrivacyAnnotation TempDirLog
+
 instance HasSeverityAnnotation TempDirLog where
     getSeverityAnnotation = \case
         MsgNoCleanup _ BracketStart -> Debug
@@ -394,7 +482,7 @@ instance HasSeverityAnnotation TempDirLog where
 data Mode
     = Normal CardanoNodeConn SyncTolerance
     | Light Blockfrost.TokenFile
-  deriving (Show)
+    deriving (Show)
 
 modeOption :: Parser Mode
 modeOption = normalMode <|> lightMode
@@ -402,6 +490,5 @@ modeOption = normalMode <|> lightMode
     normalMode =
         Normal <$> nodeSocketOption <*> syncToleranceOption
     lightMode =
-        flag' () (long "light" <> help "Enable light mode") *>
-        fmap Light Blockfrost.tokenFileOption
-
+        flag' () (long "light" <> help "Enable light mode")
+            *> fmap Light Blockfrost.tokenFileOption

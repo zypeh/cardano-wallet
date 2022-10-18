@@ -12,15 +12,14 @@
 -- Dummy implementation of the database-layer, using 'MVar'. This may be good
 -- for testing to compare with an implementation on a real data store, or to use
 -- when compiling the wallet for targets which don't have SQLite.
-
 module Cardano.Wallet.DB.Pure.Layer
     ( newDBLayer
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv )
+    ( XPrv
+    )
 import Cardano.Wallet.DB
     ( DBLayer (..)
     , ErrNoSuchTransaction (..)
@@ -58,176 +57,183 @@ import Cardano.Wallet.DB.Pure.Implementation
     , mUpdatePendingTxForExpiry
     )
 import Cardano.Wallet.DB.WalletState
-    ( ErrNoSuchWallet (..) )
+    ( ErrNoSuchWallet (..)
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( Depth (..) )
+    ( Depth (..)
+    )
 import Cardano.Wallet.Primitive.Passphrase
-    ( PassphraseHash )
+    ( PassphraseHash
+    )
 import Cardano.Wallet.Primitive.Slotting
-    ( TimeInterpreter )
+    ( TimeInterpreter
+    )
 import Cardano.Wallet.Primitive.Types
-    ( SortOrder (..), WalletId, wholeRange )
+    ( SortOrder (..)
+    , WalletId
+    , wholeRange
+    )
 import Cardano.Wallet.Primitive.Types.Tx
-    ( TransactionInfo (..) )
+    ( TransactionInfo (..)
+    )
 import Control.Monad.IO.Unlift
-    ( MonadUnliftIO (..) )
+    ( MonadUnliftIO (..)
+    )
 import Control.Monad.Trans.Except
-    ( ExceptT (..) )
+    ( ExceptT (..)
+    )
 import Data.Functor.Identity
-    ( Identity (..) )
+    ( Identity (..)
+    )
 import UnliftIO.Exception
-    ( Exception, throwIO )
+    ( Exception
+    , throwIO
+    )
 import UnliftIO.MVar
-    ( MVar, modifyMVar, newMVar, withMVar )
+    ( MVar
+    , modifyMVar
+    , newMVar
+    , withMVar
+    )
+import Prelude
 
 -- | Instantiate a new in-memory "database" layer that simply stores data in
 -- a local MVar. Data vanishes if the software is shut down.
 newDBLayer
-    :: forall m s k.
-       ( MonadUnliftIO m
-       , MonadFail m )
+    :: forall m s k
+     . ( MonadUnliftIO m
+       , MonadFail m
+       )
     => TimeInterpreter Identity
     -> m (DBLayer m s k)
 newDBLayer timeInterpreter = do
     lock <- newMVar ()
     db <- newMVar (emptyDatabase :: Database WalletId s (k 'RootK XPrv, PassphraseHash))
-    return $ DBLayer
+    return $
+        DBLayer
+            { {-----------------------------------------------------------------------
+                                            Wallets
+              -----------------------------------------------------------------------}
 
-        {-----------------------------------------------------------------------
-                                      Wallets
-        -----------------------------------------------------------------------}
+              initializeWallet = \pk cp meta txs gp ->
+                ExceptT $
+                    alterDB errWalletAlreadyExists db $
+                        mInitializeWallet pk cp meta txs gp
+            , removeWallet = ExceptT . alterDB errNoSuchWallet db . mRemoveWallet
+            , listWallets = readDB db mListWallets
+            , {-----------------------------------------------------------------------
+                                          Checkpoints
+              -----------------------------------------------------------------------}
+              walletsDB = error "MVar.walletsDB: not implemented"
+            , putCheckpoint = \pk cp ->
+                ExceptT $
+                    alterDB errNoSuchWallet db $
+                        mPutCheckpoint pk cp
+            , readCheckpoint = readDB db . mReadCheckpoint
+            , listCheckpoints = readDB db . mListCheckpoints
+            , rollbackTo = \pk pt ->
+                ExceptT $
+                    alterDB errNoSuchWallet db $
+                        mRollbackTo pk pt
+            , prune = \_ _ -> error "MVar.prune: not implemented"
+            , {-----------------------------------------------------------------------
+                                         Wallet Metadata
+              -----------------------------------------------------------------------}
 
-        { initializeWallet = \pk cp meta txs gp -> ExceptT $
-                alterDB errWalletAlreadyExists db $
-                mInitializeWallet pk cp meta txs gp
+              putWalletMeta = \pk meta ->
+                ExceptT $
+                    alterDB errNoSuchWallet db $
+                        mPutWalletMeta pk meta
+            , readWalletMeta = readDB db . mReadWalletMeta timeInterpreter
+            , putDelegationCertificate = \pk cert sl ->
+                ExceptT $
+                    alterDB errNoSuchWallet db $
+                        mPutDelegationCertificate pk cert sl
+            , isStakeKeyRegistered =
+                ExceptT . alterDB errNoSuchWallet db . mIsStakeKeyRegistered
+            , {-----------------------------------------------------------------------
+                                           Tx History
+              -----------------------------------------------------------------------}
 
-        , removeWallet = ExceptT . alterDB errNoSuchWallet db . mRemoveWallet
+              putTxHistory = \pk txh ->
+                ExceptT $
+                    alterDB errNoSuchWallet db $
+                        mPutTxHistory pk txh
+            , readTxHistory = \pk minWithdrawal order range mstatus ->
+                readDB db $
+                    mReadTxHistory
+                        timeInterpreter
+                        pk
+                        minWithdrawal
+                        order
+                        range
+                        mstatus
+            , -- TODO: shift implementation to mGetTx
+              getTx = \pk tid ->
+                ExceptT $
+                    alterDB errNoSuchWallet db (mCheckWallet pk) >>= \case
+                        Left err -> pure $ Left err
+                        Right _ -> do
+                            txInfos <-
+                                readDB db $
+                                    mReadTxHistory
+                                        timeInterpreter
+                                        pk
+                                        Nothing
+                                        Descending
+                                        wholeRange
+                                        Nothing
+                            let txPresent (TransactionInfo {..}) = txInfoId == tid
+                            case filter txPresent txInfos of
+                                [] -> pure $ Right Nothing
+                                t : _ -> pure $ Right $ Just t
+            , {-----------------------------------------------------------------------
+                                             Keystore
+              -----------------------------------------------------------------------}
 
-        , listWallets = readDB db mListWallets
+              putPrivateKey = \pk prv ->
+                ExceptT $
+                    alterDB errNoSuchWallet db $
+                        mPutPrivateKey pk prv
+            , readPrivateKey = readDB db . mReadPrivateKey
+            , {-----------------------------------------------------------------------
+                                             Pending Tx
+              -----------------------------------------------------------------------}
 
-        {-----------------------------------------------------------------------
-                                    Checkpoints
-        -----------------------------------------------------------------------}
-        , walletsDB = error "MVar.walletsDB: not implemented"
+              putLocalTxSubmission = \pk txid tx sl ->
+                ExceptT $
+                    alterDB (fmap ErrPutLocalTxSubmissionNoSuchWallet . errNoSuchWallet) db $
+                        mPutLocalTxSubmission pk txid tx sl
+            , readLocalTxSubmissionPending =
+                readDB db . mReadLocalTxSubmissionPending
+            , updatePendingTxForExpiry = \pk tip ->
+                ExceptT $
+                    alterDB errNoSuchWallet db $
+                        mUpdatePendingTxForExpiry pk tip
+            , removePendingOrExpiredTx = \pk tid ->
+                ExceptT $
+                    alterDB errCannotRemovePendingTx db $
+                        mRemovePendingOrExpiredTx pk tid
+            , {-----------------------------------------------------------------------
+                                       Protocol Parameters
+              -----------------------------------------------------------------------}
 
-        , putCheckpoint = \pk cp -> ExceptT $
-            alterDB errNoSuchWallet db $
-            mPutCheckpoint pk cp
+              readGenesisParameters = readDB db . mReadGenesisParameters
+            , {-----------------------------------------------------------------------
+                                       Delegation Rewards
+              -----------------------------------------------------------------------}
 
-        , readCheckpoint = readDB db . mReadCheckpoint
+              putDelegationRewardBalance = \pk amt ->
+                ExceptT $
+                    alterDB errNoSuchWallet db (mPutDelegationRewardBalance pk amt)
+            , readDelegationRewardBalance =
+                readDB db . mReadDelegationRewardBalance
+            , {-----------------------------------------------------------------------
+                                            Execution
+              -----------------------------------------------------------------------}
 
-        , listCheckpoints = readDB db . mListCheckpoints
-
-        , rollbackTo = \pk pt -> ExceptT $
-            alterDB errNoSuchWallet db $
-            mRollbackTo pk pt
-
-        , prune = \_ _ -> error "MVar.prune: not implemented"
-
-        {-----------------------------------------------------------------------
-                                   Wallet Metadata
-        -----------------------------------------------------------------------}
-
-        , putWalletMeta = \pk meta -> ExceptT $
-            alterDB errNoSuchWallet db $
-            mPutWalletMeta pk meta
-
-        , readWalletMeta = readDB db . mReadWalletMeta timeInterpreter
-
-        , putDelegationCertificate = \pk cert sl -> ExceptT $
-            alterDB errNoSuchWallet db $
-            mPutDelegationCertificate pk cert sl
-
-        , isStakeKeyRegistered =
-            ExceptT . alterDB errNoSuchWallet db . mIsStakeKeyRegistered
-
-        {-----------------------------------------------------------------------
-                                     Tx History
-        -----------------------------------------------------------------------}
-
-        , putTxHistory = \pk txh -> ExceptT $
-            alterDB errNoSuchWallet db $
-            mPutTxHistory pk txh
-
-        , readTxHistory = \pk minWithdrawal order range mstatus ->
-            readDB db $
-                mReadTxHistory
-                    timeInterpreter
-                    pk
-                    minWithdrawal
-                    order
-                    range
-                    mstatus
-
-        -- TODO: shift implementation to mGetTx
-        , getTx = \pk tid -> ExceptT $
-            alterDB errNoSuchWallet db (mCheckWallet pk) >>= \case
-                Left err -> pure $ Left err
-                Right _ -> do
-                    txInfos <- readDB db
-                        $ mReadTxHistory
-                            timeInterpreter
-                            pk
-                            Nothing
-                            Descending
-                            wholeRange
-                            Nothing
-                    let txPresent (TransactionInfo{..}) = txInfoId == tid
-                    case filter txPresent txInfos of
-                        [] -> pure $ Right Nothing
-                        t:_ -> pure $ Right $ Just t
-
-        {-----------------------------------------------------------------------
-                                       Keystore
-        -----------------------------------------------------------------------}
-
-        , putPrivateKey = \pk prv -> ExceptT $
-            alterDB errNoSuchWallet db $
-            mPutPrivateKey pk prv
-
-        , readPrivateKey = readDB db . mReadPrivateKey
-
-        {-----------------------------------------------------------------------
-                                       Pending Tx
-        -----------------------------------------------------------------------}
-
-        , putLocalTxSubmission = \pk txid tx sl -> ExceptT $
-            alterDB (fmap ErrPutLocalTxSubmissionNoSuchWallet . errNoSuchWallet) db $
-            mPutLocalTxSubmission pk txid tx sl
-
-        , readLocalTxSubmissionPending =
-            readDB db . mReadLocalTxSubmissionPending
-
-        , updatePendingTxForExpiry = \pk tip -> ExceptT $
-            alterDB errNoSuchWallet db $
-            mUpdatePendingTxForExpiry pk tip
-
-        , removePendingOrExpiredTx = \pk tid -> ExceptT $
-            alterDB errCannotRemovePendingTx db $
-            mRemovePendingOrExpiredTx pk tid
-
-        {-----------------------------------------------------------------------
-                                 Protocol Parameters
-        -----------------------------------------------------------------------}
-
-        , readGenesisParameters = readDB db . mReadGenesisParameters
-
-        {-----------------------------------------------------------------------
-                                 Delegation Rewards
-        -----------------------------------------------------------------------}
-
-        , putDelegationRewardBalance = \pk amt -> ExceptT $
-            alterDB errNoSuchWallet db (mPutDelegationRewardBalance pk amt)
-
-        , readDelegationRewardBalance =
-            readDB db . mReadDelegationRewardBalance
-
-        {-----------------------------------------------------------------------
-                                      Execution
-        -----------------------------------------------------------------------}
-
-        , atomically = \action -> withMVar lock $ \() -> action
-        }
+              atomically = \action -> withMVar lock $ \() -> action
+            }
 
 -- | Apply an operation to the model database, then update the mutable variable.
 alterDB

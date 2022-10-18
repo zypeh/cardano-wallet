@@ -14,22 +14,32 @@
 -- |
 -- Copyright: © 2020 IOHK
 -- License: Apache-2.0
---
-
 module Cardano.Wallet.Read.Primitive.Tx.Allegra
     ( fromAllegraTx
     , fromLedgerTxValidity
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Api
-    ( AllegraEra )
+    ( AllegraEra
+    )
+import Cardano.Api.Shelley qualified as Cardano
+import Cardano.Ledger.BaseTypes qualified as SL
+import Cardano.Ledger.Shelley.API qualified as SL
+import Cardano.Ledger.Shelley.API qualified as SLAPI
+import Cardano.Ledger.ShelleyMA.AuxiliaryData qualified as MA
+import Cardano.Ledger.ShelleyMA.TxBody qualified as MA
+import Cardano.Wallet.Primitive.Types qualified as W
+import Cardano.Wallet.Primitive.Types.Coin qualified as W
+import Cardano.Wallet.Primitive.Types.Hash qualified as W
+import Cardano.Wallet.Primitive.Types.Tx qualified as W
 import Cardano.Wallet.Read.Eras
-    ( allegra, inject )
+    ( allegra
+    , inject
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates
-    ( anyEraCerts )
+    ( anyEraCerts
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Shelley
     ( fromShelleyCoin
     , fromShelleyMD
@@ -38,32 +48,27 @@ import Cardano.Wallet.Read.Primitive.Tx.Shelley
     , fromShelleyWdrl
     )
 import Cardano.Wallet.Read.Tx
-    ( Tx (..) )
+    ( Tx (..)
+    )
 import Cardano.Wallet.Read.Tx.CBOR
-    ( renderTxToCBOR )
+    ( renderTxToCBOR
+    )
 import Cardano.Wallet.Read.Tx.Hash
-    ( shelleyTxHash )
+    ( shelleyTxHash
+    )
 import Cardano.Wallet.Transaction
     ( TokenMapWithScripts (..)
     , ValidityIntervalExplicit (..)
     , emptyTokenMapWithScripts
     )
 import Data.Foldable
-    ( toList )
+    ( toList
+    )
 import Data.Quantity
-    ( Quantity (..) )
-
-import qualified Cardano.Api.Shelley as Cardano
-import qualified Cardano.Ledger.BaseTypes as SL
-import qualified Cardano.Ledger.Shelley.API as SL
-import qualified Cardano.Ledger.Shelley.API as SLAPI
-import qualified Cardano.Ledger.ShelleyMA.AuxiliaryData as MA
-import qualified Cardano.Ledger.ShelleyMA.TxBody as MA
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Cardano.Wallet.Primitive.Types.Coin as W
-import qualified Cardano.Wallet.Primitive.Types.Hash as W
-import qualified Cardano.Wallet.Primitive.Types.Tx as W
-import qualified Ouroboros.Network.Block as O
+    ( Quantity (..)
+    )
+import Ouroboros.Network.Block qualified as O
+import Prelude
 
 -- NOTE: For resolved inputs we have to pass in a dummy value of 0.
 

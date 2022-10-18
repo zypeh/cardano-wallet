@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
@@ -17,26 +16,32 @@
 -- License: Apache-2.0
 --
 -- Implementation of address derivation for 'Shared' Keys.
-
 module Cardano.Wallet.Primitive.AddressDerivation.Shared
     ( -- * Types
-      SharedKey(..)
+      SharedKey (..)
 
-    -- * Generation and derivation
+      -- * Generation and derivation
     , generateKeyFromSeed
     , unsafeGenerateKeyFromSeed
-
     , purposeCIP1854
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( xpubPublicKey )
+    ( xpubPublicKey
+    )
 import Cardano.Crypto.Wallet
-    ( XPrv, XPub, toXPub, unXPrv, unXPub, xprv, xpub )
+    ( XPrv
+    , XPub
+    , toXPub
+    , unXPrv
+    , unXPub
+    , xprv
+    , xpub
+    )
 import Cardano.Mnemonic
-    ( SomeMnemonic )
+    ( SomeMnemonic
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( BoundedAddressLength (..)
     , Depth (..)
@@ -53,7 +58,9 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , hex
     )
 import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
-    ( SharedKey (..), purposeCIP1854 )
+    ( SharedKey (..)
+    , purposeCIP1854
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
     ( deriveAccountPrivateKeyShelley
     , deriveAddressPrivateKeyShelley
@@ -61,27 +68,39 @@ import Cardano.Wallet.Primitive.AddressDerivation.Shelley
     , unsafeGenerateKeyFromSeedShelley
     )
 import Cardano.Wallet.Primitive.AddressDiscovery
-    ( GetPurpose (..) )
+    ( GetPurpose (..)
+    )
 import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase (..), PassphraseHash (..), changePassphraseXPrv )
+    ( Passphrase (..)
+    , PassphraseHash (..)
+    , changePassphraseXPrv
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
 import Control.Monad
-    ( (<=<) )
+    ( (<=<)
+    )
 import Crypto.Hash
-    ( hash )
+    ( hash
+    )
 import Crypto.Hash.Algorithms
-    ( Blake2b_224 (..) )
+    ( Blake2b_224 (..)
+    )
 import Crypto.Hash.IO
-    ( HashAlgorithm (hashDigestSize) )
+    ( HashAlgorithm (hashDigestSize)
+    )
 import Crypto.Hash.Utils
-    ( blake2b224 )
+    ( blake2b224
+    )
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
+import Data.ByteString qualified as BS
 import Data.Proxy
-    ( Proxy (..) )
-
-import qualified Data.ByteString as BS
+    ( Proxy (..)
+    )
+import Prelude
 
 {-------------------------------------------------------------------------------
                             Sequential Derivation
@@ -91,7 +110,7 @@ import qualified Data.ByteString as BS
 -- The seed should be at least 16 bytes.
 generateKeyFromSeed
     :: (SomeMnemonic, Maybe SomeMnemonic)
-       -- ^ The actual seed and its recovery / generation passphrase
+    -- ^ The actual seed and its recovery / generation passphrase
     -> Passphrase "encryption"
     -> SharedKey 'RootK XPrv
 generateKeyFromSeed = unsafeGenerateKeyFromSeed
@@ -102,7 +121,7 @@ generateKeyFromSeed = unsafeGenerateKeyFromSeed
 -- use 'generateKeyFromSeed'.
 unsafeGenerateKeyFromSeed
     :: (SomeMnemonic, Maybe SomeMnemonic)
-        -- ^ The actual seed and its recovery / generation passphrase
+    -- ^ The actual seed and its recovery / generation passphrase
     -> Passphrase "encryption"
     -> SharedKey depth XPrv
 unsafeGenerateKeyFromSeed mnemonics pwd =
@@ -162,9 +181,11 @@ instance PersistPrivateKey (SharedKey 'RootK) where
         , hex . getPassphraseHash $ h
         )
 
-    unsafeDeserializeXPrv (k, h) = either err id $ (,)
-        <$> fmap SharedKey (xprvFromText k)
-        <*> fmap PassphraseHash (fromHex h)
+    unsafeDeserializeXPrv (k, h) =
+        either err id $
+            (,)
+                <$> fmap SharedKey (xprvFromText k)
+                <*> fmap PassphraseHash (fromHex h)
       where
         xprvFromText = xprv <=< fromHex @ByteString
         err _ = error "unsafeDeserializeXPrv: unable to deserialize SharedKey"

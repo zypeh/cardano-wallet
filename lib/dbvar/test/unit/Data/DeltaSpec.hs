@@ -1,16 +1,21 @@
 module Data.DeltaSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Test.Hspec
-    ( Spec, describe, it, parallel )
+    ( Spec
+    , describe
+    , it
+    , parallel
+    )
+import Prelude
 
 spec :: Spec
 spec = do
     parallel $ describe "Data.Delta" $ do
-        it "Dummy test, to be expanded"
+        it
+            "Dummy test, to be expanded"
             True
 
 {-------------------------------------------------------------------------------

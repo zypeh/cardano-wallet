@@ -8,29 +8,41 @@
 
 module Cardano.Wallet.Shelley.Network.Blockfrost.Monad where
 
-import Prelude
-
+import Blockfrost.Client qualified as BF
 import Cardano.Wallet.Network.Light
-    ( Consensual (..) )
+    ( Consensual (..)
+    )
 import Cardano.Wallet.Shelley.Network.Blockfrost.Error
-    ( BlockfrostError (ClientError), throwBlockfrostError )
+    ( BlockfrostError (ClientError)
+    , throwBlockfrostError
+    )
 import Control.Monad.Base
-    ( MonadBase )
+    ( MonadBase
+    )
 import Control.Monad.Except
-    ( ExceptT, MonadError (..), MonadIO (..) )
+    ( ExceptT
+    , MonadError (..)
+    , MonadIO (..)
+    )
 import Control.Monad.Reader
-    ( MonadReader (ask), ReaderT (..), asks )
+    ( MonadReader (ask)
+    , ReaderT (..)
+    , asks
+    )
 import Control.Monad.Trans.Control
-    ( MonadBaseControl )
+    ( MonadBaseControl
+    )
 import Data.Maybe
-    ( fromMaybe )
+    ( fromMaybe
+    )
 import Network.HTTP.Types
-    ( Status (statusCode) )
+    ( Status (statusCode)
+    )
 import Servant.Client
-    ( runClientM )
-
-import qualified Blockfrost.Client as BF
-import qualified Servant.Client as Servant
+    ( runClientM
+    )
+import Servant.Client qualified as Servant
+import Prelude
 
 newtype BFM a = BFM (ReaderT BF.ClientConfig (ExceptT BlockfrostError IO) a)
     deriving newtype
@@ -68,7 +80,6 @@ consensual404 = (maybe NotConsensual Consensual <$>) . maybe404
 handleStatus :: b -> (a -> b) -> Int -> BFM a -> BFM b
 handleStatus notMatched matched status bfm =
     (matched <$> bfm) `catchError` \case
-        ClientError (Servant.FailureResponse _ (Servant.Response s  _ _ _))
+        ClientError (Servant.FailureResponse _ (Servant.Response s _ _ _))
             | statusCode s == status -> pure notMatched
         e -> throwError e
-

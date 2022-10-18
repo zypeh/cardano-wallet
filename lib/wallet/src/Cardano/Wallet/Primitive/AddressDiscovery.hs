@@ -18,31 +18,31 @@
 --
 --  * "Cardano.Wallet.Primitive.AddressDiscovery.Sequential"
 --  * "Cardano.Wallet.Primitive.AddressDiscovery.Random"
-
 module Cardano.Wallet.Primitive.AddressDiscovery
-    ( IsOurs(..)
-    , IsOwned(..)
-    , GenChange(..)
-    , CompareDiscovery(..)
-    , KnownAddresses(..)
+    ( IsOurs (..)
+    , IsOwned (..)
+    , GenChange (..)
+    , CompareDiscovery (..)
+    , KnownAddresses (..)
     , GetPurpose (..)
     , GetAccount (..)
     , coinTypeAda
     , MaybeLight (..)
     , DiscoverTxs (..)
-
     , PendingIxs
     , emptyPendingIxs
     , pendingIxsToList
     , pendingIxsFromList
     , nextChangeIndex
     , dropLowerPendingIxs
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Crypto.Wallet
-    ( XPrv, XPub )
+    ( XPrv
+    , XPub
+    )
+import Cardano.Wallet.Address.Pool qualified as AddressPool
 import Cardano.Wallet.Primitive.AddressDerivation
     ( Depth (..)
     , DerivationIndex (..)
@@ -52,24 +52,32 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , RewardAccount
     )
 import Cardano.Wallet.Primitive.BlockSummary
-    ( ChainEvents )
+    ( ChainEvents
+    )
 import Cardano.Wallet.Primitive.Passphrase.Types
-    ( Passphrase (..) )
+    ( Passphrase (..)
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..), AddressState (..) )
+    ( Address (..)
+    , AddressState (..)
+    )
 import Cardano.Wallet.Util
-    ( invariant )
+    ( invariant
+    )
 import Control.DeepSeq
-    ( NFData )
+    ( NFData
+    )
 import Data.Kind
-    ( Type )
+    ( Type
+    )
+import Data.List qualified as L
 import Data.List.NonEmpty
-    ( NonEmpty )
+    ( NonEmpty
+    )
 import GHC.Generics
-    ( Generic )
-
-import qualified Cardano.Wallet.Address.Pool as AddressPool
-import qualified Data.List as L
+    ( Generic
+    )
+import Prelude
 
 -- | Checks whether or not a given entity belongs to us.
 --
@@ -178,11 +186,11 @@ coinTypeAda :: Index 'Hardened 'CoinTypeK
 coinTypeAda = toEnum 0x80000717
 
 -- It is used for getting purpose for a given key.
-class GetPurpose (key :: Depth -> Type -> Type)  where
+class GetPurpose (key :: Depth -> Type -> Type) where
     getPurpose :: Index 'Hardened 'PurposeK
 
 -- It is used for getting account public key for a given state.
-class GetAccount s (key :: Depth -> Type -> Type) | s -> key  where
+class GetAccount s (key :: Depth -> Type -> Type) | s -> key where
     getAccount :: s -> key 'AccountK XPub
 
 -- | Checks whether the address discovery state @s@ works in light-mode
@@ -197,8 +205,11 @@ type LightDiscoverTxs s =
 -- | Function that discovers transactions based on an address.
 newtype DiscoverTxs addr txs s = DiscoverTxs
     { discoverTxs
-        :: forall m. Monad m
-        => (addr -> m txs) -> s -> m (txs, s)
+        :: forall m
+         . Monad m
+        => (addr -> m txs)
+        -> s
+        -> m (txs, s)
     }
 
 {-------------------------------------------------------------------------------
@@ -208,7 +219,8 @@ newtype DiscoverTxs addr txs s = DiscoverTxs
 -- | An ordered set of indexes used by pending transactions.
 newtype PendingIxs k = PendingIxs
     { pendingIxsToList :: [Index 'Soft k]
-    } deriving stock (Generic, Show, Eq)
+    }
+    deriving stock (Generic, Show, Eq)
 
 instance NFData (PendingIxs k)
 
@@ -227,8 +239,8 @@ pendingIxsFromList = PendingIxs . reverse . map head . L.group . L.sort
 -- | Get the next change index; If every available indexes have already been
 -- taken, we'll rotate the pending set and re-use already provided indexes.
 nextChangeIndex
-    :: forall (key :: Depth -> Type -> Type) k.
-       AddressPool.Pool (KeyFingerprint "payment" key) (Index 'Soft k)
+    :: forall (key :: Depth -> Type -> Type) k
+     . AddressPool.Pool (KeyFingerprint "payment" key) (Index 'Soft k)
     -> PendingIxs k
     -> (Index 'Soft k, PendingIxs k)
 nextChangeIndex pool (PendingIxs pendingIndexes) =
@@ -241,27 +253,29 @@ nextChangeIndex pool (PendingIxs pendingIndexes) =
                 [] -> (firstUnused, PendingIxs [firstUnused])
                 firstIndex : restIndexes ->
                     if length pendingIndexes < AddressPool.gap pool
-                        then let next = succ firstIndex
+                        then
+                            let next = succ firstIndex
                              in (next, PendingIxs (next : pendingIndexes))
-                        else ( firstIndex
-                             , PendingIxs (restIndexes <> [firstIndex])
-                             )
-        errorMessage = concat
-            [ "Next change index ("
-            , show (getIndex nextIndex)
-            , ") is NOT between the first unused ("
-            , show (getIndex firstUnused)
-            , ") and the last unused ("
-            , show (getIndex lastUnused)
-            , ") indexes. Pool length is "
-            , show poolLen
-            , ", gap is "
-            , show gap
-            , ". The pending indexes are: "
-            , L.intercalate ", " $ fmap (show . getIndex) pendingIndexes
-            ]
-    in
-        invariant errorMessage (nextIndex, pendingIndexes') $ \(index, _) ->
+                        else
+                            ( firstIndex
+                            , PendingIxs (restIndexes <> [firstIndex])
+                            )
+        errorMessage =
+            concat
+                [ "Next change index ("
+                , show (getIndex nextIndex)
+                , ") is NOT between the first unused ("
+                , show (getIndex firstUnused)
+                , ") and the last unused ("
+                , show (getIndex lastUnused)
+                , ") indexes. Pool length is "
+                , show poolLen
+                , ", gap is "
+                , show gap
+                , ". The pending indexes are: "
+                , L.intercalate ", " $ fmap (show . getIndex) pendingIndexes
+                ]
+     in invariant errorMessage (nextIndex, pendingIndexes') $ \(index, _) ->
             index >= firstUnused && index <= lastUnused
 
 dropLowerPendingIxs :: Index 'Soft k -> PendingIxs k -> PendingIxs k

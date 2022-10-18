@@ -18,72 +18,92 @@
 -- The format described in the decoders below are the one used in the Byron era
 -- of Cardano and will endure in the first stages of Shelley. They are also used
 -- by components like the Rust <https://github.com/input-output-hk/cardano-http-bridge cardano-http-bridge>.
-
 module Cardano.Byron.Codec.Cbor
-    (
-    -- * Decoding
+    ( -- * Decoding
       decodeAddressDerivationPath
     , decodeAddressPayload
     , decodeAllAttributes
     , decodeDerivationPathAttr
     , decodeTx
 
-    -- * Encoding
+      -- * Encoding
     , encodeAddress
     , encodeAttributes
     , encodeDerivationPathAttr
     , encodeProtocolMagicAttr
     , encodeTx
 
-    -- * Helpers
+      -- * Helpers
     , deserialiseCbor
     , decodeListIndef
     , decodeNestedBytes
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPub, xpubToBytes )
+    ( XPub
+    , xpubToBytes
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( Depth (..), DerivationType (..), Index (..) )
+    ( Depth (..)
+    , DerivationType (..)
+    , Index (..)
+    )
 import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase (..) )
+    ( Passphrase (..)
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
+import Cardano.Wallet.Primitive.Types.Coin qualified as Coin
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
+    ( Hash (..)
+    )
 import Cardano.Wallet.Primitive.Types.ProtocolMagic
-    ( ProtocolMagic (..) )
+    ( ProtocolMagic (..)
+    )
+import Cardano.Wallet.Primitive.Types.TokenBundle qualified as TokenBundle
 import Cardano.Wallet.Primitive.Types.Tx
-    ( TxIn (..), TxOut (..), unsafeCoinToTxOutCoinValue )
+    ( TxIn (..)
+    , TxOut (..)
+    , unsafeCoinToTxOutCoinValue
+    )
+import Codec.CBOR.Decoding qualified as CBOR
+import Codec.CBOR.Encoding qualified as CBOR
+import Codec.CBOR.Read qualified as CBOR
+import Codec.CBOR.Write qualified as CBOR
 import Control.Monad
-    ( replicateM, when )
+    ( replicateM
+    , when
+    )
+import Crypto.Cipher.ChaChaPoly1305 qualified as Poly
 import Crypto.Error
-    ( CryptoError (..), CryptoFailable (..) )
+    ( CryptoError (..)
+    , CryptoFailable (..)
+    )
 import Crypto.Hash
-    ( hash )
+    ( hash
+    )
 import Crypto.Hash.Algorithms
-    ( Blake2b_224, SHA3_256 )
+    ( Blake2b_224
+    , SHA3_256
+    )
+import Data.ByteArray qualified as BA
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BL
 import Data.Digest.CRC32
-    ( crc32 )
+    ( crc32
+    )
 import Data.Either.Extra
-    ( eitherToMaybe )
+    ( eitherToMaybe
+    )
 import Data.Word
-    ( Word8 )
-
-import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
-import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
-import qualified Codec.CBOR.Decoding as CBOR
-import qualified Codec.CBOR.Encoding as CBOR
-import qualified Codec.CBOR.Read as CBOR
-import qualified Codec.CBOR.Write as CBOR
-import qualified Crypto.Cipher.ChaChaPoly1305 as Poly
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BL
+    ( Word8
+    )
+import Prelude
 
 {-------------------------------------------------------------------------------
                        Byron Address Binary Format
@@ -92,30 +112,30 @@ In the composition of a Cardano address, the following functions concern the
 "Derivation Path" box.
 
 +-------------------------------------------------------------------------------+
-|                                                                               |
-|                        CBOR-Serialized Object with CRC¹                       |
-|                                                                               |
+\|                                                                               |
+\|                        CBOR-Serialized Object with CRC¹                       |
+\|                                                                               |
 +-------------------------------------------------------------------------------+
                                         |
                                         |
                                         v
 +-------------------------------------------------------------------------------+
-|     Address Root    |     Address Attributes    |           AddrType          |
-|                     |                           |                             |
-|   Hash (224 bits)   |  Der. Path² + Stake + NM  |  PubKey | (Script) | Redeem |
-|                     |    (open for extension)   |     (open for extension)    |
+\|     Address Root    |     Address Attributes    |           AddrType          |
+\|                     |                           |                             |
+\|   Hash (224 bits)   |  Der. Path² + Stake + NM  |  PubKey | (Script) | Redeem |
+\|                     |    (open for extension)   |     (open for extension)    |
 +-------------------------------------------------------------------------------+
              |                 |
              |                 |     +----------------------------------+
              v                 |     |        Derivation Path           |
 +---------------------------+  |---->|                                  |
-| SHA3-256                  |  |     | ChaChaPoly⁴ AccountIx/AddressIx  |
-|   |> Blake2b 224          |  |     +----------------------------------+
-|   |> CBOR                 |  |
-|                           |  |
-|  -AddrType                |  |     +----------------------------------+
-|  -ASD³ (~AddrType+PubKey) |  |     |       Stake Distribution         |
-|  -Address Attributes      |  |     |                                  |
+\| SHA3-256                  |  |     | ChaChaPoly⁴ AccountIx/AddressIx  |
+\|   |> Blake2b 224          |  |     +----------------------------------+
+\|   |> CBOR                 |  |
+\|                           |  |
+\|  -AddrType                |  |     +----------------------------------+
+\|  -ASD³ (~AddrType+PubKey) |  |     |       Stake Distribution         |
+\|  -Address Attributes      |  |     |                                  |
 +---------------------------+  |---->|  BootstrapEra | (Single | Multi) |
                                |     +----------------------------------+
                                |
@@ -131,11 +151,11 @@ In the composition of a Cardano address, the following functions concern the
 decodeAddress :: CBOR.Decoder s Address
 decodeAddress = do
     _ <- CBOR.decodeListLenCanonicalOf 2
-        -- CRC Protection Wrapper
+    -- CRC Protection Wrapper
     tag <- CBOR.decodeTag
-        -- Mysterious hard-coded tag cardano-sl seems to so much like
+    -- Mysterious hard-coded tag cardano-sl seems to so much like
     bytes <- CBOR.decodeBytes
-        -- Addr Root + Attributes + Type
+    -- Addr Root + Attributes + Type
     crc <- CBOR.decodeWord32 -- CRC
     -- NOTE 1:
     -- Treating addresses as a blob here, so we just re-encode them as such
@@ -144,11 +164,14 @@ decodeAddress = do
     --
     -- NOTE 2:
     -- We may want to check the CRC at this level as-well... maybe not.
-    return $ Address $ CBOR.toStrictByteString $ mempty
-        <> CBOR.encodeListLen 2
-        <> CBOR.encodeTag tag
-        <> CBOR.encodeBytes bytes
-        <> CBOR.encodeWord32 crc
+    return $
+        Address $
+            CBOR.toStrictByteString $
+                mempty
+                    <> CBOR.encodeListLen 2
+                    <> CBOR.encodeTag tag
+                    <> CBOR.encodeBytes bytes
+                    <> CBOR.encodeWord32 crc
 
 decodeAddressPayload :: CBOR.Decoder s ByteString
 decodeAddressPayload = do
@@ -160,20 +183,24 @@ decodeAddressPayload = do
 
 decodeAddressDerivationPath
     :: Passphrase "addr-derivation-payload"
-    -> CBOR.Decoder s (Maybe
-        ( Index 'WholeDomain 'AccountK
-        , Index 'WholeDomain 'CredFromKeyK
-        ))
+    -> CBOR.Decoder
+        s
+        ( Maybe
+            ( Index 'WholeDomain 'AccountK
+            , Index 'WholeDomain 'CredFromKeyK
+            )
+        )
 decodeAddressDerivationPath pwd = do
     _ <- CBOR.decodeListLenCanonicalOf 3
     _ <- CBOR.decodeBytes
     path <- decodeAllAttributes >>= decodeDerivationPathAttr pwd
     addrType <- CBOR.decodeWord8 -- Type
     when (addrType /= 0) $
-        fail $ mconcat
-            [ "decodeAddressDerivationPath: type is not 0 (public key), it is "
-            , show addrType
-            ]
+        fail $
+            mconcat
+                [ "decodeAddressDerivationPath: type is not 0 (public key), it is "
+                , show addrType
+                ]
     pure path
 
 decodeEmptyAttributes :: CBOR.Decoder s ((), CBOR.Encoding)
@@ -194,24 +221,33 @@ decodeAllAttributes = do
 decodeDerivationPathAttr
     :: Passphrase "addr-derivation-payload"
     -> [(Word8, ByteString)]
-    -> CBOR.Decoder s (Maybe
-        ( Index 'WholeDomain 'AccountK
-        , Index 'WholeDomain 'CredFromKeyK
-        ))
+    -> CBOR.Decoder
+        s
+        ( Maybe
+            ( Index 'WholeDomain 'AccountK
+            , Index 'WholeDomain 'CredFromKeyK
+            )
+        )
 decodeDerivationPathAttr pwd attrs = do
     case lookup derPathTag attrs of
         Just payload -> do
             decodeNestedBytes decoder payload
-        Nothing -> fail $ mconcat
-            [ "decodeDerivationPathAttr: Missing attribute "
-            , show derPathTag
-            ]
+        Nothing ->
+            fail $
+                mconcat
+                    [ "decodeDerivationPathAttr: Missing attribute "
+                    , show derPathTag
+                    ]
   where
     derPathTag = 1
-    decoder :: CBOR.Decoder s (Maybe
-        ( Index 'WholeDomain 'AccountK
-        , Index 'WholeDomain 'CredFromKeyK
-        ))
+    decoder
+        :: CBOR.Decoder
+            s
+            ( Maybe
+                ( Index 'WholeDomain 'AccountK
+                , Index 'WholeDomain 'CredFromKeyK
+                )
+            )
     decoder = do
         bytes <- CBOR.decodeBytes
         case decryptDerivationPath pwd bytes of
@@ -222,7 +258,8 @@ decodeDerivationPathAttr pwd attrs = do
 
 -- Opposite of 'encodeDerivationPath'.
 decodeDerivationPath
-    :: CBOR.Decoder s
+    :: CBOR.Decoder
+        s
         ( Index 'WholeDomain 'AccountK
         , Index 'WholeDomain 'CredFromKeyK
         )
@@ -232,11 +269,12 @@ decodeDerivationPath = do
         [acctIx, addrIx] ->
             pure (toEnum $ fromIntegral acctIx, toEnum $ fromIntegral addrIx)
         _ ->
-            fail $ mconcat
-                [ "decodeDerivationPath: invalid derivation path payload: "
-                , "expected two indexes but got: "
-                , show ixs
-                ]
+            fail $
+                mconcat
+                    [ "decodeDerivationPath: invalid derivation path payload: "
+                    , "expected two indexes but got: "
+                    , show ixs
+                    ]
 
 decodeTx :: CBOR.Decoder s ([TxIn], [TxOut])
 decodeTx = do
@@ -309,28 +347,37 @@ encodeAddress xpub attrs =
   where
     blake2b224 = hash @_ @Blake2b_224
     sha3256 = hash @_ @SHA3_256
-    payload = CBOR.toStrictByteString $ mempty
-        <> CBOR.encodeListLen 3
-        <> CBOR.encodeBytes root
-        <> encodeAttributes attrs
-        <> CBOR.encodeWord8 0 -- Address Type, 0 = Public Key
-    root = BA.convert $ blake2b224 $ sha3256 $ CBOR.toStrictByteString $ mempty
-        <> CBOR.encodeListLen 3
-        <> CBOR.encodeWord8 0 -- Address Type, 0 = Public Key
-        <> encodeSpendingData
-        <> encodeAttributes attrs
+    payload =
+        CBOR.toStrictByteString $
+            mempty
+                <> CBOR.encodeListLen 3
+                <> CBOR.encodeBytes root
+                <> encodeAttributes attrs
+                <> CBOR.encodeWord8 0 -- Address Type, 0 = Public Key
+    root =
+        BA.convert $
+            blake2b224 $
+                sha3256 $
+                    CBOR.toStrictByteString $
+                        mempty
+                            <> CBOR.encodeListLen 3
+                            <> CBOR.encodeWord8 0 -- Address Type, 0 = Public Key
+                            <> encodeSpendingData
+                            <> encodeAttributes attrs
     encodeXPub =
         CBOR.encodeBytes (xpubToBytes xpub)
-    encodeSpendingData = CBOR.encodeListLen 2
-        <> CBOR.encodeWord8 0
-        <> encodeXPub
+    encodeSpendingData =
+        CBOR.encodeListLen 2
+            <> CBOR.encodeWord8 0
+            <> encodeXPub
 
 encodeAddressPayload :: ByteString -> CBOR.Encoding
-encodeAddressPayload payload = mempty
-    <> CBOR.encodeListLen 2
-    <> CBOR.encodeTag 24 -- Hard-Coded Tag value in cardano-sl
-    <> CBOR.encodeBytes payload
-    <> CBOR.encodeWord32 (crc32 payload)
+encodeAddressPayload payload =
+    mempty
+        <> CBOR.encodeListLen 2
+        <> CBOR.encodeTag 24 -- Hard-Coded Tag value in cardano-sl
+        <> CBOR.encodeBytes payload
+        <> CBOR.encodeWord32 (crc32 payload)
 
 encodeAttributes :: [CBOR.Encoding] -> CBOR.Encoding
 encodeAttributes attrs = CBOR.encodeMapLen l <> mconcat attrs
@@ -338,9 +385,10 @@ encodeAttributes attrs = CBOR.encodeMapLen l <> mconcat attrs
     l = fromIntegral (length attrs)
 
 encodeProtocolMagicAttr :: ProtocolMagic -> CBOR.Encoding
-encodeProtocolMagicAttr pm = mempty
-    <> CBOR.encodeWord 2 -- Tag for 'ProtocolMagic' attribute
-    <> CBOR.encodeBytes (CBOR.toStrictByteString $ encodeProtocolMagic pm)
+encodeProtocolMagicAttr pm =
+    mempty
+        <> CBOR.encodeWord 2 -- Tag for 'ProtocolMagic' attribute
+        <> CBOR.encodeBytes (CBOR.toStrictByteString $ encodeProtocolMagic pm)
 
 -- This is the opposite of 'decodeDerivationPathAttr'.
 --
@@ -350,9 +398,10 @@ encodeDerivationPathAttr
     -> Index 'WholeDomain 'AccountK
     -> Index 'WholeDomain 'CredFromKeyK
     -> CBOR.Encoding
-encodeDerivationPathAttr pwd acctIx addrIx = mempty
-    <> CBOR.encodeWord8 1 -- Tag for 'DerivationPath' attribute
-    <> CBOR.encodeBytes (encryptDerivationPath pwd path)
+encodeDerivationPathAttr pwd acctIx addrIx =
+    mempty
+        <> CBOR.encodeWord8 1 -- Tag for 'DerivationPath' attribute
+        <> CBOR.encodeBytes (encryptDerivationPath pwd path)
   where
     path = encodeDerivationPath acctIx addrIx
 
@@ -360,54 +409,62 @@ encodeDerivationPath
     :: Index 'WholeDomain 'AccountK
     -> Index 'WholeDomain 'CredFromKeyK
     -> CBOR.Encoding
-encodeDerivationPath (Index acctIx) (Index addrIx) = mempty
-    <> CBOR.encodeListLenIndef
-    <> CBOR.encodeWord32 acctIx
-    <> CBOR.encodeWord32 addrIx
-    <> CBOR.encodeBreak
+encodeDerivationPath (Index acctIx) (Index addrIx) =
+    mempty
+        <> CBOR.encodeListLenIndef
+        <> CBOR.encodeWord32 acctIx
+        <> CBOR.encodeWord32 addrIx
+        <> CBOR.encodeBreak
 
 encodeTx :: ([TxIn], [TxOut]) -> CBOR.Encoding
-encodeTx (inps, outs) = mempty
-    <> CBOR.encodeListLen 3
-    <> CBOR.encodeListLenIndef
-    <> mconcat (encodeTxIn <$> inps)
-    <> CBOR.encodeBreak
-    <> CBOR.encodeListLenIndef
-    <> mconcat (encodeTxOut <$> outs)
-    <> CBOR.encodeBreak
-    <> encodeTxAttributes
+encodeTx (inps, outs) =
+    mempty
+        <> CBOR.encodeListLen 3
+        <> CBOR.encodeListLenIndef
+        <> mconcat (encodeTxIn <$> inps)
+        <> CBOR.encodeBreak
+        <> CBOR.encodeListLenIndef
+        <> mconcat (encodeTxOut <$> outs)
+        <> CBOR.encodeBreak
+        <> encodeTxAttributes
 
 encodeTxAttributes :: CBOR.Encoding
-encodeTxAttributes = mempty
-    <> CBOR.encodeMapLen 0
+encodeTxAttributes =
+    mempty
+        <> CBOR.encodeMapLen 0
 
 encodeProtocolMagic :: ProtocolMagic -> CBOR.Encoding
 encodeProtocolMagic (ProtocolMagic i) = CBOR.encodeInt32 i
 
 encodeTxIn :: TxIn -> CBOR.Encoding
-encodeTxIn (TxIn (Hash txid) ix) = mempty
-    <> CBOR.encodeListLen 2
-    <> CBOR.encodeWord8 0
-    <> CBOR.encodeTag 24 -- Hard-coded Tag value in cardano-sl
-    <> CBOR.encodeBytes bytes
-  where
-    bytes = CBOR.toStrictByteString $ mempty
+encodeTxIn (TxIn (Hash txid) ix) =
+    mempty
         <> CBOR.encodeListLen 2
-        <> CBOR.encodeBytes txid
-        <> CBOR.encodeWord32 ix
+        <> CBOR.encodeWord8 0
+        <> CBOR.encodeTag 24 -- Hard-coded Tag value in cardano-sl
+        <> CBOR.encodeBytes bytes
+  where
+    bytes =
+        CBOR.toStrictByteString $
+            mempty
+                <> CBOR.encodeListLen 2
+                <> CBOR.encodeBytes txid
+                <> CBOR.encodeWord32 ix
 
 encodeTxOut :: TxOut -> CBOR.Encoding
-encodeTxOut (TxOut (Address addr) tb) = mempty
-    <> CBOR.encodeListLen 2
-    <> encodeAddressPayload payload
-    <> CBOR.encodeWord64 (unsafeCoinToTxOutCoinValue $ TokenBundle.getCoin tb)
+encodeTxOut (TxOut (Address addr) tb) =
+    mempty
+        <> CBOR.encodeListLen 2
+        <> encodeAddressPayload payload
+        <> CBOR.encodeWord64 (unsafeCoinToTxOutCoinValue $ TokenBundle.getCoin tb)
   where
     invariant =
         error $ "encodeTxOut: unable to decode address payload: " <> show addr
     payload =
-        either (const invariant) snd $ CBOR.deserialiseFromBytes
-            decodeAddressPayload
-            (BL.fromStrict addr)
+        either (const invariant) snd $
+            CBOR.deserialiseFromBytes
+                decodeAddressPayload
+                (BL.fromStrict addr)
 
 {-------------------------------------------------------------------------------
                     HD payload encryption and authentication
@@ -422,11 +479,11 @@ cardanoNonce = "serokellfore"
 -- NOTE: The caller must ensure that the passphrase length is 32 bytes.
 encryptDerivationPath
     :: Passphrase "addr-derivation-payload"
-       -- ^ Symmetric key / passphrase, 32-byte long
+    -- ^ Symmetric key / passphrase, 32-byte long
     -> CBOR.Encoding
-        -- ^ Payload to be encrypted
+    -- ^ Payload to be encrypted
     -> ByteString
-        -- ^ Ciphertext with a 128-bit crypto-tag appended.
+    -- ^ Ciphertext with a 128-bit crypto-tag appended.
 encryptDerivationPath passphrase payload = unsafeSerialize $ do
     nonce <- Poly.nonce12 cardanoNonce
     st1 <- Poly.finalizeAAD <$> Poly.initialize (unPassphrase passphrase) nonce
@@ -447,9 +504,9 @@ encryptDerivationPath passphrase payload = unsafeSerialize $ do
 -- addresses.
 decryptDerivationPath
     :: Passphrase "addr-derivation-payload"
-       -- ^ Symmetric key / passphrase, 32-byte long
+    -- ^ Symmetric key / passphrase, 32-byte long
     -> ByteString
-        -- ^ Payload to be decrypted
+    -- ^ Payload to be decrypted
     -> CryptoFailable ByteString
 decryptDerivationPath passphrase bytes = do
     let (payload, tag) = BS.splitAt (BS.length bytes - 16) bytes

@@ -1,31 +1,36 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Cardano.Wallet.DB.Store.Meta.ModelSpec
     ( spec
     , genDeltasForManipulate
-    , genExpand ) where
-
-import Prelude
+    , genExpand
+    )
+where
 
 import Cardano.Wallet.DB.Arbitrary
-    ()
+    (
+    )
 import Cardano.Wallet.DB.Fixtures
-    ( elementsOrArbitrary, frequencySuchThat, logScale )
+    ( elementsOrArbitrary
+    , frequencySuchThat
+    , logScale
+    )
 import Cardano.Wallet.DB.Sqlite.Schema
     ( TxMeta (txMetaDirection, txMetaSlot, txMetaStatus)
     , txMetaSlotExpires
     , txMetaTxId
     )
 import Cardano.Wallet.DB.Sqlite.Types
-    ( TxId (TxId) )
+    ( TxId (TxId)
+    )
 import Cardano.Wallet.DB.Store.Meta.Model
     ( DeltaTxMetaHistory (..)
     , ManipulateTxMetaHistory (..)
@@ -33,45 +38,68 @@ import Cardano.Wallet.DB.Store.Meta.Model
     , mkTxMetaHistory
     )
 import Cardano.Wallet.Primitive.Types
-    ( WalletId )
+    ( WalletId
+    )
+import Cardano.Wallet.Primitive.Types qualified as W
 import Cardano.Wallet.Primitive.Types.Tx
-    ( Direction (Incoming, Outgoing), TxStatus (InLedger, Pending), status )
+    ( Direction (Incoming, Outgoing)
+    , TxStatus (InLedger, Pending)
+    , status
+    )
+import Cardano.Wallet.Primitive.Types.Tx qualified as W
 import Control.Arrow
-    ( (***) )
+    ( (***)
+    )
 import Data.Delta
-    ( Delta (..) )
+    ( Delta (..)
+    )
 import Data.Foldable
-    ( foldl', toList )
+    ( foldl'
+    , toList
+    )
 import Data.Generics.Internal.VL
-    ( over )
+    ( over
+    )
 import Data.Map.Strict
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-    ( catMaybes, fromJust )
+    ( catMaybes
+    , fromJust
+    )
 import Data.Set
-    ( Set )
+    ( Set
+    )
+import Data.Set qualified as Set
 import Test.Hspec
-    ( Spec, describe, it )
+    ( Spec
+    , describe
+    , it
+    )
 import Test.QuickCheck
-    ( Gen, Property, arbitrary, cover, elements, listOf1, property )
-
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Cardano.Wallet.Primitive.Types.Tx as W
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+    ( Gen
+    , Property
+    , arbitrary
+    , cover
+    , elements
+    , listOf1
+    , property
+    )
+import Prelude
 
 spec :: Spec
 spec = do
     describe "meta-transactions delta instance" $ do
-        it "can prune all not-in-ledger transaction"
-            $ property prop_PruneToAllInLedger
-        it "can mark pending transactions as expired based on current slot"
-            $ property prop_AgeAllPending2Expire
+        it "can prune all not-in-ledger transaction" $
+            property prop_PruneToAllInLedger
+        it "can mark pending transactions as expired based on current slot" $
+            property prop_AgeAllPending2Expire
         it
             "can mark past pending transactions as expired based on current slot"
             $ property prop_AgeSomePending2Expire
-        it "can roll back to a given slot, removing all incoming transactions"
-            $ property prop_RollBackRemoveAfterSlot
+        it "can roll back to a given slot, removing all incoming transactions" $
+            property prop_RollBackRemoveAfterSlot
         it
             "can roll back to a given slot, switching all outgoing transactions \
             \ after slot in pending state"
@@ -79,40 +107,40 @@ spec = do
         it
             "can roll back to a given slot, preserving all outgoing transactions"
             $ property prop_RollBackPreserveOutgoing
-        it "can roll back to a given slot, leaving past untouched"
-            $ property prop_RollBackDoNotTouchPast
+        it "can roll back to a given slot, leaving past untouched" $
+            property prop_RollBackDoNotTouchPast
 
 genDeltasForManipulate :: TxMetaHistory -> [(Int, Gen ManipulateTxMetaHistory)]
 genDeltasForManipulate history =
-    [(1, PruneTxMetaHistory . TxId <$> arbitrary)
-   , (4, genPrune history)
-   , (1, AgeTxMetaHistory <$> arbitrary)
-   , (1, genAge history)
-   , (3, genRollBack history)
+    [ (1, PruneTxMetaHistory . TxId <$> arbitrary)
+    , (4, genPrune history)
+    , (1, AgeTxMetaHistory <$> arbitrary)
+    , (1, genAge history)
+    , (3, genRollBack history)
     ]
 
 genAge :: TxMetaHistory -> Gen ManipulateTxMetaHistory
 genAge (TxMetaHistory history) =
-    fmap AgeTxMetaHistory
-    $ elementsOrArbitrary id
-    $ catMaybes
-    $ txMetaSlotExpires <$> toList history
+    fmap AgeTxMetaHistory $
+        elementsOrArbitrary id $
+            catMaybes $
+                txMetaSlotExpires <$> toList history
 
 genPrune :: TxMetaHistory -> Gen ManipulateTxMetaHistory
 genPrune history =
-    fmap PruneTxMetaHistory
-    $ elementsOrArbitrary TxId
-    $ Map.keys
-    $ relations history
+    fmap PruneTxMetaHistory $
+        elementsOrArbitrary TxId $
+            Map.keys $
+                relations history
 
 genExpand :: WalletId -> Gen [(W.Tx, W.TxMeta)] -> Gen TxMetaHistory
 genExpand wid g = mkTxMetaHistory wid <$> g
 
 genRollBack :: TxMetaHistory -> Gen ManipulateTxMetaHistory
 genRollBack (TxMetaHistory history) =
-    fmap RollBackTxMetaHistory
-    $ elementsOrArbitrary id
-    $ txMetaSlot <$> toList history
+    fmap RollBackTxMetaHistory $
+        elementsOrArbitrary id $
+            txMetaSlot <$> toList history
 
 withExpanded :: W.WalletId -> Gen [(W.Tx, W.TxMeta)] -> Gen TxMetaHistory
 withExpanded wid expandG = do
@@ -122,20 +150,22 @@ withExpanded wid expandG = do
 type WithWalletProperty = WalletId -> Property
 
 withPropRollBack
-    :: (( (TxMetaHistory, TxMetaHistory) -- bootHistory split
-        , (TxMetaHistory, TxMetaHistory) -- newHistory split
-        )
-        -> WithWalletProperty)
+    :: ( ( (TxMetaHistory, TxMetaHistory) -- bootHistory split
+         , (TxMetaHistory, TxMetaHistory) -- newHistory split
+         )
+         -> WithWalletProperty
+       )
     -> WithWalletProperty
 withPropRollBack f wid = property $ do
-    bootHistory <- withExpanded
-        wid
-        (listOf1 arbitrary)
+    bootHistory <-
+        withExpanded
+            wid
+            (listOf1 arbitrary)
     slotNo <- internalSlotNoG bootHistory
     let newHistory =
-            apply `flip` bootHistory
-            $ Manipulate
-            $ RollBackTxMetaHistory slotNo
+            apply `flip` bootHistory $
+                Manipulate $
+                    RollBackTxMetaHistory slotNo
     pure
         $ cover
             40
@@ -149,35 +179,37 @@ withPropRollBack f wid = property $ do
 
 prop_RollBackRemoveAfterSlot :: WithWalletProperty
 prop_RollBackRemoveAfterSlot =
-    withPropRollBack $ \((_afterBoot,_beforeBoot),(afterNew,_beforeNew)) _
-    -> property $ null $ relations afterNew
+    withPropRollBack $ \((_afterBoot, _beforeBoot), (afterNew, _beforeNew)) _ ->
+        property $ null $ relations afterNew
 
 prop_RollBackSwitchOutgoing :: WithWalletProperty
 prop_RollBackSwitchOutgoing =
-    withPropRollBack $ \((_afterBoot,beforeBoot),(_afterNew,beforeNew)) _ -> do
-        let future = overTxMetaHistory beforeNew $ \beforeMap
-                -> Map.difference beforeMap $ relations beforeBoot
-        property
-            $ all
-                ((&&) <$> ((==) Pending . txMetaStatus)
-                 <*> ((==) Outgoing . txMetaDirection))
+    withPropRollBack $ \((_afterBoot, beforeBoot), (_afterNew, beforeNew)) _ -> do
+        let future = overTxMetaHistory beforeNew $ \beforeMap ->
+                Map.difference beforeMap $ relations beforeBoot
+        property $
+            all
+                ( (&&)
+                    <$> ((==) Pending . txMetaStatus)
+                    <*> ((==) Outgoing . txMetaDirection)
+                )
                 (relations future)
 
 prop_RollBackPreserveOutgoing :: WithWalletProperty
 prop_RollBackPreserveOutgoing =
-    withPropRollBack $ \((afterBoot,beforeBoot),(_afterNew,beforeNew)) _ -> do
-        let future = overTxMetaHistory beforeNew $ \beforeMap
-                -> Map.difference beforeMap $ relations beforeBoot
-        property
-            $ (==)
+    withPropRollBack $ \((afterBoot, beforeBoot), (_afterNew, beforeNew)) _ -> do
+        let future = overTxMetaHistory beforeNew $ \beforeMap ->
+                Map.difference beforeMap $ relations beforeBoot
+        property $
+            (==)
                 (Map.keys $ allOutgoing afterBoot)
                 (Map.keys $ relations future)
 
 prop_RollBackDoNotTouchPast :: WithWalletProperty
 prop_RollBackDoNotTouchPast =
-    withPropRollBack $ \((afterBoot,beforeBoot),(_afterNew,beforeNew)) _ -> do
-        let past = overTxMetaHistory beforeNew $ \beforeMap
-                -> Map.difference beforeMap $ relations afterBoot
+    withPropRollBack $ \((afterBoot, beforeBoot), (_afterNew, beforeNew)) _ -> do
+        let past = overTxMetaHistory beforeNew $ \beforeMap ->
+                Map.difference beforeMap $ relations afterBoot
         property $ past == beforeBoot
 
 overTxMetaHistory
@@ -204,17 +236,18 @@ internalSlotNoG th = elements $ toList $ allSlots th
 
 splitHistory :: W.SlotNo -> TxMetaHistory -> (TxMetaHistory, TxMetaHistory)
 splitHistory slotSplit (TxMetaHistory txs) =
-    (TxMetaHistory *** TxMetaHistory)
-    $ Map.partition ((> slotSplit) . txMetaSlot) txs
+    (TxMetaHistory *** TxMetaHistory) $
+        Map.partition ((> slotSplit) . txMetaSlot) txs
 
 prop_AgeAllPending2Expire :: WithWalletProperty
 prop_AgeAllPending2Expire wid = property $ do
-    bootHistory <- withExpanded
-        wid
-        (listOf1 generatePendings)
+    bootHistory <-
+        withExpanded
+            wid
+            (listOf1 generatePendings)
     let result =
-            foldl' (flip apply) bootHistory
-            $ Manipulate <$> firstPendingSlot bootHistory
+            foldl' (flip apply) bootHistory $
+                Manipulate <$> firstPendingSlot bootHistory
     pure
         $ cover
             50
@@ -232,29 +265,38 @@ firstPendingSlot (TxMetaHistory txs) =
 
 prop_AgeSomePending2Expire :: WithWalletProperty
 prop_AgeSomePending2Expire wid = property $ do
-    bootHistory <- withExpanded
-        wid
-        (listOf1 generatePendings)
+    bootHistory <-
+        withExpanded
+            wid
+            (listOf1 generatePendings)
     let pendings = allPendings bootHistory
     if null pendings
         then pure $ property True
         else do
-            (splitSlot,(unchanged,changed)) <- splitPendingsG pendings
+            (splitSlot, (unchanged, changed)) <- splitPendingsG pendings
             let newHistory =
-                    apply `flip` bootHistory
-                    $ Manipulate
-                    $ AgeTxMetaHistory splitSlot
+                    apply `flip` bootHistory $
+                        Manipulate $
+                            AgeTxMetaHistory splitSlot
             pure
                 $ cover
                     50
                     (length unchanged + length changed > 0)
                     "pending transactions size"
                 $ snd (pendingsPartitionedBySlot newHistory splitSlot)
-                == changed
+                    == changed
 
 generatePendings :: Gen (W.Tx, W.TxMeta)
-generatePendings = frequencySuchThat arbitrary [(20, \(_,meta)
-    -> status meta == Pending), (1, const True) ]
+generatePendings =
+    frequencySuchThat
+        arbitrary
+        [
+            ( 20
+            , \(_, meta) ->
+                status meta == Pending
+            )
+        , (1, const True)
+        ]
 
 noPendingLeft :: TxMetaHistory -> Bool
 noPendingLeft
@@ -262,26 +304,26 @@ noPendingLeft
 
 allPendings :: TxMetaHistory -> Map W.SlotNo [TxId]
 allPendings (TxMetaHistory txs) =
-    Map.fromListWith (<>)
-    $ fmap (\(k,v) -> (v, [k ]))
-    $ Map.assocs
-    $ (fromJust . txMetaSlotExpires)
-    <$> Map.filter ((==) Pending . txMetaStatus) txs
+    Map.fromListWith (<>) $
+        fmap (\(k, v) -> (v, [k])) $
+            Map.assocs $
+                (fromJust . txMetaSlotExpires)
+                    <$> Map.filter ((==) Pending . txMetaStatus) txs
 
 splitPendingsG :: Map W.SlotNo [TxId] -> Gen (W.SlotNo, (Set TxId, Set TxId))
 splitPendingsG m = do
     k <- elements $ Map.keys m
-    pure
-        $ (k, )
-        $ (foldMap Set.fromList *** foldMap Set.fromList)
-        $ Map.split k m
+    pure $
+        (k,) $
+            (foldMap Set.fromList *** foldMap Set.fromList) $
+                Map.split k m
 
 pendingsPartitionedBySlot :: TxMetaHistory -> W.SlotNo -> (Set TxId, Set TxId)
 pendingsPartitionedBySlot (TxMetaHistory txs) slotNo =
-    (Map.keysSet *** Map.keysSet)
-    $ Map.partition (<= slotNo)
-    $ (fromJust . txMetaSlotExpires)
-    <$> Map.filter ((==) Pending . txMetaStatus) txs
+    (Map.keysSet *** Map.keysSet) $
+        Map.partition (<= slotNo) $
+            (fromJust . txMetaSlotExpires)
+                <$> Map.filter ((==) Pending . txMetaStatus) txs
 
 allInLedger :: TxMetaHistory -> Bool
 allInLedger (TxMetaHistory txs) =

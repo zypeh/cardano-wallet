@@ -5,20 +5,25 @@
 
 module Data.Text.ClassSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Data.Either
-    ( isLeft )
+    ( isLeft
+    )
 import Data.Foldable
-    ( toList )
+    ( toList
+    )
 import Data.Maybe
-    ( isNothing )
+    ( isNothing
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
     ( CaseStyle (..)
     , FromText (..)
@@ -29,15 +34,23 @@ import Data.Text.Class
     , toTextFromBoundedEnum
     )
 import Data.Time.Clock
-    ( NominalDiffTime )
+    ( NominalDiffTime
+    )
 import Data.Word
-    ( Word32 )
+    ( Word32
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import Numeric.Natural
-    ( Natural )
+    ( Natural
+    )
 import Test.Hspec
-    ( Spec, describe, it, shouldSatisfy )
+    ( Spec
+    , describe
+    , it
+    , shouldSatisfy
+    )
 import Test.QuickCheck
     ( Arbitrary (..)
     , UnicodeString (..)
@@ -54,9 +67,9 @@ import Test.QuickCheck
     , (==>)
     )
 import Test.Text.Roundtrip
-    ( textRoundtrip )
-
-import qualified Data.Text as T
+    ( textRoundtrip
+    )
+import Prelude
 
 spec :: Spec
 spec = do
@@ -72,36 +85,38 @@ spec = do
         it "fromText \"patate\"" $
             let err =
                     "Int is an integer number between "
-                    <> show (minBound @Int)
-                    <> " and "
-                    <> show (maxBound @Int)
-                    <> "."
-            in fromText @Int "patate" === Left (TextDecodingError err)
+                        <> show (minBound @Int)
+                        <> " and "
+                        <> show (maxBound @Int)
+                        <> "."
+             in fromText @Int "patate" === Left (TextDecodingError err)
         it "fromText ~ fromTextMaybe" $
             property $ \(Digits t) ->
-                classify (isNothing (fromTextMaybe @Int t))
-                    "invalid" $
-                classify ((compare 0 <$> fromTextMaybe @Int t) == Just GT)
-                    "valid negative" $
-                toList (fromTextMaybe @Int t) === toList (fromText t)
+                classify
+                    (isNothing (fromTextMaybe @Int t))
+                    "invalid"
+                    $ classify
+                        ((compare 0 <$> fromTextMaybe @Int t) == Just GT)
+                        "valid negative"
+                    $ toList (fromTextMaybe @Int t) === toList (fromText t)
 
     describe "Natural" $ do
         it "fromText \"patate\"" $
             let err = "Expecting natural number"
-            in fromText @Natural "patate" === Left (TextDecodingError err)
+             in fromText @Natural "patate" === Left (TextDecodingError err)
 
         it "fromText 14.42" $
             let err = "Expecting natural number"
-            in fromText @Natural "14.42" === Left (TextDecodingError err)
+             in fromText @Natural "14.42" === Left (TextDecodingError err)
 
         it "fromText -14" $
             let err = "Expecting natural number"
-            in fromText @Natural "-14" === Left (TextDecodingError err)
+             in fromText @Natural "-14" === Left (TextDecodingError err)
 
     describe "Double" $ do
         it "fromText \"patate\"" $
             let err = "Expecting floating number"
-            in fromText @Double "patate" === Left (TextDecodingError err)
+             in fromText @Double "patate" === Left (TextDecodingError err)
 
     describe "Text" $ do
         it "fromText \"patate\"" $
@@ -125,8 +140,10 @@ spec = do
         it "fromTextToBoundedEnum t (toTextFromBoundedEnum s a) == Left _" $
             property $ \(s :: CaseStyle) (t :: CaseStyle) ->
                 s /= t ==>
-                    fromTextToBoundedEnum @TestBoundedEnum t
-                        (toTextFromBoundedEnum s FooBar) `shouldSatisfy` isLeft
+                    fromTextToBoundedEnum @TestBoundedEnum
+                        t
+                        (toTextFromBoundedEnum s FooBar)
+                        `shouldSatisfy` isLeft
         it "CamelCase" $
             toTextFromBoundedEnum CamelCase FooBarBaz === "fooBarBaz"
         it "PascalCase" $
@@ -152,15 +169,16 @@ instance Arbitrary Text where
     shrink = map (T.pack . getUnicodeString) . shrink . UnicodeString . T.unpack
     arbitrary = T.pack . getUnicodeString <$> arbitrary
 
-newtype Digits = Digits { getDigits :: Text } deriving Show
+newtype Digits = Digits {getDigits :: Text} deriving (Show)
 
 instance Arbitrary Digits where
     shrink = map (Digits . T.pack) . shrink . T.unpack . getDigits
-    arbitrary = Digits . T.pack <$> do
-        n <- choose (0,10)
-        str <- vectorOf n (elements ('x':['0'..'9']))
-        sign <- elements ["", "-", "+"]
-        pure (sign ++ str)
+    arbitrary =
+        Digits . T.pack <$> do
+            n <- choose (0, 10)
+            str <- vectorOf n (elements ('x' : ['0' .. '9']))
+            sign <- elements ["", "-", "+"]
+            pure (sign ++ str)
 
 instance Arbitrary Natural where
     shrink = shrinkIntegral
@@ -171,18 +189,18 @@ instance Arbitrary NominalDiffTime where
     arbitrary = fromIntegral @Natural <$> arbitrary
 
 data TestBoundedEnum
-    = A
-      -- ^ 1 char
-    | AB
-      -- ^ 2 chars
-    | ABC
-      -- ^ 3 chars
-    | Foo
-      -- ^ 1 word
-    | FooBar
-      -- ^ 2 words
-    | FooBarBaz
-      -- ^ 3 words
+    = -- | 1 char
+      A
+    | -- | 2 chars
+      AB
+    | -- | 3 chars
+      ABC
+    | -- | 1 word
+      Foo
+    | -- | 2 words
+      FooBar
+    | -- | 3 words
+      FooBarBaz
     deriving (Bounded, Enum, Eq, Generic, Ord, Show)
 
 instance Arbitrary TestBoundedEnum where

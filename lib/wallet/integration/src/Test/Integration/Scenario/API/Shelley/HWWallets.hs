@@ -10,12 +10,15 @@
 
 module Test.Integration.Scenario.API.Shelley.HWWallets
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Mnemonic
-    ( entropyToMnemonic, genEntropy, mnemonicToText )
+    ( entropyToMnemonic
+    , genEntropy
+    , mnemonicToText
+    )
+import Cardano.Wallet.Api.Link qualified as Link
 import Cardano.Wallet.Api.Types
     ( ApiAddress
     , ApiFee
@@ -28,29 +31,46 @@ import Cardano.Wallet.Api.Types
     , WalletStyle (..)
     )
 import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
-    ( defaultAddressPoolGap, getAddressPoolGap )
+    ( defaultAddressPoolGap
+    , getAddressPoolGap
+    )
 import Cardano.Wallet.Primitive.Types.Address
-    ( AddressState (..) )
+    ( AddressState (..)
+    )
 import Control.Monad
-    ( forM_ )
+    ( forM_
+    )
 import Control.Monad.IO.Class
-    ( liftIO )
+    ( liftIO
+    )
 import Control.Monad.Trans.Resource
-    ( runResourceT )
+    ( runResourceT
+    )
 import Data.Generics.Internal.VL.Lens
-    ( view, (^.) )
+    ( view
+    , (^.)
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Quantity
-    ( Quantity (..) )
+    ( Quantity (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Network.HTTP.Types.Status qualified as HTTP
 import Test.Hspec
-    ( SpecWith, describe )
+    ( SpecWith
+    , describe
+    )
 import Test.Hspec.Expectations.Lifted
-    ( shouldBe, shouldContain )
+    ( shouldBe
+    , shouldContain
+    )
 import Test.Hspec.Extra
-    ( it )
+    ( it
+    )
 import Test.Integration.Framework.DSL
     ( Context (..)
     , Headers (..)
@@ -79,16 +99,20 @@ import Test.Integration.Framework.DSL
     , walletId
     )
 import Test.Integration.Framework.TestData
-    ( errMsg403NoRootKey, payloadWith, updateNamePayload, updatePassPayload )
+    ( errMsg403NoRootKey
+    , payloadWith
+    , updateNamePayload
+    , updatePassPayload
+    )
+import Prelude
 
-import qualified Cardano.Wallet.Api.Link as Link
-import qualified Network.HTTP.Types.Status as HTTP
-
-spec :: forall n.
-    ( DecodeAddress n
-    , DecodeStakeAddress n
-    , EncodeAddress n
-    ) => SpecWith Context
+spec
+    :: forall n
+     . ( DecodeAddress n
+       , DecodeStakeAddress n
+       , EncodeAddress n
+       )
+    => SpecWith Context
 spec = describe "SHELLEY_HW_WALLETS" $ do
     it "HW_WALLETS_01 - Restoration from account public key preserves funds" $ \ctx -> runResourceT $ do
         wSrc <- fixtureWallet ctx
@@ -97,18 +121,21 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
         let wName = "!st created"
         let payldCrt = payloadWith wName mnemonics
         rInit <- postWallet ctx payldCrt
-        verify rInit
+        verify
+            rInit
             [ expectResponseCode HTTP.status201
             , expectField (#balance . #available) (`shouldBe` Quantity 0)
             , expectField (#balance . #total) (`shouldBe` Quantity 0)
             ]
 
-        --send funds
+        -- send funds
         let wDest = getFromResponse id rInit
         addrs <- listAddresses @n ctx wDest
         let destination = (addrs !! 1) ^. #id
         let minUTxOValue' = minUTxOValue (_mainEra ctx)
-        let payload = Json [json|{
+        let payload =
+                Json
+                    [json|{
                 "payments": [{
                     "address": #{destination},
                     "amount": {
@@ -118,18 +145,29 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
                 }],
                 "passphrase": "cardano-wallet"
             }|]
-        rTrans <- request @(ApiTransaction n) ctx
-            (Link.createTransactionOld @Shelley wSrc) Default payload
+        rTrans <-
+            request @(ApiTransaction n)
+                ctx
+                (Link.createTransactionOld @Shelley wSrc)
+                Default
+                payload
         expectResponseCode HTTP.status202 rTrans
 
         eventually "Wallet balance is as expected" $ do
-            rGet <- request @ApiWallet ctx
-                (Link.getWallet @Shelley wDest) Default Empty
-            verify rGet
+            rGet <-
+                request @ApiWallet
+                    ctx
+                    (Link.getWallet @Shelley wDest)
+                    Default
+                    Empty
+            verify
+                rGet
                 [ expectField
-                        (#balance . #total) (`shouldBe` Quantity minUTxOValue')
+                    (#balance . #total)
+                    (`shouldBe` Quantity minUTxOValue')
                 , expectField
-                        (#balance . #available) (`shouldBe` Quantity minUTxOValue')
+                    (#balance . #available)
+                    (`shouldBe` Quantity minUTxOValue')
                 ]
 
         -- delete wallet
@@ -142,13 +180,20 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
         wDest' <- restoreWalletFromPubKey @ApiWallet @Shelley ctx accXPub restoredWalletName
 
         eventually "Balance of restored wallet is as expected" $ do
-            rGet <- request @ApiWallet ctx
-                (Link.getWallet @Shelley wDest') Default Empty
-            verify rGet
+            rGet <-
+                request @ApiWallet
+                    ctx
+                    (Link.getWallet @Shelley wDest')
+                    Default
+                    Empty
+            verify
+                rGet
                 [ expectField
-                        (#balance . #total) (`shouldBe` Quantity minUTxOValue')
+                    (#balance . #total)
+                    (`shouldBe` Quantity minUTxOValue')
                 , expectField
-                        (#balance . #available) (`shouldBe` Quantity minUTxOValue')
+                    (#balance . #available)
+                    (`shouldBe` Quantity minUTxOValue')
                 ]
 
     describe "HW_WALLETS_03 - Cannot do operations requiring private key" $ do
@@ -163,7 +208,9 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
 
             addrs <- listAddresses @n ctx wDest
             let destination = (addrs !! 1) ^. #id
-            let payload = Json [json|{
+            let payload =
+                    Json
+                        [json|{
                     "payments": [{
                         "address": #{destination},
                         "amount": {
@@ -173,8 +220,12 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
                     }],
                     "passphrase": "cardano-wallet"
                 }|]
-            rTrans <- request @(ApiTransaction n) ctx
-                (Link.createTransactionOld @Shelley wSrc) Default payload
+            rTrans <-
+                request @(ApiTransaction n)
+                    ctx
+                    (Link.createTransactionOld @Shelley wSrc)
+                    Default
+                    payload
             expectResponseCode HTTP.status403 rTrans
             expectErrorMessage (errMsg403NoRootKey $ wSrc ^. walletId) rTrans
 
@@ -185,8 +236,12 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
 
             -- cannot update pass
             let payload = updatePassPayload fixturePassphrase "new-wallet-passphrase"
-            rup <- request @ApiWallet ctx
-                (Link.putWalletPassphrase @Shelley wk) Default payload
+            rup <-
+                request @ApiWallet
+                    ctx
+                    (Link.putWalletPassphrase @Shelley wk)
+                    Default
+                    payload
             expectResponseCode HTTP.status403 rup
             expectErrorMessage (errMsg403NoRootKey $ wk ^. walletId) rup
 
@@ -202,8 +257,12 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
             rup <- request @ApiWallet ctx (Link.putWallet @Shelley wk) Default payload
             expectResponseCode HTTP.status200 rup
 
-            rGet <- request @ApiWallet ctx
-                (Link.getWallet @Shelley wk) Default Empty
+            rGet <-
+                request @ApiWallet
+                    ctx
+                    (Link.getWallet @Shelley wk)
+                    Default
+                    Empty
             expectField
                 (#name . #getApiT . #getWalletName)
                 (`shouldBe` newName)
@@ -220,7 +279,9 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
 
             addrs <- listAddresses @n ctx wDest
             let destination = (addrs !! 1) ^. #id
-            let payload = Json [json|{
+            let payload =
+                    Json
+                        [json|{
                     "payments": [{
                         "address": #{destination},
                         "amount": {
@@ -230,24 +291,36 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
                     }]
                 }|]
 
-            rFee <- request @ApiFee ctx
-                (Link.getTransactionFeeOld @Shelley wSrc) Default payload
+            rFee <-
+                request @ApiFee
+                    ctx
+                    (Link.getTransactionFeeOld @Shelley wSrc)
+                    Default
+                    payload
             expectResponseCode HTTP.status202 rFee
 
         it "Can delete" $ \ctx -> runResourceT $ do
             mnemonics <- liftIO $ mnemonicToText @15 . entropyToMnemonic <$> genEntropy
             let pubKey = pubKeyFromMnemonics mnemonics
             wPub <- restoreWalletFromPubKey @ApiWallet @Shelley ctx pubKey restoredWalletName
-            r <- request @ApiWallet ctx
-                (Link.deleteWallet @Shelley wPub) Default Empty
+            r <-
+                request @ApiWallet
+                    ctx
+                    (Link.deleteWallet @Shelley wPub)
+                    Default
+                    Empty
             expectResponseCode HTTP.status204 r
 
         it "Can see utxo" $ \ctx -> runResourceT $ do
             mnemonics <- liftIO $ mnemonicToText @15 . entropyToMnemonic <$> genEntropy
             let pubKey = pubKeyFromMnemonics mnemonics
             wPub <- restoreWalletFromPubKey @ApiWallet @Shelley ctx pubKey restoredWalletName
-            rStat <- request @ApiUtxoStatistics ctx
-                (Link.getUTxOsStatistics @Shelley wPub) Default Empty
+            rStat <-
+                request @ApiUtxoStatistics
+                    ctx
+                    (Link.getUTxOsStatistics @Shelley wPub)
+                    Default
+                    Empty
             expectResponseCode HTTP.status200 rStat
             expectWalletUTxO [] (snd rStat)
 
@@ -257,18 +330,24 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
             wPub <- restoreWalletFromPubKey @ApiWallet @Shelley ctx pubKey restoredWalletName
 
             let g = fromIntegral $ getAddressPoolGap defaultAddressPoolGap
-            r <- request @[ApiAddress n] ctx
-                (Link.listAddresses @Shelley wPub) Default Empty
+            r <-
+                request @[ApiAddress n]
+                    ctx
+                    (Link.listAddresses @Shelley wPub)
+                    Default
+                    Empty
             expectResponseCode HTTP.status200 r
             expectListSize g r
-            forM_ [0..(g-1)] $ \addrNum -> do
+            forM_ [0 .. (g - 1)] $ \addrNum -> do
                 expectListField addrNum (#state . #getApiT) (`shouldBe` Unused) r
 
         it "Can have address pool gap" $ \ctx -> runResourceT $ do
             mnemonics <- liftIO $ mnemonicToText @15 . entropyToMnemonic <$> genEntropy
             let pubKey = pubKeyFromMnemonics mnemonics
-            let addrPoolGap = 55 --arbitraty but known
-            let payloadRestore = Json [json| {
+            let addrPoolGap = 55 -- arbitraty but known
+            let payloadRestore =
+                    Json
+                        [json| {
                     "name": #{restoredWalletName},
                     "account_public_key": #{pubKey},
                     "address_pool_gap": #{addrPoolGap}
@@ -278,11 +357,15 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
 
             let wPub = getFromResponse id rRestore
 
-            r <- request @[ApiAddress n] ctx
-                (Link.listAddresses @Shelley wPub) Default Empty
+            r <-
+                request @[ApiAddress n]
+                    ctx
+                    (Link.listAddresses @Shelley wPub)
+                    Default
+                    Empty
             expectResponseCode HTTP.status200 r
             expectListSize addrPoolGap r
-            forM_ [0..(addrPoolGap-1)] $ \addrNum -> do
+            forM_ [0 .. (addrPoolGap - 1)] $ \addrNum -> do
                 expectListField addrNum (#state . #getApiT) (`shouldBe` Unused) r
 
         it "Can list transactions" $ \ctx -> runResourceT $ do
@@ -290,22 +373,30 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
             let pubKey = pubKeyFromMnemonics mnemonics
             wPub <- restoreWalletFromPubKey @ApiWallet @Shelley ctx pubKey restoredWalletName
 
-            rt <- request @([ApiTransaction n]) ctx
-                (Link.listTransactions @Shelley wPub) Default Empty
+            rt <-
+                request @([ApiTransaction n])
+                    ctx
+                    (Link.listTransactions @Shelley wPub)
+                    Default
+                    Empty
             expectResponseCode HTTP.status200 rt
             expectListSize 0 rt
 
         it "Can create a coin selection" $
             pure (pure ())
-            -- This is covered in Integration.Scenario.API.Shelley.Transactions.
+    -- This is covered in Integration.Scenario.API.Shelley.Transactions.
 
     describe "HW_WALLETS_05 - Wallet from pubKey is available" $ do
         it "Can get wallet" $ \ctx -> runResourceT $ do
             mnemonics <- liftIO $ mnemonicToText @15 . entropyToMnemonic <$> genEntropy
             let pubKey = pubKeyFromMnemonics mnemonics
             wPub <- restoreWalletFromPubKey @ApiWallet @Shelley ctx pubKey restoredWalletName
-            rGet <- request @ApiWallet ctx
-                (Link.getWallet @Shelley wPub) Default Empty
+            rGet <-
+                request @ApiWallet
+                    ctx
+                    (Link.getWallet @Shelley wPub)
+                    Default
+                    Empty
             expectField
                 (#name . #getApiT . #getWalletName)
                 (`shouldBe` restoredWalletName)
@@ -315,8 +406,13 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
             mnemonics <- liftIO $ mnemonicToText @15 . entropyToMnemonic <$> genEntropy
             let pubKey = pubKeyFromMnemonics mnemonics
             w <- restoreWalletFromPubKey @ApiWallet @Shelley ctx pubKey restoredWalletName
-            wids <- map (view #id) . unsafeResponse <$> request @[ApiWallet] ctx
-                (Link.listWallets @Shelley) Default Empty
+            wids <-
+                map (view #id) . unsafeResponse
+                    <$> request @[ApiWallet]
+                        ctx
+                        (Link.listWallets @Shelley)
+                        Default
+                        Empty
             liftIO $ wids `shouldContain` [view #id w]
 
         it "The same account and mnemonic wallet can live side-by-side" $ \ctx -> runResourceT $ do
@@ -336,11 +432,14 @@ spec = describe "SHELLEY_HW_WALLETS" $ do
             r2 <- request @ApiWallet ctx (Link.getWallet @Shelley r2') Default Empty
 
             -- both wallets are available
-            verify r1
-                [ expectField (#name . #getApiT . #getWalletName)
+            verify
+                r1
+                [ expectField
+                    (#name . #getApiT . #getWalletName)
                     (`shouldBe` mnemonicWalletName)
                 ]
-            verify r2
+            verify
+                r2
                 [ expectField
                     (#name . #getApiT . #getWalletName)
                     (`shouldBe` restoredWalletName)

@@ -5,14 +5,12 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeFamilies #-}
 
-{- |
-Copyright: © 2022 IOHK
-License: Apache-2.0
-
-Data type 'TxHistory' for storing a set of transactions.
-Transactions are encoded "as" expressed in DB tables.
-
--}
+-- |
+--Copyright: © 2022 IOHK
+--License: Apache-2.0
+--
+--Data type 'TxHistory' for storing a set of transactions.
+--Transactions are encoded "as" expressed in DB tables.
 module Cardano.Wallet.DB.Store.Transactions.Model
     ( DeltaTxHistory (..)
     , TxHistory (..)
@@ -21,23 +19,22 @@ module Cardano.Wallet.DB.Store.Transactions.Model
     , tokenOutOrd
     , mkTxHistory
 
-    -- * Decoration
+      -- * Decoration
     , DecoratedTxIns
     , lookupTxOutForTxIn
     , lookupTxOutForTxCollateral
     , decorateTxIns
 
-    -- * Type conversion from wallet types
+      -- * Type conversion from wallet types
     , mkTxIn
     , mkTxCollateral
     , mkTxOut
 
-    -- * Type conversions to wallet types
+      -- * Type conversions to wallet types
     , fromTxOut
     , fromTxCollateralOut
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.DB.Sqlite.Schema
     ( TxCollateral (..)
@@ -49,66 +46,83 @@ import Cardano.Wallet.DB.Sqlite.Schema
     , TxWithdrawal (..)
     )
 import Cardano.Wallet.DB.Sqlite.Types
-    ( TxId (TxId) )
+    ( TxId (TxId)
+    )
+import Cardano.Wallet.Primitive.Types.Coin qualified as W
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount )
+    ( RewardAccount
+    )
+import Cardano.Wallet.Primitive.Types.TokenBundle qualified as TokenBundle
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId (AssetId) )
+    ( AssetId (AssetId)
+    )
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName, TokenPolicyId )
+    ( TokenName
+    , TokenPolicyId
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity )
+    ( TokenQuantity
+    )
+import Cardano.Wallet.Primitive.Types.Tx qualified as W
 import Control.Applicative
-    ( (<|>) )
+    ( (<|>)
+    )
 import Control.Arrow
-    ( (&&&) )
+    ( (&&&)
+    )
 import Control.Monad
-    ( guard )
+    ( guard
+    )
 import Data.Delta
-    ( Delta (..) )
+    ( Delta (..)
+    )
 import Data.Foldable
-    ( fold )
+    ( fold
+    )
 import Data.Generics.Internal.VL
-    ( view, (^.) )
+    ( view
+    , (^.)
+    )
 import Data.List
-    ( find, sortOn )
+    ( find
+    , sortOn
+    )
 import Data.Map.Strict
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-    ( catMaybes )
+    ( catMaybes
+    )
 import Data.Word
-    ( Word32 )
+    ( Word32
+    )
 import Fmt
-    ( Buildable (build) )
+    ( Buildable (build)
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
+import Prelude
 
-import qualified Cardano.Wallet.Primitive.Types.Coin as W
-import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
-import qualified Cardano.Wallet.Primitive.Types.Tx as W
-import qualified Data.Map.Strict as Map
-
-{- | A low level definition of a transaction covering all transaction content
- by collecting all related-to-index database rows.
- Normalization is performed anyway after the first relation level.
- All values used here are records in the database.
- Foreign keys are used to group data correctly,
- but they are not removed from the data.
--}
-data TxRelation =
-    TxRelation
+-- | A low level definition of a transaction covering all transaction content
+-- by collecting all related-to-index database rows.
+-- Normalization is performed anyway after the first relation level.
+-- All values used here are records in the database.
+-- Foreign keys are used to group data correctly,
+-- but they are not removed from the data.
+data TxRelation = TxRelation
     { ins :: [TxIn]
     , collateralIns :: [TxCollateral]
     , outs :: [(TxOut, [TxOutToken])]
     , collateralOuts :: Maybe (TxCollateralOut, [TxCollateralOutToken])
     , withdrawals :: [TxWithdrawal]
     }
-    deriving ( Generic, Eq, Show )
+    deriving (Generic, Eq, Show)
 
 -- | Transactions history is 'TxRelation's indexed by 'TxId'
-newtype TxHistory =
-    TxHistory { relations :: Map TxId TxRelation }
-    deriving ( Generic, Eq, Show )
+newtype TxHistory = TxHistory {relations :: Map TxId TxRelation}
+    deriving (Generic, Eq, Show)
 
 instance Monoid TxHistory where
     mempty = TxHistory mempty
@@ -122,18 +136,19 @@ instance Buildable TxHistory where
 
 -- | Verbs to change a 'TxHistory'.
 data DeltaTxHistory
-    = Append TxHistory
-    -- ^ Add new set of transactions.
-    -- Overwrites transactions whose id is already present in the 'TxHistory'.
-    | DeleteTx TxId
-    -- ^ Try to remove the transaction at the given transaction id.
-    deriving ( Show, Eq, Generic )
+    = -- | Add new set of transactions.
+      -- Overwrites transactions whose id is already present in the 'TxHistory'.
+      Append TxHistory
+    | -- | Try to remove the transaction at the given transaction id.
+      DeleteTx TxId
+    deriving (Show, Eq, Generic)
 
 instance Buildable DeltaTxHistory where
     build action = build $ show action
 
 instance Delta DeltaTxHistory where
     type Base DeltaTxHistory = TxHistory
+
     -- transactions are immutable so here there should happen no rewriting
     -- but we mimic the repsert in the store
     apply (Append txs) h = txs <> h
@@ -145,26 +160,27 @@ instance Delta DeltaTxHistory where
     From wallet types -> to database tables
 -------------------------------------------------------------------------------}
 mkTxIn :: TxId -> (Int, (W.TxIn, W.Coin)) -> TxIn
-mkTxIn tid (ix,(txIn,amt)) =
+mkTxIn tid (ix, (txIn, amt)) =
     TxIn
-    { txInputTxId = tid
-    , txInputOrder = ix
-    , txInputSourceTxId = TxId (W.inputId txIn)
-    , txInputSourceIndex = W.inputIx txIn
-    , txInputSourceAmount = amt
-    }
+        { txInputTxId = tid
+        , txInputOrder = ix
+        , txInputSourceTxId = TxId (W.inputId txIn)
+        , txInputSourceIndex = W.inputIx txIn
+        , txInputSourceAmount = amt
+        }
 
-mkTxCollateral :: TxId
+mkTxCollateral
+    :: TxId
     -> (Int, (W.TxIn, W.Coin))
     -> TxCollateral
-mkTxCollateral tid (ix,(txCollateral,amt)) =
+mkTxCollateral tid (ix, (txCollateral, amt)) =
     TxCollateral
-    { txCollateralTxId = tid
-    , txCollateralOrder = ix
-    , txCollateralSourceTxId = TxId $ W.inputId txCollateral
-    , txCollateralSourceIndex = W.inputIx txCollateral
-    , txCollateralSourceAmount = amt
-    }
+        { txCollateralTxId = tid
+        , txCollateralOrder = ix
+        , txCollateralSourceTxId = TxId $ W.inputId txCollateral
+        , txCollateralSourceIndex = W.inputIx txCollateral
+        , txCollateralSourceAmount = amt
+        }
 
 -- The key to sort TxCollateralOutToken
 tokenCollateralOrd :: TxCollateralOutToken -> (TokenPolicyId, TokenName)
@@ -176,34 +192,36 @@ tokenOutOrd = txOutTokenPolicyId &&& txOutTokenName
 
 mkTxOut
     :: TxId
-    -> (Word32, W.TxOut) -- ^ (index, txout)
+    -> (Word32, W.TxOut)
+    -- ^ (index, txout)
     -> (TxOut, [TxOutToken])
-mkTxOut tid (ix,txOut) = (out, sortOn tokenOutOrd tokens)
+mkTxOut tid (ix, txOut) = (out, sortOn tokenOutOrd tokens)
   where
     out =
         TxOut
-        { txOutputTxId = tid
-        , txOutputIndex = ix
-        , txOutputAddress = view #address txOut
-        , txOutputAmount = W.txOutCoin txOut
-        }
+            { txOutputTxId = tid
+            , txOutputIndex = ix
+            , txOutputAddress = view #address txOut
+            , txOutputAmount = W.txOutCoin txOut
+            }
     tokens =
         mkTxOutToken tid ix
-        <$> snd (TokenBundle.toFlatList $ view #tokens txOut)
+            <$> snd (TokenBundle.toFlatList $ view #tokens txOut)
 
 mkTxOutToken
     :: TxId
-    -> Word32 -- ^ index
+    -> Word32
+    -- ^ index
     -> (AssetId, TokenQuantity)
     -> TxOutToken
-mkTxOutToken tid ix (AssetId policy token,quantity) =
+mkTxOutToken tid ix (AssetId policy token, quantity) =
     TxOutToken
-    { txOutTokenTxId = tid
-    , txOutTokenTxIndex = ix
-    , txOutTokenPolicyId = policy
-    , txOutTokenName = token
-    , txOutTokenQuantity = quantity
-    }
+        { txOutTokenTxId = tid
+        , txOutTokenTxIndex = ix
+        , txOutTokenPolicyId = policy
+        , txOutTokenName = token
+        , txOutTokenQuantity = quantity
+        }
 
 mkTxCollateralOut
     :: TxId
@@ -213,45 +231,45 @@ mkTxCollateralOut tid txCollateralOut = (out, sortOn tokenCollateralOrd tokens)
   where
     out =
         TxCollateralOut
-        { txCollateralOutTxId = tid
-        , txCollateralOutAddress = view #address txCollateralOut
-        , txCollateralOutAmount = W.txOutCoin txCollateralOut
-        }
+            { txCollateralOutTxId = tid
+            , txCollateralOutAddress = view #address txCollateralOut
+            , txCollateralOutAmount = W.txOutCoin txCollateralOut
+            }
     tokens =
         mkTxCollateralOutToken tid
-        <$> snd (TokenBundle.toFlatList $ view #tokens txCollateralOut)
+            <$> snd (TokenBundle.toFlatList $ view #tokens txCollateralOut)
 
 mkTxCollateralOutToken
     :: TxId -> (AssetId, TokenQuantity) -> TxCollateralOutToken
-mkTxCollateralOutToken tid (AssetId policy token,quantity) =
+mkTxCollateralOutToken tid (AssetId policy token, quantity) =
     TxCollateralOutToken
-    { txCollateralOutTokenTxId = tid
-    , txCollateralOutTokenPolicyId = policy
-    , txCollateralOutTokenName = token
-    , txCollateralOutTokenQuantity = quantity
-    }
+        { txCollateralOutTokenTxId = tid
+        , txCollateralOutTokenPolicyId = policy
+        , txCollateralOutTokenName = token
+        , txCollateralOutTokenQuantity = quantity
+        }
 
 mkTxWithdrawal :: TxId -> (RewardAccount, W.Coin) -> TxWithdrawal
-mkTxWithdrawal tid (txWithdrawalAccount,txWithdrawalAmount) =
-    TxWithdrawal { txWithdrawalTxId, txWithdrawalAccount, txWithdrawalAmount }
+mkTxWithdrawal tid (txWithdrawalAccount, txWithdrawalAmount) =
+    TxWithdrawal {txWithdrawalTxId, txWithdrawalAccount, txWithdrawalAmount}
   where
     txWithdrawalTxId = tid
 
 mkTxRelation :: W.Tx -> TxRelation
 mkTxRelation tx =
     TxRelation
-    { ins = fmap (mkTxIn tid) $ indexed . W.resolvedInputs $ tx
-    , collateralIns =
-          fmap (mkTxCollateral tid) $ indexed $ W.resolvedCollateralInputs tx
-    , outs = fmap (mkTxOut tid) $ indexed $ W.outputs tx
-    , collateralOuts = mkTxCollateralOut tid <$> W.collateralOutput tx
-    , withdrawals =
-          fmap (mkTxWithdrawal tid) $ Map.toList $ W.withdrawals tx
-    }
+        { ins = fmap (mkTxIn tid) $ indexed . W.resolvedInputs $ tx
+        , collateralIns =
+            fmap (mkTxCollateral tid) $ indexed $ W.resolvedCollateralInputs tx
+        , outs = fmap (mkTxOut tid) $ indexed $ W.outputs tx
+        , collateralOuts = mkTxCollateralOut tid <$> W.collateralOutput tx
+        , withdrawals =
+            fmap (mkTxWithdrawal tid) $ Map.toList $ W.withdrawals tx
+        }
   where
     tid = TxId $ tx ^. #txId
     indexed :: (Enum a, Num a) => [b] -> [(a, b)]
-    indexed = zip [0 .. ]
+    indexed = zip [0 ..]
 
 -- | Convert high level transactions definition in low level DB history
 mkTxHistory :: [W.Tx] -> TxHistory
@@ -265,13 +283,14 @@ mkTxHistory txs = TxHistory $ fold $ do
     From database tables -> to wallet types
 -------------------------------------------------------------------------------}
 fromTxOut :: (TxOut, [TxOutToken]) -> W.TxOut
-fromTxOut (out,tokens) =
+fromTxOut (out, tokens) =
     W.TxOut
-    { W.address = txOutputAddress out
-    , W.tokens = TokenBundle.fromFlatList
-            (txOutputAmount out)
-            (fromTxOutToken <$> tokens)
-    }
+        { W.address = txOutputAddress out
+        , W.tokens =
+            TokenBundle.fromFlatList
+                (txOutputAmount out)
+                (fromTxOutToken <$> tokens)
+        }
   where
     fromTxOutToken token =
         ( AssetId (txOutTokenPolicyId token) (txOutTokenName token)
@@ -279,13 +298,14 @@ fromTxOut (out,tokens) =
         )
 
 fromTxCollateralOut :: (TxCollateralOut, [TxCollateralOutToken]) -> W.TxOut
-fromTxCollateralOut (out,tokens) =
+fromTxCollateralOut (out, tokens) =
     W.TxOut
-    { W.address = txCollateralOutAddress out
-    , W.tokens = TokenBundle.fromFlatList
-            (txCollateralOutAmount out)
-            (fromTxCollateralOutToken <$> tokens)
-    }
+        { W.address = txCollateralOutAddress out
+        , W.tokens =
+            TokenBundle.fromFlatList
+                (txCollateralOutAmount out)
+                (fromTxCollateralOutToken <$> tokens)
+        }
   where
     fromTxCollateralOutToken token =
         ( AssetId
@@ -333,21 +353,22 @@ lookupTxOutForTxCollateral tx =
 -- by searching the 'TxHistory' for corresponding output values.
 decorateTxIns
     :: TxHistory -> TxRelation -> DecoratedTxIns
-decorateTxIns (TxHistory relations) TxRelation{ins,collateralIns} =
+decorateTxIns (TxHistory relations) TxRelation {ins, collateralIns} =
     DecoratedTxIns . Map.fromList . catMaybes $
         (lookupOutput . toKeyTxIn <$> ins)
-        ++ (lookupOutput . toKeyTxCollateral <$> collateralIns)
+            ++ (lookupOutput . toKeyTxCollateral <$> collateralIns)
   where
     lookupOutput key@(txid, index) = do
         tx <- Map.lookup txid relations
         out <- lookupTxOut tx index <|> lookupTxCollateralOut tx index
         pure (key, out)
 
-    lookupTxOut tx index = fromTxOut <$>
-        Data.List.find ((index ==) . txOutputIndex . fst) (outs tx)
+    lookupTxOut tx index =
+        fromTxOut
+            <$> Data.List.find ((index ==) . txOutputIndex . fst) (outs tx)
 
     lookupTxCollateralOut tx index = do
         out <- collateralOuts tx
         let collateralOutputIndex = toEnum $ length (outs tx)
-        guard $ index == collateralOutputIndex  -- Babbage leder spec
+        guard $ index == collateralOutputIndex -- Babbage leder spec
         pure $ fromTxCollateralOut out

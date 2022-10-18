@@ -5,26 +5,39 @@ module Cardano.Wallet.Primitive.Types.UTxOIndex.Gen
     , genUTxOIndexLarge
     , genUTxOIndexLargeN
     , shrinkUTxOIndex
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Types.TokenBundle
-    ( TokenBundle )
+    ( TokenBundle
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle.Gen
-    ( genTokenBundleSmallRangePositive, shrinkTokenBundleSmallRangePositive )
+    ( genTokenBundleSmallRangePositive
+    , shrinkTokenBundleSmallRangePositive
+    )
 import Cardano.Wallet.Primitive.Types.UTxOIndex
-    ( UTxOIndex )
+    ( UTxOIndex
+    )
+import Cardano.Wallet.Primitive.Types.UTxOIndex qualified as UTxOIndex
 import Control.Monad
-    ( replicateM )
+    ( replicateM
+    )
 import Generics.SOP
-    ( NP (..) )
+    ( NP (..)
+    )
 import Test.QuickCheck
-    ( Gen, choose, listOf, shrinkList, shrinkMapBy )
+    ( Gen
+    , choose
+    , listOf
+    , shrinkList
+    , shrinkMapBy
+    )
 import Test.QuickCheck.Extra
-    ( genericRoundRobinShrink, (<:>), (<@>) )
-
-import qualified Cardano.Wallet.Primitive.Types.UTxOIndex as UTxOIndex
+    ( genericRoundRobinShrink
+    , (<:>)
+    , (<@>)
+    )
+import Prelude
 
 --------------------------------------------------------------------------------
 -- Indices generated according to the size parameter
@@ -41,10 +54,11 @@ shrinkUTxOIndex shrinkUTxO =
     shrinkMapBy UTxOIndex.fromSequence UTxOIndex.toList (shrinkList shrinkEntry)
   where
     shrinkEntry :: (u, TokenBundle) -> [(u, TokenBundle)]
-    shrinkEntry = genericRoundRobinShrink
-        <@> shrinkUTxO
-        <:> shrinkTokenBundleSmallRangePositive
-        <:> Nil
+    shrinkEntry =
+        genericRoundRobinShrink
+            <@> shrinkUTxO
+            <:> shrinkTokenBundleSmallRangePositive
+            <:> Nil
 
 --------------------------------------------------------------------------------
 -- Large indices

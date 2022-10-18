@@ -2,16 +2,18 @@ module Cardano.Wallet.Primitive.Types.RewardAccount.Gen
     ( genRewardAccount
     , shrinkRewardAccount
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount (..) )
+    ( RewardAccount (..)
+    )
+import Data.ByteString.Char8 qualified as B8
 import Test.QuickCheck
-    ( Gen, elements, sized )
-
-import qualified Data.ByteString.Char8 as B8
+    ( Gen
+    , elements
+    , sized
+    )
+import Prelude
 
 --------------------------------------------------------------------------------
 -- Reward accounts generated according to the size parameter

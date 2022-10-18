@@ -10,18 +10,25 @@ module Control.Monad.Exception.Unchecked
     ( throwUnchecked
     , catchUnchecked
     , throwSomeException
-    ) where
-
-import Prelude
+    )
+where
 
 import Control.Exception
-    ( throw )
+    ( throw
+    )
 import Control.Monad.Catch
-    ( Exception, MonadCatch (catch), SomeException (SomeException) )
+    ( Exception
+    , MonadCatch (catch)
+    , SomeException (SomeException)
+    )
 import Control.Monad.Except
-    ( ExceptT (..), runExceptT )
+    ( ExceptT (..)
+    , runExceptT
+    )
 import Data.Typeable
-    ( Typeable )
+    ( Typeable
+    )
+import Prelude
 
 -- | The type @Unchecked e@ any 'Typeable' type @e@ into
 -- an instance of the 'Exception' class.

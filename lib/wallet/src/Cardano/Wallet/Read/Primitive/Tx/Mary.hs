@@ -6,34 +6,60 @@
 -- |
 -- Copyright: © 2020 IOHK
 -- License: Apache-2.0
---
-
 module Cardano.Wallet.Read.Primitive.Tx.Mary
     ( fromMaryTx
     , getScriptMap
     , fromLedgerMintValue
     , fromCardanoValue
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Address.Script
-    ( KeyRole (..) )
+    ( KeyRole (..)
+    )
 import Cardano.Api
-    ( MaryEra )
+    ( MaryEra
+    )
+import Cardano.Api qualified as Cardano
+import Cardano.Api.Shelley qualified as Cardano
+import Cardano.Ledger.BaseTypes qualified as SL
+import Cardano.Ledger.Core qualified as SL.Core
 import Cardano.Ledger.Era
-    ( Era (..) )
+    ( Era (..)
+    )
+import Cardano.Ledger.Mary.Value qualified as SL
+import Cardano.Ledger.Shelley.API qualified as SL
+import Cardano.Ledger.Shelley.API qualified as SLAPI
+import Cardano.Ledger.Shelley.Tx qualified as Shelley
+import Cardano.Ledger.ShelleyMA qualified as MA
+import Cardano.Ledger.ShelleyMA.AuxiliaryData qualified as MA
+import Cardano.Ledger.ShelleyMA.TxBody qualified as MA
+import Cardano.Wallet.Primitive.Types qualified as W
+import Cardano.Wallet.Primitive.Types.Coin qualified as Coin
+import Cardano.Wallet.Primitive.Types.Coin qualified as W
+import Cardano.Wallet.Primitive.Types.Hash qualified as W
+import Cardano.Wallet.Primitive.Types.TokenBundle qualified as TokenBundle
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( TokenMap, toNestedList )
+    ( TokenMap
+    , toNestedList
+    )
+import Cardano.Wallet.Primitive.Types.TokenMap qualified as TokenMap
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenPolicyId )
+    ( TokenPolicyId
+    )
+import Cardano.Wallet.Primitive.Types.TokenPolicy qualified as W
+import Cardano.Wallet.Primitive.Types.TokenQuantity qualified as W
+import Cardano.Wallet.Primitive.Types.Tx qualified as W
 import Cardano.Wallet.Read.Eras
-    ( inject, mary )
+    ( inject
+    , mary
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Allegra
-    ( fromLedgerTxValidity )
+    ( fromLedgerTxValidity
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates
-    ( anyEraCerts )
+    ( anyEraCerts
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Shelley
     ( fromShelleyAddress
     , fromShelleyCoin
@@ -42,11 +68,14 @@ import Cardano.Wallet.Read.Primitive.Tx.Shelley
     , fromShelleyWdrl
     )
 import Cardano.Wallet.Read.Tx
-    ( Tx (..) )
+    ( Tx (..)
+    )
 import Cardano.Wallet.Read.Tx.CBOR
-    ( renderTxToCBOR )
+    ( renderTxToCBOR
+    )
 import Cardano.Wallet.Read.Tx.Hash
-    ( shelleyTxHash )
+    ( shelleyTxHash
+    )
 import Cardano.Wallet.Shelley.Compatibility.Ledger
     ( toWalletScript
     , toWalletTokenName
@@ -54,44 +83,34 @@ import Cardano.Wallet.Shelley.Compatibility.Ledger
     , toWalletTokenQuantity
     )
 import Cardano.Wallet.Transaction
-    ( AnyScript (..), TokenMapWithScripts (..), ValidityIntervalExplicit (..) )
+    ( AnyScript (..)
+    , TokenMapWithScripts (..)
+    , ValidityIntervalExplicit (..)
+    )
 import Cardano.Wallet.Util
-    ( internalError )
+    ( internalError
+    )
 import Data.Foldable
-    ( toList )
+    ( toList
+    )
 import Data.Function
-    ( (&) )
+    ( (&)
+    )
 import Data.Map.Strict
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
+import Data.Map.Strict.NonEmptyMap qualified as NonEmptyMap
 import Data.Maybe
-    ( isJust )
+    ( isJust
+    )
 import GHC.Stack
-    ( HasCallStack )
+    ( HasCallStack
+    )
 import Ouroboros.Consensus.Shelley.Eras
-    ( StandardCrypto )
-
-import qualified Cardano.Api as Cardano
-import qualified Cardano.Api.Shelley as Cardano
-import qualified Cardano.Ledger.BaseTypes as SL
-import qualified Cardano.Ledger.Core as SL.Core
-import qualified Cardano.Ledger.Mary.Value as SL
-import qualified Cardano.Ledger.Shelley.API as SL
-import qualified Cardano.Ledger.Shelley.API as SLAPI
-import qualified Cardano.Ledger.Shelley.Tx as Shelley
-import qualified Cardano.Ledger.ShelleyMA as MA
-import qualified Cardano.Ledger.ShelleyMA.AuxiliaryData as MA
-import qualified Cardano.Ledger.ShelleyMA.TxBody as MA
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
-import qualified Cardano.Wallet.Primitive.Types.Coin as W
-import qualified Cardano.Wallet.Primitive.Types.Hash as W
-import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
-import qualified Cardano.Wallet.Primitive.Types.TokenMap as TokenMap
-import qualified Cardano.Wallet.Primitive.Types.TokenPolicy as W
-import qualified Cardano.Wallet.Primitive.Types.TokenQuantity as W
-import qualified Cardano.Wallet.Primitive.Types.Tx as W
-import qualified Data.Map.Strict as Map
-import qualified Data.Map.Strict.NonEmptyMap as NonEmptyMap
+    ( StandardCrypto
+    )
+import Prelude
 
 fromMaryTx
     :: SLAPI.Tx (Cardano.ShelleyLedgerEra MaryEra)
@@ -149,7 +168,8 @@ fromMaryTx tx =
         -> W.TxOut
     fromMaryTxOut (SL.TxOut addr value) =
         W.TxOut (fromShelleyAddress addr) $
-        fromCardanoValue $ Cardano.fromMaryValue value
+            fromCardanoValue $
+                Cardano.fromMaryValue value
 
     fromMaryScriptMap
         :: Map
@@ -157,19 +177,19 @@ fromMaryTx tx =
             (SL.Core.Script (MA.ShelleyMAEra 'MA.Mary StandardCrypto))
         -> Map TokenPolicyId AnyScript
     fromMaryScriptMap =
-        Map.map (NativeScript . toWalletScript Policy) .
-        Map.mapKeys (toWalletTokenPolicyId . SL.PolicyID)
+        Map.map (NativeScript . toWalletScript Policy)
+            . Map.mapKeys (toWalletTokenPolicyId . SL.PolicyID)
 
 getScriptMap
     :: Map TokenPolicyId AnyScript
     -> TokenMap
     -> Map TokenPolicyId AnyScript
 getScriptMap scriptMap =
-    Map.fromList .
-    map (\(policyid, Just script) -> (policyid, script)) .
-    filter (isJust . snd) .
-    map (\(policyid, _) -> (policyid, Map.lookup policyid scriptMap) ) .
-    toNestedList
+    Map.fromList
+        . map (\(policyid, Just script) -> (policyid, script))
+        . filter (isJust . snd)
+        . map (\(policyid, _) -> (policyid, Map.lookup policyid scriptMap))
+        . toNestedList
 
 -- Lovelace to coin. Quantities from ledger should always fit in Word64.
 fromCardanoLovelace :: HasCallStack => Cardano.Lovelace -> W.Coin
@@ -192,11 +212,11 @@ fromCardanoValue = uncurry TokenBundle.fromFlatList . extract
     mkQuantity = W.TokenQuantity . checkBounds
       where
         checkBounds n
-          | n >= 0 = fromIntegral n
-          | otherwise = internalError "negative token quantity"
+            | n >= 0 = fromIntegral n
+            | otherwise = internalError "negative token quantity"
 
     mkBundle assets =
-        [ (TokenBundle.AssetId (mkPolicyId p) (mkTokenName n) , mkQuantity q)
+        [ (TokenBundle.AssetId (mkPolicyId p) (mkTokenName n), mkQuantity q)
         | (Cardano.AssetId p n, Cardano.Quantity q) <- assets
         ]
 
@@ -209,20 +229,23 @@ fromLedgerMintValue
 fromLedgerMintValue (SL.Value _ ledgerTokens) =
     (assetsToMint, assetsToBurn)
   where
-    assetsToMint = ledgerTokens
-        & Map.map (Map.filter (> 0))
-        & Map.mapKeys toWalletTokenPolicyId
-        & Map.map mapInner
-        & Map.mapMaybe NonEmptyMap.fromMap
-        & TokenMap.fromNestedMap
+    assetsToMint =
+        ledgerTokens
+            & Map.map (Map.filter (> 0))
+            & Map.mapKeys toWalletTokenPolicyId
+            & Map.map mapInner
+            & Map.mapMaybe NonEmptyMap.fromMap
+            & TokenMap.fromNestedMap
 
-    assetsToBurn = ledgerTokens
-        & Map.map (Map.mapMaybe (\n -> if n > 0 then Nothing else Just (-n)))
-        & Map.mapKeys toWalletTokenPolicyId
-        & Map.map mapInner
-        & Map.mapMaybe NonEmptyMap.fromMap
-        & TokenMap.fromNestedMap
+    assetsToBurn =
+        ledgerTokens
+            & Map.map (Map.mapMaybe (\n -> if n > 0 then Nothing else Just (-n)))
+            & Map.mapKeys toWalletTokenPolicyId
+            & Map.map mapInner
+            & Map.mapMaybe NonEmptyMap.fromMap
+            & TokenMap.fromNestedMap
 
-    mapInner inner = inner
-        & Map.mapKeys toWalletTokenName
-        & Map.map toWalletTokenQuantity
+    mapInner inner =
+        inner
+            & Map.mapKeys toWalletTokenName
+            & Map.map toWalletTokenQuantity

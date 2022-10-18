@@ -8,25 +8,38 @@ module Cardano.Wallet.Shelley.Launch.Blockfrost
     ( TokenFile (..)
     , readToken
     , tokenFileOption
-    , TokenException(..)
-    ) where
-
-import Prelude
+    , TokenException (..)
+    )
+where
 
 import Blockfrost.Client.Types
-    ( Project (..) )
+    ( Project (..)
+    )
 import Blockfrost.Env
-    ( parseEnv )
+    ( parseEnv
+    )
 import Control.Exception
-    ( Exception, IOException, catch, throw )
+    ( Exception
+    , IOException
+    , catch
+    , throw
+    )
 import Control.Monad
-    ( when )
+    ( when
+    )
 -- See ADP-1910
-import "optparse-applicative" Options.Applicative
-    ( Parser, help, long, metavar, option, str )
 
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import Data.Text qualified as T
+import Data.Text.IO qualified as T
+import "optparse-applicative" Options.Applicative
+    ( Parser
+    , help
+    , long
+    , metavar
+    , option
+    , str
+    )
+import Prelude
 
 newtype TokenFile = TokenFile FilePath
     deriving newtype (Eq, Show)
@@ -40,14 +53,17 @@ data TokenException
 
 -- | --blockfrost-token-file FILE
 tokenFileOption :: Parser TokenFile
-tokenFileOption = option (TokenFile <$> str) $ mconcat
-    [ long "blockfrost-token-file"
-    , metavar "FILE"
-    , help $ mconcat
-        [ "FILE contains an authentication token for "
-        , "BlockFrost Cardano API (https://blockfrost.io)."
-        ]
-    ]
+tokenFileOption =
+    option (TokenFile <$> str) $
+        mconcat
+            [ long "blockfrost-token-file"
+            , metavar "FILE"
+            , help $
+                mconcat
+                    [ "FILE contains an authentication token for "
+                    , "BlockFrost Cardano API (https://blockfrost.io)."
+                    ]
+            ]
 
 readToken :: TokenFile -> IO Project
 readToken (TokenFile f) = do
@@ -59,5 +75,5 @@ readToken (TokenFile f) = do
     let tEnv = T.dropEnd 32 tokenSrc
         token = T.drop (T.length tEnv) tokenSrc
     case Project <$> parseEnv tEnv <*> pure token of
-      Left _ -> throw $ InvalidToken f
-      Right project -> pure project
+        Left _ -> throw $ InvalidToken f
+        Right project -> pure project

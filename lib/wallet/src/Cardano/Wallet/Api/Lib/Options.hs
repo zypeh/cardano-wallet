@@ -1,7 +1,6 @@
 -- |
 -- Copyright: © 2018-2022 IOHK
 -- License: Apache-2.0
-
 module Cardano.Wallet.Api.Lib.Options
     ( TaggedObjectOptions (..)
     , defaultRecordTypeOptions
@@ -10,14 +9,15 @@ module Cardano.Wallet.Api.Lib.Options
     , strictRecordTypeOptions
     , taggedSumTypeOptions
     )
-    where
-
-import Prelude
+where
 
 import Data.Aeson
-    ( Options (..), SumEncoding (..), camelTo2 )
-
-import qualified Data.Aeson as Aeson
+    ( Options (..)
+    , SumEncoding (..)
+    , camelTo2
+    )
+import Data.Aeson qualified as Aeson
+import Prelude
 
 data TaggedObjectOptions = TaggedObjectOptions
     { _tagFieldName :: String
@@ -25,28 +25,33 @@ data TaggedObjectOptions = TaggedObjectOptions
     }
 
 defaultSumTypeOptions :: Aeson.Options
-defaultSumTypeOptions = Aeson.defaultOptions
-    { constructorTagModifier = camelTo2 '_'
-    , tagSingleConstructors = True
-    }
+defaultSumTypeOptions =
+    Aeson.defaultOptions
+        { constructorTagModifier = camelTo2 '_'
+        , tagSingleConstructors = True
+        }
 
 defaultRecordTypeOptions :: Aeson.Options
-defaultRecordTypeOptions = Aeson.defaultOptions
-    { fieldLabelModifier = camelTo2 '_' . dropWhile (== '_')
-    , omitNothingFields = True
-    }
+defaultRecordTypeOptions =
+    Aeson.defaultOptions
+        { fieldLabelModifier = camelTo2 '_' . dropWhile (== '_')
+        , omitNothingFields = True
+        }
 
 strictRecordTypeOptions :: Aeson.Options
-strictRecordTypeOptions = defaultRecordTypeOptions
-    { rejectUnknownFields = True
-    }
+strictRecordTypeOptions =
+    defaultRecordTypeOptions
+        { rejectUnknownFields = True
+        }
 
 taggedSumTypeOptions :: Aeson.Options -> TaggedObjectOptions -> Aeson.Options
-taggedSumTypeOptions base opts = base
-    { sumEncoding = TaggedObject (_tagFieldName opts) (_contentsFieldName opts)
-    }
+taggedSumTypeOptions base opts =
+    base
+        { sumEncoding = TaggedObject (_tagFieldName opts) (_contentsFieldName opts)
+        }
 
 explicitNothingRecordTypeOptions :: Aeson.Options
-explicitNothingRecordTypeOptions = defaultRecordTypeOptions
-    { omitNothingFields = False
-    }
+explicitNothingRecordTypeOptions =
+    defaultRecordTypeOptions
+        { omitNothingFields = False
+        }

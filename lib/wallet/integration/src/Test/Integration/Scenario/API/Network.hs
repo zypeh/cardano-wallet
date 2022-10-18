@@ -5,10 +5,10 @@
 
 module Test.Integration.Scenario.API.Network
     ( spec
-    ) where
+    )
+where
 
-import Prelude
-
+import Cardano.Wallet.Api.Link qualified as Link
 import Cardano.Wallet.Api.Types
     ( ApiByronWallet
     , ApiEpochInfo (..)
@@ -21,23 +21,39 @@ import Cardano.Wallet.Api.Types
     , nextEpoch
     )
 import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncProgress (..) )
+    ( SyncProgress (..)
+    )
 import Cardano.Wallet.Primitive.Types.ProtocolMagic
-    ( getProtocolMagic, mainnetMagic )
+    ( getProtocolMagic
+    , mainnetMagic
+    )
 import Control.Monad
-    ( when )
+    ( when
+    )
 import Control.Monad.IO.Class
-    ( liftIO )
+    ( liftIO
+    )
 import Control.Monad.Trans.Resource
-    ( runResourceT )
+    ( runResourceT
+    )
 import Data.Generics.Internal.VL.Lens
-    ( view, (^.) )
+    ( view
+    , (^.)
+    )
 import Data.Time.Clock
-    ( getCurrentTime )
+    ( getCurrentTime
+    )
+import Network.HTTP.Types.Status qualified as HTTP
 import Test.Hspec
-    ( SpecWith, describe, pendingWith, shouldBe, shouldNotBe )
+    ( SpecWith
+    , describe
+    , pendingWith
+    , shouldBe
+    , shouldNotBe
+    )
 import Test.Hspec.Extra
-    ( it )
+    ( it
+    )
 import Test.Integration.Framework.DSL
     ( Context (..)
     , Headers (..)
@@ -54,26 +70,31 @@ import Test.Integration.Framework.DSL
     , (.>)
     )
 import Test.Utils.Paths
-    ( inNixBuild )
-
-import qualified Cardano.Wallet.Api.Link as Link
-import qualified Network.HTTP.Types.Status as HTTP
+    ( inNixBuild
+    )
+import Prelude
 
 spec :: SpecWith Context
 spec = describe "COMMON_NETWORK" $ do
     it "NETWORK - Can query network information" $ \ctx -> do
         eventually "wallet's syncProgress = Ready" $ do
             now <- liftIO getCurrentTime
-            r <- request @ApiNetworkInformation ctx
-                Link.getNetworkInfo Default Empty
+            r <-
+                request @ApiNetworkInformation
+                    ctx
+                    Link.getNetworkInfo
+                    Default
+                    Empty
             expectResponseCode @IO HTTP.status200 r
             let i = getFromResponse id r
-            verify r
+            verify
+                r
                 [ expectField (#syncProgress . #getApiT) (`shouldBe` Ready)
                 , expectField (#nodeEra) (`shouldBe` _mainEra ctx)
                 , expectField (#nodeTip . #absoluteSlotNumber . #getApiT) (`shouldNotBe` 0)
                 , \x -> (epochStartTime <$> nextEpoch (unsafeResponse x)) .> Just now
-                , expectField (#networkInfo . #protocolMagic)
+                , expectField
+                    (#networkInfo . #protocolMagic)
                     (`shouldBe` fromIntegral (getProtocolMagic mainnetMagic))
                 , expectField (#walletMode) (`shouldBe` Node)
                 ]
@@ -87,8 +108,12 @@ spec = describe "COMMON_NETWORK" $ do
 
     it "NETWORK_BYRON - Byron wallet has the same tip as network/information" $
         \ctx -> runResourceT @IO $ do
-            let getNetworkInfo = request @ApiNetworkInformation ctx
-                    Link.getNetworkInfo Default Empty
+            let getNetworkInfo =
+                    request @ApiNetworkInformation
+                        ctx
+                        Link.getNetworkInfo
+                        Default
+                        Empty
             w <- emptyRandomWallet ctx
             eventually "Wallet has the same tip as network/information" $ do
                 sync <- getNetworkInfo
@@ -103,12 +128,17 @@ spec = describe "COMMON_NETWORK" $ do
                 let absSlot =
                         getFromResponse (#nodeTip . #absoluteSlotNumber) sync
 
-                res <- request @ApiByronWallet ctx
-                    (Link.getWallet @Byron w) Default Empty
-                verify res
+                res <-
+                    request @ApiByronWallet
+                        ctx
+                        (Link.getWallet @Byron w)
+                        Default
+                        Empty
+                verify
+                    res
                     [ expectField (#state . #getApiT) (`shouldBe` Ready)
                     , expectField (#tip . #slotId . #epochNumber . #getApiT) (`shouldBe` epochNum)
-                    , expectField (#tip . #slotId . #slotNumber  . #getApiT) (`shouldBe` slotNum)
+                    , expectField (#tip . #slotId . #slotNumber . #getApiT) (`shouldBe` slotNum)
                     , expectField (#tip . #block . #height) (`shouldBe` blockHeight)
                     , expectField (#tip . #absoluteSlotNumber) (`shouldBe` absSlot)
                     ]
@@ -118,19 +148,31 @@ spec = describe "COMMON_NETWORK" $ do
         when sandboxed $
             pendingWith "Internet NTP servers unavailable in build sandbox"
         eventually "ntp status = (un)available" $ do
-            r <- request @ApiNetworkClock ctx
-                Link.getNetworkClock Default Empty
+            r <-
+                request @ApiNetworkClock
+                    ctx
+                    Link.getNetworkClock
+                    Default
+                    Empty
             expectResponseCode @IO HTTP.status200 r
-            expectField (#ntpStatus . #status)
-                (`shouldBe` NtpSyncingStatusAvailable) r
+            expectField
+                (#ntpStatus . #status)
+                (`shouldBe` NtpSyncingStatusAvailable)
+                r
 
     it "NETWORK_CLOCK - Can query network clock and force NTP check" $ \ctx -> do
         sandboxed <- inNixBuild
         when sandboxed $
             pendingWith "Internet NTP servers unavailable in build sandbox"
         eventually "ntp status = (un)available" $ do
-            r <- request @ApiNetworkClock ctx
-                (Link.getNetworkClock' True) Default Empty
+            r <-
+                request @ApiNetworkClock
+                    ctx
+                    (Link.getNetworkClock' True)
+                    Default
+                    Empty
             expectResponseCode @IO HTTP.status200 r
-            expectField (#ntpStatus . #status)
-                (`shouldBe` NtpSyncingStatusAvailable) r
+            expectField
+                (#ntpStatus . #status)
+                (`shouldBe` NtpSyncingStatusAvailable)
+                r

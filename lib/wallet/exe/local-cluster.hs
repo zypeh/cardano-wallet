@@ -9,14 +9,17 @@
 
 module Main where
 
-import Prelude
-
+import Cardano.BM.Backend.EKGView qualified as EKG
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
+    ( HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
+    )
 import Cardano.BM.Plugin
-    ( loadPlugin )
+    ( loadPlugin
+    )
 import Cardano.CLI
     ( LogOutput (..)
     , Port
@@ -26,17 +29,26 @@ import Cardano.CLI
     , withLoggingNamed
     )
 import Cardano.Startup
-    ( installSignalHandlers, setDefaultFilePermissions, withUtf8Encoding )
+    ( installSignalHandlers
+    , setDefaultFilePermissions
+    , withUtf8Encoding
+    )
 import Cardano.Wallet.Api.Types
-    ( decodeAddress )
+    ( decodeAddress
+    )
 import Cardano.Wallet.Logging
-    ( stdoutTextTracer, trMessageText )
+    ( stdoutTextTracer
+    , trMessageText
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( NetworkDiscriminant (..) )
+    ( NetworkDiscriminant (..)
+    )
 import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncTolerance (..) )
+    ( SyncTolerance (..)
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
 import Cardano.Wallet.Shelley
     ( SomeNetworkDiscriminant (..)
     , serveWallet
@@ -44,9 +56,11 @@ import Cardano.Wallet.Shelley
     , tracerSeverities
     )
 import Cardano.Wallet.Shelley.BlockchainSource
-    ( BlockchainSource (..) )
+    ( BlockchainSource (..)
+    )
 import Cardano.Wallet.Shelley.Launch
-    ( withSystemTempDir )
+    ( withSystemTempDir
+    )
 import Cardano.Wallet.Shelley.Launch.Cluster
     ( ClusterLog (..)
     , Credential (..)
@@ -61,23 +75,35 @@ import Cardano.Wallet.Shelley.Launch.Cluster
     , withCluster
     )
 import Control.Arrow
-    ( first )
+    ( first
+    )
 import Control.Monad
-    ( void, when )
+    ( void
+    , when
+    )
 import Control.Tracer
-    ( contramap, traceWith )
+    ( contramap
+    , traceWith
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
-    ( ToText (..) )
+    ( ToText (..)
+    )
 import Ouroboros.Network.Client.Wallet
-    ( tunedForMainnetPipeliningStrategy )
+    ( tunedForMainnetPipeliningStrategy
+    )
 import System.Directory
-    ( createDirectory )
+    ( createDirectory
+    )
 import System.FilePath
-    ( (</>) )
+    ( (</>)
+    )
 import Test.Integration.Faucet
     ( byronIntegrationTestFunds
     , genRewardAccounts
@@ -86,9 +112,7 @@ import Test.Integration.Faucet
     , mirMnemonics
     , shelleyIntegrationTestFunds
     )
-
-import qualified Cardano.BM.Backend.EKGView as EKG
-import qualified Data.Text as T
+import Prelude
 
 -- |
 -- # OVERVIEW
@@ -212,23 +236,28 @@ main = withLocalClusterSetup $ \dir clusterLogs walletLogs ->
     withLoggingNamed "cluster" clusterLogs $ \(_, (_, trCluster)) -> do
         let tr' = contramap MsgCluster $ trMessageText trCluster
         clusterCfg <- localClusterConfigFromEnv
-        withCluster tr' dir clusterCfg faucetFunds
+        withCluster
+            tr'
+            dir
+            clusterCfg
+            faucetFunds
             (whenReady dir (trMessageText trCluster) walletLogs)
   where
     unsafeDecodeAddr = either (error . show) id . decodeAddress @Mainnet
 
-    faucetFunds = FaucetFunds
-        { pureAdaFunds =
-            shelleyIntegrationTestFunds
-             <> byronIntegrationTestFunds
-             <> map (first unsafeDecodeAddr) hwWalletFunds
-        , maFunds =
-            maryIntegrationTestAssets (Coin 10_000_000)
-        , mirFunds =
-            first KeyCredential
-            . (,Coin $ fromIntegral oneMillionAda)
-            <$> concatMap genRewardAccounts mirMnemonics
-        }
+    faucetFunds =
+        FaucetFunds
+            { pureAdaFunds =
+                shelleyIntegrationTestFunds
+                    <> byronIntegrationTestFunds
+                    <> map (first unsafeDecodeAddr) hwWalletFunds
+            , maFunds =
+                maryIntegrationTestAssets (Coin 10_000_000)
+            , mirFunds =
+                first KeyCredential
+                    . (,Coin $ fromIntegral oneMillionAda)
+                    <$> concatMap genRewardAccounts mirMnemonics
+            }
 
     whenReady dir trCluster logs (RunningNode socketPath block0 (gp, vData) _) =
         withLoggingNamed "cardano-wallet" logs $ \(sb, (cfg, tr)) -> do
@@ -240,32 +269,42 @@ main = withLocalClusterSetup $ \dir clusterLogs walletLogs ->
             listen <- walletListenFromEnv
             tokenMetadataServer <- tokenMetadataServerFromEnv
 
-            prometheusUrl <- (maybe "none"
-                    (\(h, p) -> T.pack h <> ":" <> toText @(Port "Prometheus") p)
-                )
-                <$> getPrometheusURL
-            ekgUrl <- (maybe "none"
-                    (\(h, p) -> T.pack h <> ":" <> toText @(Port "EKG") p)
-                )
-                <$> getEKGURL
+            prometheusUrl <-
+                ( maybe
+                        "none"
+                        (\(h, p) -> T.pack h <> ":" <> toText @(Port "Prometheus") p)
+                    )
+                    <$> getPrometheusURL
+            ekgUrl <-
+                ( maybe
+                        "none"
+                        (\(h, p) -> T.pack h <> ":" <> toText @(Port "EKG") p)
+                    )
+                    <$> getEKGURL
 
-            void $ serveWallet
-                (NodeSource socketPath vData (SyncTolerance 10))
-                gp
-                tunedForMainnetPipeliningStrategy
-                (SomeNetworkDiscriminant $ Proxy @Mainnet)
-                []
-                tracers
-                (Just db)
-                Nothing
-                "127.0.0.1"
-                listen
-                Nothing
-                Nothing
-                tokenMetadataServer
-                block0
-                (\u -> traceWith trCluster $ MsgBaseUrl (T.pack . show $ u)
-                    ekgUrl prometheusUrl)
+            void $
+                serveWallet
+                    (NodeSource socketPath vData (SyncTolerance 10))
+                    gp
+                    tunedForMainnetPipeliningStrategy
+                    (SomeNetworkDiscriminant $ Proxy @Mainnet)
+                    []
+                    tracers
+                    (Just db)
+                    Nothing
+                    "127.0.0.1"
+                    listen
+                    Nothing
+                    Nothing
+                    tokenMetadataServer
+                    block0
+                    ( \u ->
+                        traceWith trCluster $
+                            MsgBaseUrl
+                                (T.pack . show $ u)
+                                ekgUrl
+                                prometheusUrl
+                    )
 
 -- Do all the program setup required for running the local cluster, create a
 -- temporary directory, log output configurations, and pass these to the given
@@ -287,7 +326,8 @@ withLocalClusterSetup action = do
         withSystemTempDir stdoutTextTracer "test-cluster" $ \dir -> do
             let logOutputs name minSev =
                     [ LogToFile (dir </> name) (min minSev Info)
-                    , LogToStdStreams minSev ]
+                    , LogToStdStreams minSev
+                    ]
 
             clusterLogs <- logOutputs "cluster.log" <$> testMinSeverityFromEnv
             walletLogs <- logOutputs "wallet.log" <$> walletMinSeverityFromEnv
@@ -304,15 +344,20 @@ data TestsLog
 
 instance ToText TestsLog where
     toText = \case
-        MsgBaseUrl walletUrl ekgUrl prometheusUrl -> mconcat
-            [ "Wallet url: " , walletUrl
-            , ", EKG url: " , ekgUrl
-            , ", Prometheus url:", prometheusUrl
-            ]
+        MsgBaseUrl walletUrl ekgUrl prometheusUrl ->
+            mconcat
+                [ "Wallet url: "
+                , walletUrl
+                , ", EKG url: "
+                , ekgUrl
+                , ", Prometheus url:"
+                , prometheusUrl
+                ]
         MsgSettingUpFaucet -> "Setting up faucet..."
         MsgCluster msg -> toText msg
 
 instance HasPrivacyAnnotation TestsLog
+
 instance HasSeverityAnnotation TestsLog where
     getSeverityAnnotation = \case
         MsgSettingUpFaucet -> Notice

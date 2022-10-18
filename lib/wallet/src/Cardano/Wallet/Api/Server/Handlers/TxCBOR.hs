@@ -4,86 +4,101 @@
 -- |
 -- Copyright: © 2020 IOHK
 -- License: Apache-2.0
---
-
 module Cardano.Wallet.Api.Server.Handlers.TxCBOR
-  ( parseTxCBOR
-  , ParsedTxCBOR (..)
-  )
-  where
-
-import Prelude hiding
-    ( (.) )
+    ( parseTxCBOR
+    , ParsedTxCBOR (..)
+    )
+where
 
 import Cardano.Wallet.Api.Server.Error
-    ( IsServerError (..), apiError, liftE, showT )
+    ( IsServerError (..)
+    , apiError
+    , liftE
+    , showT
+    )
 import Cardano.Wallet.Api.Types
-    ( ApiErrorCode (UnexpectedError) )
+    ( ApiErrorCode (UnexpectedError)
+    )
 import Cardano.Wallet.Primitive.Types
-    ( Certificate )
+    ( Certificate
+    )
 import Cardano.Wallet.Read
-    ( Tx (..) )
+    ( Tx (..)
+    )
 import Cardano.Wallet.Read.Eras
-    ( (:.:)
-    , EraFun (..)
+    ( EraFun (..)
     , K (..)
     , applyEraFun
     , extractEraValue
     , sequenceEraValue
     , (*.**)
+    , (:.:)
     )
 import Cardano.Wallet.Read.Eras.EraFun
-    ( EraFunK (..) )
+    ( EraFunK (..)
+    )
+import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates qualified as Feature
 import Cardano.Wallet.Read.Tx.CBOR
-    ( TxCBOR, deserializeTx )
+    ( TxCBOR
+    , deserializeTx
+    )
 import Cardano.Wallet.Read.Tx.Certificates
-    ( getEraCertificates )
+    ( getEraCertificates
+    )
 import Codec.CBOR.Read
-    ( DeserialiseFailure )
+    ( DeserialiseFailure
+    )
 import Control.Category
-    ( (.) )
+    ( (.)
+    )
+import Data.ByteString.Lazy qualified as BL
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import Servant.Server
-    ( Handler, err500 )
-
-import qualified Cardano.Wallet.Read.Primitive.Tx.Features.Certificates as Feature
-import qualified Data.ByteString.Lazy as BL
+    ( Handler
+    , err500
+    )
+import Prelude hiding
+    ( (.)
+    )
 
 newtype ErrParseCBOR = ErrParseCBOR DeserialiseFailure
     deriving (Eq, Show)
 
 instance IsServerError ErrParseCBOR where
     toServerError (ErrParseCBOR df) =
-        apiError err500 UnexpectedError $ mconcat
-            [ "Error while trying to parse a transaction CBOR from the database"
-            , showT df
-            ]
+        apiError err500 UnexpectedError $
+            mconcat
+                [ "Error while trying to parse a transaction CBOR from the database"
+                , showT df
+                ]
 
 -- | Values parsed out of a CBOR for a 'Tx' in any era
 newtype ParsedTxCBOR = ParsedTxCBOR
     { certificates :: [Certificate]
     }
-    deriving Generic
+    deriving (Generic)
 
 parser :: EraFun Tx (K ParsedTxCBOR)
-parser = fromEraFunK
-    $ ParsedTxCBOR
-        <$> EraFunK (Feature.certificates . getEraCertificates)
+parser =
+    fromEraFunK $
+        ParsedTxCBOR
+            <$> EraFunK (Feature.certificates . getEraCertificates)
 
-txCBORParser :: EraFun
-    (K BL.ByteString)
-    (Either DeserialiseFailure :.: K (ParsedTxCBOR))
-txCBORParser  = parser *.** deserializeTx
+txCBORParser
+    :: EraFun
+        (K BL.ByteString)
+        (Either DeserialiseFailure :.: K (ParsedTxCBOR))
+txCBORParser = parser *.** deserializeTx
 
 -- | Parse CBOR to some values and throw a server deserialize error if failing.
 parseTxCBOR
     :: TxCBOR
     -> Handler ParsedTxCBOR
 parseTxCBOR cbor =
-    case  fmap extractEraValue
-            $ sequenceEraValue
-            $ applyEraFun txCBORParser cbor
-    of
+    case fmap extractEraValue $
+        sequenceEraValue $
+            applyEraFun txCBORParser cbor of
         Left df -> liftE $ ErrParseCBOR df
         Right result -> pure result

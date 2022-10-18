@@ -1,25 +1,36 @@
-
-
-module Cardano.Wallet.DB.Store.Submissions.StoreSpec ( spec ) where
-
-import Prelude
+module Cardano.Wallet.DB.Store.Submissions.StoreSpec (spec) where
 
 import Cardano.DB.Sqlite
-    ( ForeignKeysSetting (ForeignKeysDisabled) )
+    ( ForeignKeysSetting (ForeignKeysDisabled)
+    )
 import Cardano.Wallet.DB.Fixtures
-    ( WalletProperty, logScale, withDBInMemory, withInitializedWalletProp )
+    ( WalletProperty
+    , logScale
+    , withDBInMemory
+    , withInitializedWalletProp
+    )
 import Cardano.Wallet.DB.Store.Submissions.ModelSpec
-    ( genDeltas )
+    ( genDeltas
+    )
 import Cardano.Wallet.DB.Store.Submissions.Store
-    ( mkStoreSubmissions )
+    ( mkStoreSubmissions
+    )
 import Control.Monad
-    ( void )
+    ( void
+    )
 import Test.DBVar
-    ( prop_StoreUpdates )
+    ( prop_StoreUpdates
+    )
 import Test.Hspec
-    ( Spec, around, describe, it )
+    ( Spec
+    , around
+    , describe
+    , it
+    )
 import Test.QuickCheck
-    ( property )
+    ( property
+    )
+import Prelude
 
 spec :: Spec
 spec = do
@@ -29,9 +40,9 @@ spec = do
 
 prop_SingleWalletStoreLaws :: WalletProperty
 prop_SingleWalletStoreLaws = withInitializedWalletProp $ \wid runQ -> do
-    void $ prop_StoreUpdates
-        runQ
-        (mkStoreSubmissions wid)
-        (pure mempty)
-        (logScale . genDeltas wid)
-
+    void $
+        prop_StoreUpdates
+            runQ
+            (mkStoreSubmissions wid)
+            (pure mempty)
+            (logScale . genDeltas wid)

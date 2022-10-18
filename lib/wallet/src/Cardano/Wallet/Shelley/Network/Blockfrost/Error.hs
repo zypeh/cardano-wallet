@@ -4,34 +4,46 @@
 
 module Cardano.Wallet.Shelley.Network.Blockfrost.Error where
 
-import Prelude
-
+import Blockfrost.Client qualified as BF
+import Cardano.Binary qualified as Binary
 import Cardano.Wallet.Primitive.Types
-    ( EpochNo, PoolId )
+    ( EpochNo
+    , PoolId
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin )
+    ( Coin
+    )
 import Control.Exception
-    ( Exception, throwIO )
+    ( Exception
+    , throwIO
+    )
 import Control.Monad
-    ( (<=<) )
+    ( (<=<)
+    )
 import Control.Monad.Error.Class
-    ( MonadError (throwError) )
+    ( MonadError (throwError)
+    )
 import Control.Monad.Trans.Except
-    ( ExceptT, runExceptT )
+    ( ExceptT
+    , runExceptT
+    )
 import Data.Bits
-    ( Bits )
+    ( Bits
+    )
 import Data.IntCast
-    ( intCastMaybe )
+    ( intCastMaybe
+    )
 import Data.Quantity
-    ( MkPercentageError )
+    ( MkPercentageError
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Data.Text.Class
-    ( TextDecodingError )
-
-import qualified Blockfrost.Client as BF
-import qualified Cardano.Binary as Binary
-import qualified Servant.Client as Servant
+    ( TextDecodingError
+    )
+import Servant.Client qualified as Servant
+import Prelude
 
 data BlockfrostError
     = ClientError Servant.ClientError

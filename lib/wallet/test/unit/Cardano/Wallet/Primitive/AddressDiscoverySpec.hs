@@ -9,16 +9,19 @@
 
 module Cardano.Wallet.Primitive.AddressDiscoverySpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv )
+    ( XPrv
+    )
+import Cardano.Crypto.Wallet qualified as CC
 import Cardano.Mnemonic
-    ( SomeMnemonic (..) )
+    ( SomeMnemonic (..)
+    )
 import Cardano.Wallet.Gen
-    ( genMnemonic )
+    ( genMnemonic
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( Depth (AccountK, CredFromKeyK, RootK)
     , DerivationType (..)
@@ -28,11 +31,17 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , publicKey
     )
 import Cardano.Wallet.Primitive.AddressDerivation.Byron
-    ( ByronKey, generateKeyFromSeed, unsafeGenerateKeyFromSeed )
+    ( ByronKey
+    , generateKeyFromSeed
+    , unsafeGenerateKeyFromSeed
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery
-    ( IsOurs (..), knownAddresses )
+    ( IsOurs (..)
+    , knownAddresses
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery.Random
-    ( mkRndState )
+    ( mkRndState
+    )
 import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..)
     , PassphraseScheme (EncryptWithPBKDF2)
@@ -41,15 +50,27 @@ import Cardano.Wallet.Primitive.Passphrase
     , preparePassphrase
     )
 import Control.Monad
-    ( replicateM )
+    ( replicateM
+    )
+import Data.ByteArray qualified as BA
+import Data.ByteString qualified as BS
 import Data.Maybe
-    ( isJust, isNothing )
+    ( isJust
+    , isNothing
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
 import Test.Hspec
-    ( Spec, describe, it )
+    ( Spec
+    , describe
+    , it
+    )
 import Test.Hspec.Extra
-    ( parallel )
+    ( parallel
+    )
 import Test.QuickCheck
     ( Arbitrary (..)
     , Gen
@@ -61,18 +82,13 @@ import Test.QuickCheck
     , property
     , (.&&.)
     )
-
-import qualified Cardano.Crypto.Wallet as CC
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import Prelude
 
 spec :: Spec
 spec = do
     parallel $ describe "Random Address Discovery Properties" $ do
         it "isOurs works as expected during key derivation in testnet" $ do
-            property (prop_derivedKeysAreOurs @('Testnet 0))
+            property (prop_derivedKeysAreOurs @( 'Testnet 0))
         it "isOurs works as expected during key derivation in mainnet" $ do
             property (prop_derivedKeysAreOurs @Mainnet)
 
@@ -81,7 +97,8 @@ spec = do
 -------------------------------------------------------------------------------}
 
 prop_derivedKeysAreOurs
-    :: forall (n :: NetworkDiscriminant). (PaymentAddress n ByronKey 'CredFromKeyK)
+    :: forall (n :: NetworkDiscriminant)
+     . (PaymentAddress n ByronKey 'CredFromKeyK)
     => SomeMnemonic
     -> Passphrase "encryption"
     -> Index 'WholeDomain 'AccountK
@@ -89,10 +106,12 @@ prop_derivedKeysAreOurs
     -> ByronKey 'RootK XPrv
     -> Property
 prop_derivedKeysAreOurs seed encPwd accIx addrIx rk' =
-    isJust resPos .&&. addr `elem` (fst' <$> knownAddresses stPos') .&&.
-    isNothing resNeg .&&. addr `notElem` (fst' <$> knownAddresses stNeg')
+    isJust resPos
+        .&&. addr `elem` (fst' <$> knownAddresses stPos')
+        .&&. isNothing resNeg
+        .&&. addr `notElem` (fst' <$> knownAddresses stNeg')
   where
-    fst' (a,_,_) = a
+    fst' (a, _, _) = a
     (resPos, stPos') = isOurs addr (mkRndState @n rootXPrv 0)
     (resNeg, stNeg') = isOurs addr (mkRndState @n rk' 0)
     key = publicKey $ unsafeGenerateKeyFromSeed @CredFromKeyK (accIx, addrIx) seed encPwd
@@ -116,8 +135,9 @@ instance Arbitrary (ByronKey 'RootK XPrv) where
     arbitrary = genRootKeys
 
 instance Arbitrary (Passphrase "encryption") where
-    arbitrary = preparePassphrase EncryptWithPBKDF2
-        <$> arbitrary @(Passphrase "user")
+    arbitrary =
+        preparePassphrase EncryptWithPBKDF2
+            <$> arbitrary @(Passphrase "user")
 
 genRootKeys :: Gen (ByronKey 'RootK XPrv)
 genRootKeys = do

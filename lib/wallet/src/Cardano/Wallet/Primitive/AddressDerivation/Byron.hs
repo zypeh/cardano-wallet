@@ -24,10 +24,9 @@
 -- For full documentation of the key derivation schemes,
 -- see the "Cardano.Crypto.Wallet" module, and the implementation in
 -- <https://github.com/input-output-hk/cardano-crypto/blob/4590efa638397e952a51a8994b5543e4ea3c1ecd/cbits/encrypted_sign.c cardano-crypto>.
-
 module Cardano.Wallet.Primitive.AddressDerivation.Byron
     ( -- * Types
-      ByronKey(..)
+      ByronKey (..)
     , DerivationPathFrom
 
       -- * Generation
@@ -40,11 +39,10 @@ module Cardano.Wallet.Primitive.AddressDerivation.Byron
       -- * Derivation
     , deriveAccountPrivateKey
     , deriveAddressPrivateKey
+    )
+where
 
-    ) where
-
-import Prelude
-
+import Cardano.Byron.Codec.Cbor qualified as CBOR
 import Cardano.Crypto.Wallet
     ( DerivationScheme (DerivationScheme1)
     , XPrv
@@ -56,8 +54,12 @@ import Cardano.Crypto.Wallet
     , unXPub
     , xprv
     )
+import Cardano.Crypto.Wallet qualified as CC
 import Cardano.Mnemonic
-    ( SomeMnemonic (..), entropyToBytes, mnemonicToEntropy )
+    ( SomeMnemonic (..)
+    , entropyToBytes
+    , mnemonicToEntropy
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( BoundedAddressLength (..)
     , Depth (..)
@@ -73,6 +75,7 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , fromHex
     , hex
     )
+import Cardano.Wallet.Primitive.AddressDerivation qualified as W
 import Cardano.Wallet.Primitive.Passphrase
     ( Passphrase (..)
     , PassphraseHash (..)
@@ -80,41 +83,52 @@ import Cardano.Wallet.Primitive.Passphrase
     , changePassphraseXPrv
     )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
 import Cardano.Wallet.Primitive.Types.ProtocolMagic
-    ( ProtocolMagic (..), testnetMagic )
+    ( ProtocolMagic (..)
+    , testnetMagic
+    )
 import Cardano.Wallet.Util
-    ( invariant )
+    ( invariant
+    )
+import Codec.CBOR.Encoding qualified as CBOR
+import Codec.CBOR.Write qualified as CBOR
 import Control.DeepSeq
-    ( NFData )
+    ( NFData
+    )
 import Crypto.Hash
-    ( hash )
+    ( hash
+    )
 import Crypto.Hash.Algorithms
-    ( SHA512 (..) )
+    ( SHA512 (..)
+    )
 import Crypto.Hash.Utils
-    ( blake2b256 )
+    ( blake2b256
+    )
+import Crypto.KDF.PBKDF2 qualified as PBKDF2
 import Data.ByteArray
-    ( ScrubbedBytes )
+    ( ScrubbedBytes
+    )
+import Data.ByteArray qualified as BA
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
+import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as B8
 import Data.Kind
-    ( Type )
+    ( Type
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import GHC.TypeLits
-    ( KnownNat )
-
-import qualified Cardano.Byron.Codec.Cbor as CBOR
-import qualified Cardano.Crypto.Wallet as CC
-import qualified Cardano.Wallet.Primitive.AddressDerivation as W
-import qualified Codec.CBOR.Encoding as CBOR
-import qualified Codec.CBOR.Write as CBOR
-import qualified Crypto.KDF.PBKDF2 as PBKDF2
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as B8
+    ( KnownNat
+    )
+import Prelude
 
 {-------------------------------------------------------------------------------
                                    Key Types
@@ -129,10 +143,13 @@ data ByronKey (depth :: Depth) key = ByronKey
     -- ^ The address derivation indices for the level of this key.
     , payloadPassphrase :: Passphrase "addr-derivation-payload"
     -- ^ Used for encryption of payload containing address derivation path.
-    } deriving stock (Generic)
+    }
+    deriving stock (Generic)
 
 instance (NFData key, NFData (DerivationPathFrom depth)) => NFData (ByronKey depth key)
+
 deriving instance (Show key, Show (DerivationPathFrom depth)) => Show (ByronKey depth key)
+
 deriving instance (Eq key, Eq (DerivationPathFrom depth)) => Eq (ByronKey depth key)
 
 -- | The hierarchical derivation indices for a given level/depth.
@@ -149,21 +166,25 @@ type family DerivationPathFrom (depth :: Depth) :: Type where
 
 instance WalletKey ByronKey where
     changePassphrase = changePassphraseRnd
+
     -- Extract the public key part of a private key.
     publicKey = mapKey toXPub
+
     -- Hash a public key to some other representation.
     digest = hash . unXPub . getKey
     getRawKey = getKey
     liftRawKey = error "not supported"
     keyTypeDescriptor _ = "rnd"
 
-instance KnownNat pm => PaymentAddress ('Testnet pm) ByronKey 'CredFromKeyK where
-    paymentAddress k = Address
-        $ CBOR.toStrictByteString
-        $ CBOR.encodeAddress (getKey k)
-            [ CBOR.encodeDerivationPathAttr pwd acctIx addrIx
-            , CBOR.encodeProtocolMagicAttr (testnetMagic @pm)
-            ]
+instance KnownNat pm => PaymentAddress ( 'Testnet pm) ByronKey 'CredFromKeyK where
+    paymentAddress k =
+        Address $
+            CBOR.toStrictByteString $
+                CBOR.encodeAddress
+                    (getKey k)
+                    [ CBOR.encodeDerivationPathAttr pwd acctIx addrIx
+                    , CBOR.encodeProtocolMagicAttr (testnetMagic @pm)
+                    ]
       where
         (acctIx, addrIx) = derivationPath k
         pwd = payloadPassphrase k
@@ -171,10 +192,12 @@ instance KnownNat pm => PaymentAddress ('Testnet pm) ByronKey 'CredFromKeyK wher
         Address bytes
 
 instance PaymentAddress 'Mainnet ByronKey 'CredFromKeyK where
-    paymentAddress k = Address
-        $ CBOR.toStrictByteString
-        $ CBOR.encodeAddress (getKey k)
-            [ CBOR.encodeDerivationPathAttr pwd acctIx addrIx ]
+    paymentAddress k =
+        Address $
+            CBOR.toStrictByteString $
+                CBOR.encodeAddress
+                    (getKey k)
+                    [CBOR.encodeDerivationPathAttr pwd acctIx addrIx]
       where
         (acctIx, addrIx) = derivationPath k
         pwd = payloadPassphrase k
@@ -184,17 +207,19 @@ instance PaymentAddress 'Mainnet ByronKey 'CredFromKeyK where
 instance MkKeyFingerprint ByronKey Address where
     paymentKeyFingerprint addr@(Address bytes) =
         case CBOR.deserialiseCbor CBOR.decodeAddressPayload bytes of
-            Just _  -> Right $ KeyFingerprint bytes
+            Just _ -> Right $ KeyFingerprint bytes
             Nothing -> Left $ ErrInvalidAddress addr (Proxy @ByronKey)
 
 instance BoundedAddressLength ByronKey where
     -- Matching 'paymentAddress' above.
-    maxLengthAddressFor _ = Address
-        $ CBOR.toStrictByteString
-        $ CBOR.encodeAddress xpub
-            [ CBOR.encodeDerivationPathAttr passphrase maxBound maxBound
-            , CBOR.encodeProtocolMagicAttr (ProtocolMagic maxBound)
-            ]
+    maxLengthAddressFor _ =
+        Address $
+            CBOR.toStrictByteString $
+                CBOR.encodeAddress
+                    xpub
+                    [ CBOR.encodeDerivationPathAttr passphrase maxBound maxBound
+                    , CBOR.encodeProtocolMagicAttr (ProtocolMagic maxBound)
+                    ]
       where
         -- Must apparently always be 32 bytes:
         passphrase :: Passphrase "addr-derivation-payload"
@@ -230,19 +255,23 @@ unsafeGenerateKeyFromSeed
     -> SomeMnemonic
     -> Passphrase "encryption"
     -> ByronKey depth XPrv
-unsafeGenerateKeyFromSeed derivationPath (SomeMnemonic mw) (Passphrase pwd) = ByronKey
-    { getKey = masterKey
-    , derivationPath
-    , payloadPassphrase = hdPassphrase (toXPub masterKey)
-    }
+unsafeGenerateKeyFromSeed derivationPath (SomeMnemonic mw) (Passphrase pwd) =
+    ByronKey
+        { getKey = masterKey
+        , derivationPath
+        , payloadPassphrase = hdPassphrase (toXPub masterKey)
+        }
   where
     masterKey = generate (hashSeed seed') pwd
-    seed  = entropyToBytes $ mnemonicToEntropy mw
-    seed' = invariant
-        ("seed length : " <> show (BA.length seed)
-            <> " in (Passphrase \"seed\") is not valid")
-        seed
-        (\s -> BA.length s >= minSeedLengthBytes && BA.length s <= 255)
+    seed = entropyToBytes $ mnemonicToEntropy mw
+    seed' =
+        invariant
+            ( "seed length : "
+                <> show (BA.length seed)
+                <> " in (Passphrase \"seed\") is not valid"
+            )
+            seed
+            (\s -> BA.length s >= minSeedLengthBytes && BA.length s <= 255)
 
 -- | Hash the seed entropy (generated from mnemonic) used to initiate a HD
 -- wallet. This increases the key length to 34 bytes, selectKey is greater than the
@@ -267,12 +296,13 @@ hashSeed = BA.convert . cbor . blake2b256 . cbor . BA.convert
 -- derivation path. PBKDF2 encryption using HMAC with the hash algorithm SHA512
 -- is employed.
 hdPassphrase :: XPub -> Passphrase "addr-derivation-payload"
-hdPassphrase masterKey = Passphrase $
-    PBKDF2.generate
-    (PBKDF2.prfHMAC SHA512)
-    (PBKDF2.Parameters 500 32)
-    (unXPub masterKey)
-    ("address-hashing" :: ByteString)
+hdPassphrase masterKey =
+    Passphrase $
+        PBKDF2.generate
+            (PBKDF2.prfHMAC SHA512)
+            (PBKDF2.Parameters 500 32)
+            (unXPub masterKey)
+            ("address-hashing" :: ByteString)
 
 mkByronKeyFromMasterKey
     :: XPrv
@@ -283,11 +313,12 @@ unsafeMkByronKeyFromMasterKey
     :: DerivationPathFrom depth
     -> XPrv
     -> ByronKey depth XPrv
-unsafeMkByronKeyFromMasterKey derivationPath masterKey = ByronKey
-    { getKey = masterKey
-    , derivationPath
-    , payloadPassphrase = hdPassphrase (toXPub masterKey)
-    }
+unsafeMkByronKeyFromMasterKey derivationPath masterKey =
+    ByronKey
+        { getKey = masterKey
+        , derivationPath
+        , payloadPassphrase = hdPassphrase (toXPub masterKey)
+        }
 
 {-------------------------------------------------------------------------------
                                    Passphrase
@@ -305,11 +336,12 @@ changePassphraseRnd
     -> (PassphraseScheme, Passphrase "user")
     -> ByronKey depth XPrv
     -> ByronKey depth XPrv
-changePassphraseRnd old new key = ByronKey
-    { getKey = masterKey
-    , derivationPath = derivationPath key
-    , payloadPassphrase = hdPassphrase (toXPub masterKey)
-    }
+changePassphraseRnd old new key =
+    ByronKey
+        { getKey = masterKey
+        , derivationPath = derivationPath key
+        , payloadPassphrase = hdPassphrase (toXPub masterKey)
+        }
   where
     masterKey = changePassphraseXPrv old new (getKey key)
 
@@ -329,11 +361,13 @@ instance W.HardDerivation ByronKey where
     type AddressIndexDerivationType ByronKey = 'WholeDomain
     type AddressCredential ByronKey = 'CredFromKeyK
 
-    deriveAccountPrivateKey _ _ _ = error
-        "unsound evaluation of 'deriveAccountPrivateKey' in the context of Byron key"
+    deriveAccountPrivateKey _ _ _ =
+        error
+            "unsound evaluation of 'deriveAccountPrivateKey' in the context of Byron key"
 
-    deriveAddressPrivateKey _ _ _ _ = error
-        "unsound evaluation of 'deriveAddressPrivateKey' in the context of Byron key"
+    deriveAddressPrivateKey _ _ _ _ =
+        error
+            "unsound evaluation of 'deriveAddressPrivateKey' in the context of Byron key"
 
 -- | Derives account private key from the given root private key, using
 -- derivation scheme 1.
@@ -347,11 +381,12 @@ deriveAccountPrivateKey
     -> ByronKey 'RootK XPrv
     -> Index 'WholeDomain 'AccountK
     -> ByronKey 'AccountK XPrv
-deriveAccountPrivateKey (Passphrase pwd) masterKey idx@(Index accIx) = ByronKey
-    { getKey = deriveXPrv DerivationScheme1 pwd (getKey masterKey) accIx
-    , derivationPath = idx
-    , payloadPassphrase = payloadPassphrase masterKey
-    }
+deriveAccountPrivateKey (Passphrase pwd) masterKey idx@(Index accIx) =
+    ByronKey
+        { getKey = deriveXPrv DerivationScheme1 pwd (getKey masterKey) accIx
+        , derivationPath = idx
+        , payloadPassphrase = payloadPassphrase masterKey
+        }
 
 -- | Derives address private key from the given account private key, using
 -- derivation scheme 1.
@@ -365,11 +400,12 @@ deriveAddressPrivateKey
     -> ByronKey 'AccountK XPrv
     -> Index 'WholeDomain 'CredFromKeyK
     -> ByronKey 'CredFromKeyK XPrv
-deriveAddressPrivateKey (Passphrase pwd) accountKey idx@(Index addrIx) = ByronKey
-    { getKey = deriveXPrv DerivationScheme1 pwd (getKey accountKey) addrIx
-    , derivationPath = (derivationPath accountKey, idx)
-    , payloadPassphrase = payloadPassphrase accountKey
-    }
+deriveAddressPrivateKey (Passphrase pwd) accountKey idx@(Index addrIx) =
+    ByronKey
+        { getKey = deriveXPrv DerivationScheme1 pwd (getKey accountKey) addrIx
+        , derivationPath = (derivationPath accountKey, idx)
+        , payloadPassphrase = payloadPassphrase accountKey
+        }
 
 {-------------------------------------------------------------------------------
                           Storing and retrieving keys
@@ -381,15 +417,18 @@ instance PersistPrivateKey (ByronKey 'RootK) where
         , hex . getPassphraseHash $ h
         )
 
-    unsafeDeserializeXPrv (k, h) = either err id $ (,)
-        <$> fmap mkKey (deserializeKey k)
-        <*> fmap PassphraseHash (fromHex h)
+    unsafeDeserializeXPrv (k, h) =
+        either err id $
+            (,)
+                <$> fmap mkKey (deserializeKey k)
+                <*> fmap PassphraseHash (fromHex h)
       where
         err _ = error "unsafeDeserializeXPrv: unable to deserialize ByronKey"
         mkKey (key, pwd) = ByronKey key () pwd
         deserializeKey
             :: ByteString
-            -> Either String
+            -> Either
+                String
                 ( XPrv
                 , Passphrase "addr-derivation-payload"
                 )
@@ -407,4 +446,4 @@ instance PersistPrivateKey (ByronKey 'RootK) where
 
 -- | Transform the wrapped key.
 mapKey :: (key -> key') -> ByronKey depth key -> ByronKey depth key'
-mapKey f rnd = rnd { getKey = f (getKey rnd) }
+mapKey f rnd = rnd {getKey = f (getKey rnd)}

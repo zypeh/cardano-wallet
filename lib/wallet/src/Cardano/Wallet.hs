@@ -38,17 +38,15 @@
 --   state @s@. This describes how the hierarchical structure of a wallet is
 --   defined as well as the relationship between secret keys and public
 --   addresses.
-
 module Cardano.Wallet
-    (
-    -- * Development
-    -- $Development
+    ( -- * Development
+      -- $Development
 
-    -- * WalletLayer
-        WalletLayer (..)
+      -- * WalletLayer
+      WalletLayer (..)
 
-    -- * Capabilities
-    -- $Capabilities
+      -- * Capabilities
+      -- $Capabilities
     , HasDBLayer
     , dbLayer
     , HasLogger
@@ -60,8 +58,9 @@ module Cardano.Wallet
     , HasGenesisData
     , genesisData
 
-    -- * Interface
-    -- ** Wallet
+      -- * Interface
+
+      -- ** Wallet
     , createWallet
     , createIcarusWallet
     , attachPrivateKeyFromPwd
@@ -97,26 +96,26 @@ module Cardano.Wallet
     , ErrWritePolicyPublicKey (..)
     , ErrGetPolicyId (..)
 
-    -- * Shared Wallet
+      -- * Shared Wallet
     , updateCosigner
     , ErrAddCosignerKey (..)
     , ErrConstructSharedWallet (..)
     , normalizeSharedAddress
     , constructSharedTransaction
 
-    -- ** Address
+      -- ** Address
     , createRandomAddress
     , importRandomAddresses
     , listAddresses
     , normalizeDelegationAddress
     , lookupTxIns
     , lookupTxOuts
-    , ErrCreateRandomAddress(..)
-    , ErrImportRandomAddress(..)
-    , ErrImportAddress(..)
+    , ErrCreateRandomAddress (..)
+    , ErrImportRandomAddress (..)
+    , ErrImportAddress (..)
     , ErrDecodeTx (..)
 
-    -- ** Payment
+      -- ** Payment
     , getTxExpiry
     , SelectAssetsParams (..)
     , selectAssets
@@ -129,7 +128,7 @@ module Cardano.Wallet
     , signTransaction
     , constructTransaction
     , constructTxMeta
-    , ErrSelectAssets(..)
+    , ErrSelectAssets (..)
     , ErrSignPayment (..)
     , ErrNotASequentialWallet (..)
     , ErrWithdrawalNotWorth (..)
@@ -142,13 +141,13 @@ module Cardano.Wallet
     , ErrCannotQuit (..)
     , ErrSubmitTransaction (..)
 
-    -- ** Migration
+      -- ** Migration
     , createMigrationPlan
     , migrationPlanToSelectionWithdrawals
     , SelectionWithoutChange
     , ErrCreateMigrationPlan (..)
 
-    -- ** Delegation
+      -- ** Delegation
     , PoolRetirementEpochInfo (..)
     , joinStakePool
     , quitStakePool
@@ -156,13 +155,13 @@ module Cardano.Wallet
     , guardQuit
     , ErrStakePoolDelegation (..)
 
-    -- ** Fee Estimation
+      -- ** Fee Estimation
     , FeeEstimation (..)
     , estimateFee
     , calcMinimumDeposit
     , calcMinimumCoinValues
 
-    -- ** Transaction
+      -- ** Transaction
     , forgetTx
     , listTransactions
     , listAssets
@@ -184,7 +183,7 @@ module Cardano.Wallet
     , ErrStartTimeLaterThanEndTime (..)
     , ErrWitnessTx (..)
 
-    -- ** Root Key
+      -- ** Root Key
     , withRootKey
     , derivePublicKey
     , getAccountPublicKeyAtIndex
@@ -193,50 +192,70 @@ module Cardano.Wallet
     , ErrWithRootKey (..)
     , ErrWrongPassphrase (..)
     , ErrSignMetadataWith (..)
-    , ErrDerivePublicKey(..)
-    , ErrReadAccountPublicKey(..)
-    , ErrInvalidDerivationIndex(..)
+    , ErrDerivePublicKey (..)
+    , ErrReadAccountPublicKey (..)
+    , ErrInvalidDerivationIndex (..)
 
-    -- * Utilities
+      -- * Utilities
     , throttle
     , guardHardIndex
     , withNoSuchWallet
     , posAndNegFromCardanoValue
 
-    -- * Logging
+      -- * Logging
     , WalletWorkerLog (..)
     , WalletFollowLog (..)
     , WalletLog (..)
     , TxSubmitLog (..)
-    ) where
-
-import Prelude hiding
-    ( log )
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv, XPub )
+    ( XPrv
+    , XPub
+    )
 import Cardano.Address.Script
-    ( Cosigner (..), KeyHash )
+    ( Cosigner (..)
+    , KeyHash
+    )
+import Cardano.Address.Script qualified as CA
 import Cardano.Address.Style.Shared
-    ( deriveDelegationPublicKey )
+    ( deriveDelegationPublicKey
+    )
+import Cardano.Address.Style.Shared qualified as CA
+import Cardano.Address.Style.Shelley qualified as CAShelley
 import Cardano.Api
-    ( serialiseToCBOR )
+    ( serialiseToCBOR
+    )
+import Cardano.Api qualified as Cardano
+import Cardano.Api.Shelley qualified as Cardano
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
+    ( HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
+    )
 import Cardano.Crypto.Wallet
-    ( toXPub )
+    ( toXPub
+    )
+import Cardano.Crypto.Wallet qualified as CC
 import Cardano.Slotting.Slot
-    ( SlotNo (..) )
+    ( SlotNo (..)
+    )
 import Cardano.Wallet.Address.Book
-    ( AddressBookIso, Prologue (..), getDiscoveries, getPrologue )
+    ( AddressBookIso
+    , Prologue (..)
+    , getDiscoveries
+    , getPrologue
+    )
 import Cardano.Wallet.Checkpoints
     ( DeltaCheckpoints (..)
     , SparseCheckpointsConfig (..)
     , defaultSparseCheckpointsConfig
     , sparseCheckpoints
     )
+import Cardano.Wallet.Checkpoints.Policy qualified as CP
 import Cardano.Wallet.CoinSelection
     ( Selection
     , SelectionBalanceError (..)
@@ -258,8 +277,10 @@ import Cardano.Wallet.CoinSelection
     , makeSelectionReportSummarized
     , performSelection
     )
+import Cardano.Wallet.CoinSelection qualified as CS
 import Cardano.Wallet.CoinSelection.Internal.Balance
-    ( SelectionLimitOf (NoLimit) )
+    ( SelectionLimitOf (NoLimit)
+    )
 import Cardano.Wallet.DB
     ( DBLayer (..)
     , ErrNoSuchTransaction (..)
@@ -275,6 +296,7 @@ import Cardano.Wallet.DB.WalletState
     , getLatest
     , getSlot
     )
+import Cardano.Wallet.DB.WalletState qualified as WS
 import Cardano.Wallet.Logging
     ( BracketLog
     , BracketLog' (..)
@@ -312,15 +334,23 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , stakeDerivationPath
     )
 import Cardano.Wallet.Primitive.AddressDerivation.Byron
-    ( ByronKey )
+    ( ByronKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Icarus
-    ( IcarusKey )
+    ( IcarusKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.MintBurn
-    ( derivePolicyPrivateKey, policyDerivationPath )
+    ( derivePolicyPrivateKey
+    , policyDerivationPath
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
-    ( SharedKey (..), replaceCosignersWithVerKeys )
+    ( SharedKey (..)
+    , replaceCosignersWithVerKeys
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( ShelleyKey, deriveAccountPrivateKeyShelley )
+    ( ShelleyKey
+    , deriveAccountPrivateKeyShelley
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery
     ( CompareDiscovery (..)
     , GenChange (..)
@@ -332,9 +362,17 @@ import Cardano.Wallet.Primitive.AddressDiscovery
     , MaybeLight (..)
     )
 import Cardano.Wallet.Primitive.AddressDiscovery.Random
-    ( ErrImportAddress (..), RndStateLike )
+    ( ErrImportAddress (..)
+    , RndStateLike
+    )
+import Cardano.Wallet.Primitive.AddressDiscovery.Random qualified as Rnd
 import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
-    ( SeqState, defaultAddressPoolGap, mkSeqStateFromRootXPrv, purposeBIP44 )
+    ( SeqState
+    , defaultAddressPoolGap
+    , mkSeqStateFromRootXPrv
+    , purposeBIP44
+    )
+import Cardano.Wallet.Primitive.AddressDiscovery.Sequential qualified as Seq
 import Cardano.Wallet.Primitive.AddressDiscovery.Shared
     ( CredentialType (..)
     , ErrAddCosigner (..)
@@ -343,10 +381,14 @@ import Cardano.Wallet.Primitive.AddressDiscovery.Shared
     , addCosignerAccXPub
     , isShared
     )
+import Cardano.Wallet.Primitive.AddressDiscovery.Shared qualified as Shared
 import Cardano.Wallet.Primitive.BlockSummary
-    ( ChainEvents )
+    ( ChainEvents
+    )
 import Cardano.Wallet.Primitive.Migration
-    ( MigrationPlan (..) )
+    ( MigrationPlan (..)
+    )
+import Cardano.Wallet.Primitive.Migration qualified as Migration
 import Cardano.Wallet.Primitive.Model
     ( BlockData (..)
     , Wallet
@@ -382,7 +424,8 @@ import Cardano.Wallet.Primitive.Slotting
     , unsafeExtendSafeZone
     )
 import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncProgress )
+    ( SyncProgress
+    )
 import Cardano.Wallet.Primitive.Types
     ( ActiveSlotCoefficient (..)
     , Block (..)
@@ -412,22 +455,36 @@ import Cardano.Wallet.Primitive.Types
     , toSlot
     , wholeRange
     )
+import Cardano.Wallet.Primitive.Types qualified as W
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..), AddressState (..) )
+    ( Address (..)
+    , AddressState (..)
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
+import Cardano.Wallet.Primitive.Types.Coin qualified as Coin
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
+    ( Hash (..)
+    )
 import Cardano.Wallet.Primitive.Types.Redeemer
-    ( Redeemer (..) )
+    ( Redeemer (..)
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount (..) )
+    ( RewardAccount (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle
-    ( TokenBundle (..) )
+    ( TokenBundle (..)
+    )
+import Cardano.Wallet.Primitive.Types.TokenBundle qualified as TokenBundle
+import Cardano.Wallet.Primitive.Types.TokenMap qualified as TokenMap
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName (UnsafeTokenName), TokenPolicyId (UnsafeTokenPolicyId) )
+    ( TokenName (UnsafeTokenName)
+    , TokenPolicyId (UnsafeTokenPolicyId)
+    )
 import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity (TokenQuantity) )
+    ( TokenQuantity (TokenQuantity)
+    )
 import Cardano.Wallet.Primitive.Types.Tx
     ( Direction (..)
     , LocalTxSubmissionStatus
@@ -447,15 +504,26 @@ import Cardano.Wallet.Primitive.Types.Tx
     , withdrawals
     )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
-    ( TxSize (..) )
+    ( TxSize (..)
+    )
 import Cardano.Wallet.Primitive.Types.UTxO
-    ( UTxO (..), UTxOStatistics, computeUtxoStatistics, log10 )
+    ( UTxO (..)
+    , UTxOStatistics
+    , computeUtxoStatistics
+    , log10
+    )
+import Cardano.Wallet.Primitive.Types.UTxO qualified as UTxO
 import Cardano.Wallet.Primitive.Types.UTxOIndex
-    ( UTxOIndex )
+    ( UTxOIndex
+    )
+import Cardano.Wallet.Primitive.Types.UTxOIndex qualified as UTxOIndex
 import Cardano.Wallet.Primitive.Types.UTxOSelection
-    ( UTxOSelection )
+    ( UTxOSelection
+    )
+import Cardano.Wallet.Primitive.Types.UTxOSelection qualified as UTxOSelection
 import Cardano.Wallet.Read.Tx.CBOR
-    ( TxCBOR )
+    ( TxCBOR
+    )
 import Cardano.Wallet.Transaction
     ( DelegationAction (..)
     , ErrAssignRedeemers (..)
@@ -475,11 +543,19 @@ import Cardano.Wallet.Transaction
     , withdrawalToCoin
     )
 import Control.Arrow
-    ( first, left )
+    ( first
+    , left
+    )
 import Control.DeepSeq
-    ( NFData )
+    ( NFData
+    )
 import Control.Monad
-    ( forM, forM_, replicateM, unless, when )
+    ( forM
+    , forM_
+    , replicateM
+    , unless
+    , when
+    )
 import Control.Monad.Class.MonadTime
     ( DiffTime
     , MonadMonotonicTime (..)
@@ -489,15 +565,23 @@ import Control.Monad.Class.MonadTime
     , getCurrentTime
     )
 import Control.Monad.IO.Unlift
-    ( MonadIO (..), MonadUnliftIO )
+    ( MonadIO (..)
+    , MonadUnliftIO
+    )
 import Control.Monad.Random.Class
-    ( MonadRandom (..) )
+    ( MonadRandom (..)
+    )
 import Control.Monad.Random.Extra
-    ( StdGenSeed (..), stdGenFromSeed, stdGenSeed )
+    ( StdGenSeed (..)
+    , stdGenFromSeed
+    , stdGenSeed
+    )
 import Control.Monad.Random.Strict
-    ( evalRand )
+    ( evalRand
+    )
 import Control.Monad.Trans.Class
-    ( lift )
+    ( lift
+    )
 import Control.Monad.Trans.Except
     ( ExceptT (..)
     , catchE
@@ -508,63 +592,117 @@ import Control.Monad.Trans.Except
     , withExceptT
     )
 import Control.Monad.Trans.Maybe
-    ( MaybeT (..), maybeToExceptT )
+    ( MaybeT (..)
+    , maybeToExceptT
+    )
 import Control.Monad.Trans.State
-    ( evalState, runState, state )
+    ( evalState
+    , runState
+    , state
+    )
 import Control.Tracer
-    ( Tracer, contramap, traceWith )
+    ( Tracer
+    , contramap
+    , traceWith
+    )
 import Crypto.Hash
-    ( Blake2b_256, hash )
+    ( Blake2b_256
+    , hash
+    )
+import Data.ByteArray qualified as BA
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
 import Data.DBVar
-    ( modifyDBMaybe )
+    ( modifyDBMaybe
+    )
 import Data.Either
-    ( lefts, partitionEithers )
+    ( lefts
+    , partitionEithers
+    )
 import Data.Either.Extra
-    ( eitherToMaybe )
+    ( eitherToMaybe
+    )
 import Data.Foldable
-    ( fold )
+    ( fold
+    )
+import Data.Foldable qualified as F
 import Data.Function
-    ( (&) )
+    ( (&)
+    )
 import Data.Functor
-    ( ($>) )
+    ( ($>)
+    )
 import Data.Generics.Internal.VL.Lens
-    ( Lens', view, (.~), (^.) )
+    ( Lens'
+    , view
+    , (.~)
+    , (^.)
+    )
 import Data.Generics.Labels
-    ()
+    (
+    )
 import Data.Generics.Product.Typed
-    ( HasType, typed )
+    ( HasType
+    , typed
+    )
 import Data.IntCast
-    ( intCast, intCastMaybe )
+    ( intCast
+    , intCastMaybe
+    )
 import Data.Kind
-    ( Type )
+    ( Type
+    )
 import Data.List
-    ( foldl' )
+    ( foldl'
+    )
+import Data.List qualified as L
 import Data.List.NonEmpty
-    ( NonEmpty (..) )
+    ( NonEmpty (..)
+    )
+import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-    ( fromMaybe, isJust, mapMaybe )
+    ( fromMaybe
+    , isJust
+    , mapMaybe
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Quantity
-    ( Quantity (..) )
+    ( Quantity (..)
+    )
 import Data.Set
-    ( Set )
+    ( Set
+    )
+import Data.Set qualified as Set
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
-    ( ToText (..) )
+    ( ToText (..)
+    )
 import Data.Time.Clock
-    ( NominalDiffTime, UTCTime )
+    ( NominalDiffTime
+    , UTCTime
+    )
 import Data.Type.Equality
-    ( (:~:) (..), testEquality )
+    ( testEquality
+    , (:~:) (..)
+    )
+import Data.Vector qualified as V
 import Data.Void
-    ( Void )
+    ( Void
+    )
 import Data.Word
-    ( Word16, Word64 )
+    ( Word16
+    , Word64
+    )
 import Fmt
     ( Buildable
     , Builder
@@ -581,50 +719,37 @@ import Fmt
     , (||+)
     )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import Numeric.Natural
-    ( Natural )
+    ( Natural
+    )
 import Safe
-    ( lastMay )
+    ( lastMay
+    )
 import Statistics.Quantile
-    ( medianUnbiased, quantiles )
+    ( medianUnbiased
+    , quantiles
+    )
 import Text.Pretty.Simple
-    ( pShow )
+    ( pShow
+    )
 import Type.Reflection
-    ( Typeable, typeRep )
+    ( Typeable
+    , typeRep
+    )
 import UnliftIO.Exception
-    ( Exception, catch, throwIO )
+    ( Exception
+    , catch
+    , throwIO
+    )
 import UnliftIO.MVar
-    ( modifyMVar_, newMVar )
-
-import qualified Cardano.Address.Script as CA
-import qualified Cardano.Address.Style.Shared as CA
-import qualified Cardano.Address.Style.Shelley as CAShelley
-import qualified Cardano.Api as Cardano
-import qualified Cardano.Api.Shelley as Cardano
-import qualified Cardano.Crypto.Wallet as CC
-import qualified Cardano.Wallet.Checkpoints.Policy as CP
-import qualified Cardano.Wallet.CoinSelection as CS
-import qualified Cardano.Wallet.DB.WalletState as WS
-import qualified Cardano.Wallet.Primitive.AddressDiscovery.Random as Rnd
-import qualified Cardano.Wallet.Primitive.AddressDiscovery.Sequential as Seq
-import qualified Cardano.Wallet.Primitive.AddressDiscovery.Shared as Shared
-import qualified Cardano.Wallet.Primitive.Migration as Migration
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
-import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
-import qualified Cardano.Wallet.Primitive.Types.TokenMap as TokenMap
-import qualified Cardano.Wallet.Primitive.Types.UTxO as UTxO
-import qualified Cardano.Wallet.Primitive.Types.UTxOIndex as UTxOIndex
-import qualified Cardano.Wallet.Primitive.Types.UTxOSelection as UTxOSelection
-import qualified Data.ByteArray as BA
-import qualified Data.Foldable as F
-import qualified Data.List as L
-import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
-import qualified Data.Text as T
-import qualified Data.Vector as V
+    ( modifyMVar_
+    , newMVar
+    )
+import Prelude hiding
+    ( log
+    )
 
 -- $Development
 -- __Naming Conventions__
@@ -706,6 +831,7 @@ data WalletLayer m s (k :: Depth -> Type -> Type) ktype
 -- One can build an interface using only a subset of the wallet layer
 -- capabilities and functions, for instance, something to fiddle with wallets
 -- and their metadata does not require any networking layer.
+
 type HasDBLayer m s k = HasType (DBLayer m s k)
 
 type HasGenesisData = HasType (Block, NetworkParameters)
@@ -719,31 +845,36 @@ type HasNetworkLayer m = HasType (NetworkLayer m Block)
 type HasTransactionLayer k ktype = HasType (TransactionLayer k ktype SealedTx)
 
 dbLayer
-    :: forall m s k ctx. HasDBLayer m s k ctx
+    :: forall m s k ctx
+     . HasDBLayer m s k ctx
     => Lens' ctx (DBLayer m s k)
 dbLayer =
     typed @(DBLayer m s k)
 
 genesisData
-    :: forall ctx. HasGenesisData ctx
+    :: forall ctx
+     . HasGenesisData ctx
     => Lens' ctx (Block, NetworkParameters)
 genesisData =
     typed @(Block, NetworkParameters)
 
 logger
-    :: forall m msg ctx. HasLogger m msg ctx
+    :: forall m msg ctx
+     . HasLogger m msg ctx
     => Lens' ctx (Tracer m msg)
 logger =
     typed @(Tracer m msg)
 
 networkLayer
-    :: forall m ctx. (HasNetworkLayer m ctx)
+    :: forall m ctx
+     . (HasNetworkLayer m ctx)
     => Lens' ctx (NetworkLayer m Block)
 networkLayer =
     typed @(NetworkLayer m Block)
 
 transactionLayer
-    :: forall k ktype ctx. (HasTransactionLayer k ktype ctx)
+    :: forall k ktype ctx
+     . (HasTransactionLayer k ktype ctx)
     => Lens' ctx (TransactionLayer k ktype SealedTx)
 transactionLayer =
     typed @(TransactionLayer k ktype SealedTx)
@@ -754,30 +885,32 @@ transactionLayer =
 
 -- | Initialise and store a new wallet, returning its ID.
 createWallet
-    :: forall ctx m s k.
-        ( MonadUnliftIO m
-        , MonadTime m
-        , HasGenesisData ctx
-        , HasDBLayer m s k ctx
-        , IsOurs s Address
-        , IsOurs s RewardAccount
-        )
+    :: forall ctx m s k
+     . ( MonadUnliftIO m
+       , MonadTime m
+       , HasGenesisData ctx
+       , HasDBLayer m s k ctx
+       , IsOurs s Address
+       , IsOurs s RewardAccount
+       )
     => ctx
     -> WalletId
     -> WalletName
     -> s
     -> ExceptT ErrWalletAlreadyExists m WalletId
-createWallet ctx wid wname s = db & \DBLayer{..} -> do
-    let (hist, cp) = initWallet block0 s
-    now <- lift getCurrentTime
-    let meta = WalletMetadata
-            { name = wname
-            , creationTime = now
-            , passphraseInfo = Nothing
-            , delegation = WalletDelegation NotDelegating []
-            }
-    mapExceptT atomically $
-        initializeWallet wid cp meta hist gp $> wid
+createWallet ctx wid wname s =
+    db & \DBLayer {..} -> do
+        let (hist, cp) = initWallet block0 s
+        now <- lift getCurrentTime
+        let meta =
+                WalletMetadata
+                    { name = wname
+                    , creationTime = now
+                    , passphraseInfo = Nothing
+                    , delegation = WalletDelegation NotDelegating []
+                    }
+        mapExceptT atomically $
+            initializeWallet wid cp meta hist gp $> wid
   where
     db = ctx ^. dbLayer @m @s @k
     (block0, NetworkParameters gp _sp _pp) = ctx ^. genesisData
@@ -789,73 +922,84 @@ createWallet ctx wid wname s = db & \DBLayer{..} -> do
 -- To work-around this, we scan the genesis block with an arbitrary big gap and
 -- resort to a default gap afterwards.
 createIcarusWallet
-    :: forall ctx s k n.
-        ( HasGenesisData ctx
-        , HasDBLayer IO s k ctx
-        , PaymentAddress n k 'CredFromKeyK
-        , k ~ IcarusKey
-        , s ~ SeqState n k
-        , Typeable n
-        )
+    :: forall ctx s k n
+     . ( HasGenesisData ctx
+       , HasDBLayer IO s k ctx
+       , PaymentAddress n k 'CredFromKeyK
+       , k ~ IcarusKey
+       , s ~ SeqState n k
+       , Typeable n
+       )
     => ctx
     -> WalletId
     -> WalletName
     -> (k 'RootK XPrv, Passphrase "encryption")
     -> ExceptT ErrWalletAlreadyExists IO WalletId
-createIcarusWallet ctx wid wname credentials = db & \DBLayer{..} -> do
-    let g  = defaultAddressPoolGap
-    let s = mkSeqStateFromRootXPrv @n credentials purposeBIP44 g
-    let (hist, cp) = initWallet block0 s
-    now <- lift getCurrentTime
-    let meta = WalletMetadata
-            { name = wname
-            , creationTime = now
-            , passphraseInfo = Nothing
-            , delegation = WalletDelegation NotDelegating []
-            }
-    mapExceptT atomically $
-        initializeWallet wid cp meta hist gp $> wid
+createIcarusWallet ctx wid wname credentials =
+    db & \DBLayer {..} -> do
+        let g = defaultAddressPoolGap
+        let s = mkSeqStateFromRootXPrv @n credentials purposeBIP44 g
+        let (hist, cp) = initWallet block0 s
+        now <- lift getCurrentTime
+        let meta =
+                WalletMetadata
+                    { name = wname
+                    , creationTime = now
+                    , passphraseInfo = Nothing
+                    , delegation = WalletDelegation NotDelegating []
+                    }
+        mapExceptT atomically $
+            initializeWallet wid cp meta hist gp $> wid
   where
     db = ctx ^. dbLayer @IO @s @k
     (block0, NetworkParameters gp _sp _pp) = ctx ^. genesisData
 
 -- | Check whether a wallet is in good shape when restarting a worker.
 checkWalletIntegrity
-    :: forall ctx s k. HasDBLayer IO s k ctx
+    :: forall ctx s k
+     . HasDBLayer IO s k ctx
     => ctx
     -> WalletId
     -> GenesisParameters
     -> ExceptT ErrCheckWalletIntegrity IO ()
-checkWalletIntegrity ctx wid gp = db & \DBLayer{..} -> mapExceptT atomically $ do
-    gp' <- withExceptT ErrCheckWalletIntegrityNoSuchWallet $ withNoSuchWallet wid $
-        readGenesisParameters wid
+checkWalletIntegrity ctx wid gp =
+    db & \DBLayer {..} -> mapExceptT atomically $ do
+        gp' <-
+            withExceptT ErrCheckWalletIntegrityNoSuchWallet $
+                withNoSuchWallet wid $
+                    readGenesisParameters wid
 
-    whenDifferentGenesis gp gp $ throwE $
-        ErrCheckIntegrityDifferentGenesis
-            (getGenesisBlockHash gp)
-            (getGenesisBlockHash gp')
+        whenDifferentGenesis gp gp $
+            throwE $
+                ErrCheckIntegrityDifferentGenesis
+                    (getGenesisBlockHash gp)
+                    (getGenesisBlockHash gp')
   where
     db = ctx ^. dbLayer @IO @s @k
-    whenDifferentGenesis bp1 bp2 = when $
-        (bp1 ^. #getGenesisBlockHash /= bp2 ^. #getGenesisBlockHash) ||
-        (bp1 ^. #getGenesisBlockDate /= bp2 ^. #getGenesisBlockDate)
+    whenDifferentGenesis bp1 bp2 =
+        when $
+            (bp1 ^. #getGenesisBlockHash /= bp2 ^. #getGenesisBlockHash)
+                || (bp1 ^. #getGenesisBlockDate /= bp2 ^. #getGenesisBlockDate)
 
 -- | Retrieve the wallet state for the wallet with the given ID.
 readWallet
-    :: forall ctx s k. HasDBLayer IO s k ctx
+    :: forall ctx s k
+     . HasDBLayer IO s k ctx
     => ctx
     -> WalletId
     -> ExceptT ErrNoSuchWallet IO (Wallet s, WalletMetadata, Set Tx)
-readWallet ctx wid = db & \DBLayer{..} -> mapExceptT atomically $ do
-    cp <- withNoSuchWallet wid $ readCheckpoint wid
-    meta <- withNoSuchWallet wid $ readWalletMeta wid
-    pending <- lift $ readTxHistory wid Nothing Descending wholeRange (Just Pending)
-    pure (cp, meta, Set.fromList (fromTransactionInfo <$> pending))
+readWallet ctx wid =
+    db & \DBLayer {..} -> mapExceptT atomically $ do
+        cp <- withNoSuchWallet wid $ readCheckpoint wid
+        meta <- withNoSuchWallet wid $ readWalletMeta wid
+        pending <- lift $ readTxHistory wid Nothing Descending wholeRange (Just Pending)
+        pure (cp, meta, Set.fromList (fromTransactionInfo <$> pending))
   where
     db = ctx ^. dbLayer @IO @s @k
 
 walletSyncProgress
-    :: forall ctx s. HasNetworkLayer IO ctx
+    :: forall ctx s
+     . HasNetworkLayer IO ctx
     => ctx
     -> Wallet s
     -> IO SyncProgress
@@ -867,32 +1011,33 @@ walletSyncProgress ctx w = do
 
 -- | Update a wallet's metadata with the given update function.
 updateWallet
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> (WalletMetadata -> WalletMetadata)
     -> ExceptT ErrNoSuchWallet IO ()
-updateWallet ctx wid modify = db & \DBLayer{..} -> mapExceptT atomically $ do
-    meta <- withNoSuchWallet wid $ readWalletMeta wid
-    putWalletMeta wid (modify meta)
+updateWallet ctx wid modify =
+    db & \DBLayer {..} -> mapExceptT atomically $ do
+        meta <- withNoSuchWallet wid $ readWalletMeta wid
+        putWalletMeta wid (modify meta)
   where
     db = ctx ^. dbLayer @IO @s @k
 
 -- | Change a wallet's passphrase to the given passphrase.
 updateWalletPassphraseWithOldPassphrase
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , WalletKey k
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , WalletKey k
+       )
     => ctx
     -> WalletId
     -> (Passphrase "user", Passphrase "user")
     -> ExceptT ErrUpdatePassphrase IO ()
 updateWalletPassphraseWithOldPassphrase ctx wid (old, new) =
-    withRootKey @ctx @s @k ctx wid old ErrUpdatePassphraseWithRootKey
-        $ \xprv scheme -> withExceptT ErrUpdatePassphraseNoSuchWallet $ do
+    withRootKey @ctx @s @k ctx wid old ErrUpdatePassphraseWithRootKey $
+        \xprv scheme -> withExceptT ErrUpdatePassphraseNoSuchWallet $ do
             -- IMPORTANT NOTE:
             -- This use 'EncryptWithPBKDF2', regardless of the passphrase
             -- current scheme, we'll re-encrypt it using the current scheme,
@@ -902,24 +1047,26 @@ updateWalletPassphraseWithOldPassphrase ctx wid (old, new) =
             attachPrivateKeyFromPwdScheme @ctx @s @k ctx wid (xprv', new')
 
 updateWalletPassphraseWithMnemonic
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> (k 'RootK XPrv, Passphrase "user")
     -> ExceptT ErrUpdatePassphrase IO ()
 updateWalletPassphraseWithMnemonic ctx wid (xprv, new) =
     withExceptT ErrUpdatePassphraseNoSuchWallet $ do
-        attachPrivateKeyFromPwdScheme @ctx @s @k ctx wid
-            (xprv, (currentPassphraseScheme , new))
+        attachPrivateKeyFromPwdScheme @ctx @s @k
+            ctx
+            wid
+            (xprv, (currentPassphraseScheme, new))
 
 getWalletUtxoSnapshot
-    :: forall ctx s k ktype.
-        ( HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        , HasTransactionLayer k ktype ctx
-        )
+    :: forall ctx s k ktype
+     . ( HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       , HasTransactionLayer k ktype ctx
+       )
     => ctx
     -> WalletId
     -> ExceptT ErrNoSuchWallet IO [(TokenBundle, Coin)]
@@ -927,9 +1074,10 @@ getWalletUtxoSnapshot ctx wid = do
     (wallet, _, pending) <- withExceptT id (readWallet @ctx @s @k ctx wid)
     pp <- liftIO $ currentProtocolParameters nl
     era <- liftIO $ currentNodeEra nl
-    let txOuts = availableUTxO @s pending wallet
-            & unUTxO
-            & F.toList
+    let txOuts =
+            availableUTxO @s pending wallet
+                & unUTxO
+                & F.toList
     pure $ first (view #tokens) . pairTxOutWithMinAdaQuantity era pp <$> txOuts
   where
     nl = ctx ^. networkLayer
@@ -945,20 +1093,24 @@ getWalletUtxoSnapshot ctx wid = do
       where
         computeMinAdaQuantity :: TxOut -> Coin
         computeMinAdaQuantity (TxOut addr bundle) =
-            view #txOutputMinimumAdaQuantity
+            view
+                #txOutputMinimumAdaQuantity
                 (constraints tl era pp)
                 (addr)
                 (view #tokens bundle)
 
 -- | List the wallet's UTxO statistics.
 listUtxoStatistics
-    :: forall ctx s k. HasDBLayer IO s k ctx
+    :: forall ctx s k
+     . HasDBLayer IO s k ctx
     => ctx
     -> WalletId
     -> ExceptT ErrListUTxOStatistics IO UTxOStatistics
 listUtxoStatistics ctx wid = do
-    (wal, _, pending) <- withExceptT
-        ErrListUTxOStatisticsNoSuchWallet (readWallet @ctx @s @k ctx wid)
+    (wal, _, pending) <-
+        withExceptT
+            ErrListUTxOStatisticsNoSuchWallet
+            (readWallet @ctx @s @k ctx wid)
     let utxo = availableUTxO @s pending wal
     pure $ computeUtxoStatistics log10 utxo
 
@@ -969,42 +1121,50 @@ listUtxoStatistics ctx wid = do
 -- and apply them, or roll back to a previous point whenever
 -- the chain switches.
 restoreWallet
-    :: forall ctx s k.
-        ( HasNetworkLayer IO ctx
-        , HasDBLayer IO s k ctx
-        , HasLogger IO WalletWorkerLog ctx
-        , IsOurs s Address
-        , IsOurs s RewardAccount
-        , AddressBookIso s
-        , MaybeLight s
-        )
+    :: forall ctx s k
+     . ( HasNetworkLayer IO ctx
+       , HasDBLayer IO s k ctx
+       , HasLogger IO WalletWorkerLog ctx
+       , IsOurs s Address
+       , IsOurs s RewardAccount
+       , AddressBookIso s
+       , MaybeLight s
+       )
     => ctx
     -> WalletId
     -> ExceptT ErrNoSuchWallet IO ()
-restoreWallet ctx wid = db & \DBLayer{..} ->
-    let checkpointPolicy = CP.defaultPolicy
-        readChainPoints = atomically $ listCheckpoints wid
-        rollBackward =
-            throwInIO . rollbackBlocks @_ @s @k ctx wid . toSlot
-        rollForward' = \blockdata tip -> throwInIO $
-            restoreBlocks @_ @s @k
-                ctx (contramap MsgWalletFollow tr) wid blockdata tip
-    in
-      catchFromIO $ case (maybeDiscover, lightSync nw) of
-        (Just discover, Just sync) ->
-            sync $ ChainFollower
-                { checkpointPolicy
-                , readChainPoints
-                , rollForward = rollForward' . either List (Summary discover)
-                , rollBackward
-                }
-        (_,_) -> -- light-mode not available
-            chainSync nw (contramap MsgChainFollow tr) $ ChainFollower
-                { checkpointPolicy
-                , readChainPoints
-                , rollForward = rollForward' . List
-                , rollBackward
-                }
+restoreWallet ctx wid =
+    db & \DBLayer {..} ->
+        let checkpointPolicy = CP.defaultPolicy
+            readChainPoints = atomically $ listCheckpoints wid
+            rollBackward =
+                throwInIO . rollbackBlocks @_ @s @k ctx wid . toSlot
+            rollForward' = \blockdata tip ->
+                throwInIO $
+                    restoreBlocks @_ @s @k
+                        ctx
+                        (contramap MsgWalletFollow tr)
+                        wid
+                        blockdata
+                        tip
+         in catchFromIO $ case (maybeDiscover, lightSync nw) of
+                (Just discover, Just sync) ->
+                    sync $
+                        ChainFollower
+                            { checkpointPolicy
+                            , readChainPoints
+                            , rollForward = rollForward' . either List (Summary discover)
+                            , rollBackward
+                            }
+                (_, _) ->
+                    -- light-mode not available
+                    chainSync nw (contramap MsgChainFollow tr) $
+                        ChainFollower
+                            { checkpointPolicy
+                            , readChainPoints
+                            , rollForward = rollForward' . List
+                            , rollBackward
+                            }
   where
     db = ctx ^. dbLayer @IO @s @k
     nw = ctx ^. networkLayer @IO
@@ -1012,16 +1172,19 @@ restoreWallet ctx wid = db & \DBLayer{..} ->
 
     -- See Note [CheckedExceptionsAndCallbacks]
     throwInIO :: ExceptT ErrNoSuchWallet IO a -> IO a
-    throwInIO x = runExceptT x >>= \case
-        Right a -> pure a
-        Left  e -> throwIO $ UncheckErrNoSuchWallet e
+    throwInIO x =
+        runExceptT x >>= \case
+            Right a -> pure a
+            Left e -> throwIO $ UncheckErrNoSuchWallet e
 
     catchFromIO :: IO a -> ExceptT ErrNoSuchWallet IO a
-    catchFromIO m = ExceptT $
-        (Right <$> m) `catch` (\(UncheckErrNoSuchWallet e) -> pure $ Left e)
+    catchFromIO m =
+        ExceptT $
+            (Right <$> m) `catch` (\(UncheckErrNoSuchWallet e) -> pure $ Left e)
 
 newtype UncheckErrNoSuchWallet = UncheckErrNoSuchWallet ErrNoSuchWallet
     deriving (Eq, Show)
+
 instance Exception UncheckErrNoSuchWallet
 
 {- NOTE [CheckedExceptionsAndCallbacks]
@@ -1057,15 +1220,16 @@ and present it as a checked exception.
 -- | Rewind the UTxO snapshots, transaction history and other information to a
 -- the earliest point in the past that is before or is the point of rollback.
 rollbackBlocks
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> Slot
     -> ExceptT ErrNoSuchWallet IO ChainPoint
-rollbackBlocks ctx wid point = db & \DBLayer{..} -> do
-    mapExceptT atomically $ rollbackTo wid point
+rollbackBlocks ctx wid point =
+    db & \DBLayer {..} -> do
+        mapExceptT atomically $ rollbackTo wid point
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -1076,115 +1240,125 @@ rollbackBlocks ctx wid point = db & \DBLayer{..} -> do
 -- However, in the future, we may assume that
 -- it is called in a sequential fashion for each wallet.
 restoreBlocks
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        , IsOurs s Address
-        , IsOurs s RewardAccount
-        , AddressBookIso s
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       , IsOurs s Address
+       , IsOurs s RewardAccount
+       , AddressBookIso s
+       )
     => ctx
     -> Tracer IO WalletFollowLog
     -> WalletId
     -> BlockData IO (Either Address RewardAccount) ChainEvents s
     -> BlockHeader
     -> ExceptT ErrNoSuchWallet IO ()
-restoreBlocks ctx tr wid blocks nodeTip = db & \DBLayer{..} ->
-  mapExceptT atomically $ do
-    sp  <- liftIO $ currentSlottingParameters nl
-    cp0 <- withNoSuchWallet wid (readCheckpoint wid)
-    unless (cp0 `isParentOf` firstHeader blocks) $ fail $ T.unpack $ T.unwords
-        [ "restoreBlocks: given chain isn't a valid continuation."
-        , "Wallet is at:", pretty (currentTip cp0)
-        , "but the given chain continues starting from:"
-        , pretty (firstHeader blocks)
-        ]
+restoreBlocks ctx tr wid blocks nodeTip =
+    db & \DBLayer {..} ->
+        mapExceptT atomically $ do
+            sp <- liftIO $ currentSlottingParameters nl
+            cp0 <- withNoSuchWallet wid (readCheckpoint wid)
+            unless (cp0 `isParentOf` firstHeader blocks) $
+                fail $
+                    T.unpack $
+                        T.unwords
+                            [ "restoreBlocks: given chain isn't a valid continuation."
+                            , "Wallet is at:"
+                            , pretty (currentTip cp0)
+                            , "but the given chain continues starting from:"
+                            , pretty (firstHeader blocks)
+                            ]
 
-    -- TODO on concurrency:
-    -- In light-mode, 'applyBlocks' may take some time to retrieve
-    -- transaction data. We want avoid blocking the database by
-    -- not wrapping this into a call to 'atomically'.
-    -- However, this only works if the latest database checkpoint, `cp0`,
-    -- does not change in the meantime.
-    (filteredBlocks', cps') <- liftIO $ NE.unzip <$> applyBlocks @s blocks cp0
-    let cps = NE.map snd cps'
-        filteredBlocks = concat filteredBlocks'
-    let slotPoolDelegations =
-            [ (pseudoSlotNo (fblock ^. #slot), cert)
-            | fblock <- filteredBlocks
-            , cert <- view #delegations fblock
-            ]
-        pseudoSlotNo Origin = 0
-        pseudoSlotNo (At sl) = sl
-    let txs = fold $ view #transactions <$> filteredBlocks
-    let epochStability = (3*) <$> getSecurityParameter sp
-    let localTip = currentTip $ NE.last cps
+            -- TODO on concurrency:
+            -- In light-mode, 'applyBlocks' may take some time to retrieve
+            -- transaction data. We want avoid blocking the database by
+            -- not wrapping this into a call to 'atomically'.
+            -- However, this only works if the latest database checkpoint, `cp0`,
+            -- does not change in the meantime.
+            (filteredBlocks', cps') <- liftIO $ NE.unzip <$> applyBlocks @s blocks cp0
+            let cps = NE.map snd cps'
+                filteredBlocks = concat filteredBlocks'
+            let slotPoolDelegations =
+                    [ (pseudoSlotNo (fblock ^. #slot), cert)
+                    | fblock <- filteredBlocks
+                    , cert <- view #delegations fblock
+                    ]
+                pseudoSlotNo Origin = 0
+                pseudoSlotNo (At sl) = sl
+            let txs = fold $ view #transactions <$> filteredBlocks
+            let epochStability = (3 *) <$> getSecurityParameter sp
+            let localTip = currentTip $ NE.last cps
 
-    -- FIXME LATER during ADP-1403
-    -- We need to rethink checkpoint creation and consider the case
-    -- where the blocks are given as a 'Summary' and not a full 'List'
-    -- of blocks. In this case, it could happen that the current
-    -- scheme fails to create sufficiently many checkpoint as
-    -- it was never able to touch the corresponding block.
-    -- For now, we avoid this situation by being always supplied a 'List'
-    -- in the unstable region close to the tip.
-    let unstable = Set.fromList $ sparseCheckpoints cfg (nodeTip ^. #blockHeight)
-            where
-                -- NOTE
-                -- The edge really is an optimization to avoid rolling back too
-                -- "far" in the past. Yet, we let the edge construct itself
-                -- organically once we reach the tip of the chain and start
-                -- processing blocks one by one.
+            -- FIXME LATER during ADP-1403
+            -- We need to rethink checkpoint creation and consider the case
+            -- where the blocks are given as a 'Summary' and not a full 'List'
+            -- of blocks. In this case, it could happen that the current
+            -- scheme fails to create sufficiently many checkpoint as
+            -- it was never able to touch the corresponding block.
+            -- For now, we avoid this situation by being always supplied a 'List'
+            -- in the unstable region close to the tip.
+            let unstable = Set.fromList $ sparseCheckpoints cfg (nodeTip ^. #blockHeight)
+                  where
+                    -- NOTE
+                    -- The edge really is an optimization to avoid rolling back too
+                    -- "far" in the past. Yet, we let the edge construct itself
+                    -- organically once we reach the tip of the chain and start
+                    -- processing blocks one by one.
+                    --
+                    -- This prevents the wallet from trying to create too many
+                    -- checkpoints at once during restoration which causes massive
+                    -- performance degradation on large wallets.
+                    --
+                    -- Rollback may still occur during this short period, but
+                    -- rolling back from a few hundred blocks is relatively fast
+                    -- anyway.
+                    cfg = (defaultSparseCheckpointsConfig epochStability) {edgeSize = 0}
+
+                getBlockHeight cp =
+                    fromIntegral $
+                        cp ^. #currentTip . #blockHeight . #getQuantity
+                willKeep cp = getBlockHeight cp `Set.member` unstable
+                cpsKeep = filter willKeep (NE.init cps) <> [NE.last cps]
+
+                -- NOTE: We have to update the 'Prologue' as well,
+                -- as it can contain addresses for pending transactions,
+                -- which are removed from the 'Prologue' once the
+                -- transactions are accepted onto the chain and discovered.
                 --
-                -- This prevents the wallet from trying to create too many
-                -- checkpoints at once during restoration which causes massive
-                -- performance degradation on large wallets.
-                --
-                -- Rollback may still occur during this short period, but
-                -- rolling back from a few hundred blocks is relatively fast
-                -- anyway.
-                cfg = (defaultSparseCheckpointsConfig epochStability) { edgeSize = 0 }
+                -- I'm not so sure that the approach here is correct with
+                -- respect to rollbacks, but it is functionally the same
+                -- as the code that came before.
+                deltaPrologue =
+                    [ReplacePrologue $ getPrologue $ getState $ NE.last cps]
+                delta =
+                    deltaPrologue
+                        ++ reverse
+                            [ UpdateCheckpoints [PutCheckpoint (getSlot wcp) wcp]
+                            | wcp <- map (snd . fromWallet) cpsKeep
+                            ]
 
-        getBlockHeight cp = fromIntegral $
-            cp ^. #currentTip . #blockHeight . #getQuantity
-        willKeep cp = getBlockHeight cp `Set.member` unstable
-        cpsKeep = filter willKeep (NE.init cps) <> [NE.last cps]
+            liftIO $ forM_ txs $ \(Tx {txCBOR = mcbor}, _) ->
+                forM_ mcbor $ \cbor -> do
+                    traceWith tr $ MsgStoringCBOR cbor
 
-        -- NOTE: We have to update the 'Prologue' as well,
-        -- as it can contain addresses for pending transactions,
-        -- which are removed from the 'Prologue' once the
-        -- transactions are accepted onto the chain and discovered.
-        --
-        -- I'm not so sure that the approach here is correct with
-        -- respect to rollbacks, but it is functionally the same
-        -- as the code that came before.
-        deltaPrologue =
-            [ ReplacePrologue $ getPrologue $ getState $ NE.last cps ]
-        delta = deltaPrologue ++ reverse
-            [ UpdateCheckpoints [ PutCheckpoint (getSlot wcp) wcp ]
-            | wcp <- map (snd . fromWallet) cpsKeep
-            ]
+            putTxHistory wid txs
 
-    liftIO $ forM_ txs $ \(Tx {txCBOR=mcbor},_) ->
-        forM_ mcbor $ \cbor -> do
-            traceWith tr $ MsgStoringCBOR cbor
+            updatePendingTxForExpiry wid (view #slotNo localTip)
+            forM_ slotPoolDelegations $ \delegation@(slotNo, cert) -> do
+                liftIO $ logDelegation delegation
+                putDelegationCertificate wid cert slotNo
 
-    putTxHistory wid txs
+            liftIO $ mapM_ logCheckpoint cpsKeep
+            ExceptT $
+                modifyDBMaybe walletsDB $
+                    adjustNoSuchWallet wid id $
+                        \_ -> Right (delta, ())
 
-    updatePendingTxForExpiry wid (view #slotNo localTip)
-    forM_ slotPoolDelegations $ \delegation@(slotNo, cert) -> do
-        liftIO $ logDelegation delegation
-        putDelegationCertificate wid cert slotNo
+            prune wid epochStability
 
-    liftIO $ mapM_ logCheckpoint cpsKeep
-    ExceptT $ modifyDBMaybe walletsDB $
-        adjustNoSuchWallet wid id $ \_ -> Right ( delta, () )
-
-    prune wid epochStability
-
-    liftIO $ do
-        traceWith tr $ MsgDiscoveredTxs txs
-        traceWith tr $ MsgDiscoveredTxsContent txs
+            liftIO $ do
+                traceWith tr $ MsgDiscoveredTxs txs
+                traceWith tr $ MsgDiscoveredTxsContent txs
   where
     nl = ctx ^. networkLayer
     db = ctx ^. dbLayer @IO @s @k
@@ -1197,33 +1371,36 @@ restoreBlocks ctx tr wid blocks nodeTip = db & \DBLayer{..} ->
 
     isParentOf :: Wallet s -> BlockHeader -> Bool
     isParentOf cp = (== Just parent) . parentHeaderHash
-      where parent = headerHash $ currentTip cp
+      where
+        parent = headerHash $ currentTip cp
 
 -- | Remove an existing wallet. Note that there's no particular work to
 -- be done regarding the restoration worker as it will simply terminate
 -- on the next tick when noticing that the corresponding wallet is gone.
 deleteWallet
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> ExceptT ErrNoSuchWallet IO ()
-deleteWallet ctx wid = db & \DBLayer{..} -> do
-    mapExceptT atomically $ removeWallet wid
+deleteWallet ctx wid =
+    db & \DBLayer {..} -> do
+        mapExceptT atomically $ removeWallet wid
   where
     db = ctx ^. dbLayer @IO @s @k
 
 -- | Fetch the cached reward balance of a given wallet from the database.
 fetchRewardBalance
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> IO Coin
-fetchRewardBalance ctx wid = db & \DBLayer{..} ->
-    atomically $ readDelegationRewardBalance wid
+fetchRewardBalance ctx wid =
+    db & \DBLayer {..} ->
+        atomically $ readDelegationRewardBalance wid
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -1234,10 +1411,10 @@ fetchRewardBalance ctx wid = db & \DBLayer{..} ->
 -- b) The current reward value is too small to be considered (adding it would
 -- cost more than its value).
 readNextWithdrawal
-    :: forall ctx k ktype.
-        ( HasTransactionLayer k ktype ctx
-        , HasNetworkLayer IO ctx
-        )
+    :: forall ctx k ktype
+     . ( HasTransactionLayer k ktype ctx
+       , HasNetworkLayer IO ctx
+       )
     => ctx
     -> Cardano.AnyCardanoEra
     -> Coin
@@ -1262,8 +1439,10 @@ readNextWithdrawal ctx era (Coin withdrawal) = do
     tl = ctx ^. transactionLayer @k @ktype
     nl = ctx ^. networkLayer
 
-    mkTxCtx wdrl = defaultTransactionCtx
-        { txWithdrawal = WithdrawalSelf dummyAcct dummyPath wdrl }
+    mkTxCtx wdrl =
+        defaultTransactionCtx
+            { txWithdrawal = WithdrawalSelf dummyAcct dummyPath wdrl
+            }
       where
         dummyAcct =
             RewardAccount mempty
@@ -1271,57 +1450,61 @@ readNextWithdrawal ctx era (Coin withdrawal) = do
             DerivationIndex 0 :| []
 
 readRewardAccount
-    :: forall ctx s k (n :: NetworkDiscriminant) shelley.
-        ( HasDBLayer IO s k ctx
-        , shelley ~ SeqState n ShelleyKey
-        , Typeable n
-        , Typeable s
-        )
+    :: forall ctx s k (n :: NetworkDiscriminant) shelley
+     . ( HasDBLayer IO s k ctx
+       , shelley ~ SeqState n ShelleyKey
+       , Typeable n
+       , Typeable s
+       )
     => ctx
     -> WalletId
     -> ExceptT ErrReadRewardAccount IO (RewardAccount, XPub, NonEmpty DerivationIndex)
-readRewardAccount ctx wid = db & \DBLayer{..} -> do
-    cp <- withExceptT ErrReadRewardAccountNoSuchWallet
-        $ mapExceptT atomically
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
-    case testEquality (typeRep @s) (typeRep @shelley) of
-        Nothing ->
-            throwE ErrReadRewardAccountNotAShelleyWallet
-        Just Refl -> do
-            let s = getState cp
-            let xpub = Seq.rewardAccountKey s
-            let acct = toRewardAccount xpub
-            let path = stakeDerivationPath $ Seq.derivationPrefix s
-            pure (acct, getRawKey xpub, path)
+readRewardAccount ctx wid =
+    db & \DBLayer {..} -> do
+        cp <-
+            withExceptT ErrReadRewardAccountNoSuchWallet $
+                mapExceptT atomically $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+        case testEquality (typeRep @s) (typeRep @shelley) of
+            Nothing ->
+                throwE ErrReadRewardAccountNotAShelleyWallet
+            Just Refl -> do
+                let s = getState cp
+                let xpub = Seq.rewardAccountKey s
+                let acct = toRewardAccount xpub
+                let path = stakeDerivationPath $ Seq.derivationPrefix s
+                pure (acct, getRawKey xpub, path)
   where
     db = ctx ^. dbLayer @IO @s @k
 
 readPolicyPublicKey
-    :: forall ctx s k (n :: NetworkDiscriminant) shelley.
-        ( HasDBLayer IO s k ctx
-        , shelley ~ SeqState n ShelleyKey
-        , Typeable n
-        , Typeable s
-        )
+    :: forall ctx s k (n :: NetworkDiscriminant) shelley
+     . ( HasDBLayer IO s k ctx
+       , shelley ~ SeqState n ShelleyKey
+       , Typeable n
+       , Typeable s
+       )
     => ctx
     -> WalletId
     -> ExceptT ErrReadPolicyPublicKey IO (XPub, NonEmpty DerivationIndex)
-readPolicyPublicKey ctx wid = db & \DBLayer{..} -> do
-    cp <- withExceptT ErrReadPolicyPublicKeyNoSuchWallet
-        $ mapExceptT atomically
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
-    case testEquality (typeRep @s) (typeRep @shelley) of
-        Nothing ->
-            throwE ErrReadPolicyPublicKeyNotAShelleyWallet
-        Just Refl -> do
-            let s = getState cp
-            case Seq.policyXPub s of
-                Nothing ->
-                    throwE ErrReadPolicyPublicKeyAbsent
-                Just xpub ->
-                    pure (getRawKey xpub, policyDerivationPath)
+readPolicyPublicKey ctx wid =
+    db & \DBLayer {..} -> do
+        cp <-
+            withExceptT ErrReadPolicyPublicKeyNoSuchWallet $
+                mapExceptT atomically $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+        case testEquality (typeRep @s) (typeRep @shelley) of
+            Nothing ->
+                throwE ErrReadPolicyPublicKeyNotAShelleyWallet
+            Just Refl -> do
+                let s = getState cp
+                case Seq.policyXPub s of
+                    Nothing ->
+                        throwE ErrReadPolicyPublicKeyAbsent
+                    Just xpub ->
+                        pure (getRawKey xpub, policyDerivationPath)
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -1330,9 +1513,9 @@ readPolicyPublicKey ctx wid = db & \DBLayer{..} -> do
 -- Rather than force all callers of 'readWallet' to wait for fetching the
 -- account balance (via the 'NetworkLayer'), we expose this function for it.
 queryRewardBalance
-    :: forall ctx.
-        ( HasNetworkLayer IO ctx
-        )
+    :: forall ctx
+     . ( HasNetworkLayer IO ctx
+       )
     => ctx
     -> RewardAccount
     -> ExceptT ErrFetchRewards IO Coin
@@ -1342,44 +1525,47 @@ queryRewardBalance ctx acct = do
     nw = ctx ^. networkLayer
 
 manageRewardBalance
-    :: forall ctx s k (n :: NetworkDiscriminant).
-        ( HasLogger IO WalletWorkerLog ctx
-        , HasNetworkLayer IO ctx
-        , HasDBLayer IO s k ctx
-        , Typeable s
-        , Typeable n
-        )
+    :: forall ctx s k (n :: NetworkDiscriminant)
+     . ( HasLogger IO WalletWorkerLog ctx
+       , HasNetworkLayer IO ctx
+       , HasDBLayer IO s k ctx
+       , Typeable s
+       , Typeable n
+       )
     => Proxy n
     -> ctx
     -> WalletId
     -> IO ()
-manageRewardBalance _ ctx wid = db & \DBLayer{..} -> do
-    watchNodeTip $ \bh -> do
-         traceWith tr $ MsgRewardBalanceQuery bh
-         query <- runExceptT $ do
-            (acct, _, _) <- withExceptT ErrFetchRewardsReadRewardAccount $
-                readRewardAccount @ctx @s @k @n ctx wid
-            queryRewardBalance @ctx ctx acct
-         traceWith tr $ MsgRewardBalanceResult query
-         case query of
-            Right amt -> do
-                res <- atomically $ runExceptT $
-                    putDelegationRewardBalance wid amt
-                -- It can happen that the wallet doesn't exist _yet_, whereas we
-                -- already have a reward balance. If that's the case, we log and
-                -- move on.
-                case res of
-                    Left err -> traceWith tr $ MsgRewardBalanceNoSuchWallet err
-                    Right () -> pure ()
-            Left _err ->
-                -- Occasionally failing to query is generally not fatal. It will
-                -- just update the balance next time the tip changes.
-                pure ()
-    traceWith tr MsgRewardBalanceExited
-
+manageRewardBalance _ ctx wid =
+    db & \DBLayer {..} -> do
+        watchNodeTip $ \bh -> do
+            traceWith tr $ MsgRewardBalanceQuery bh
+            query <- runExceptT $ do
+                (acct, _, _) <-
+                    withExceptT ErrFetchRewardsReadRewardAccount $
+                        readRewardAccount @ctx @s @k @n ctx wid
+                queryRewardBalance @ctx ctx acct
+            traceWith tr $ MsgRewardBalanceResult query
+            case query of
+                Right amt -> do
+                    res <-
+                        atomically $
+                            runExceptT $
+                                putDelegationRewardBalance wid amt
+                    -- It can happen that the wallet doesn't exist _yet_, whereas we
+                    -- already have a reward balance. If that's the case, we log and
+                    -- move on.
+                    case res of
+                        Left err -> traceWith tr $ MsgRewardBalanceNoSuchWallet err
+                        Right () -> pure ()
+                Left _err ->
+                    -- Occasionally failing to query is generally not fatal. It will
+                    -- just update the balance next time the tip changes.
+                    pure ()
+        traceWith tr MsgRewardBalanceExited
   where
     db = ctx ^. dbLayer @IO @s @k
-    NetworkLayer{watchNodeTip} = ctx ^. networkLayer
+    NetworkLayer {watchNodeTip} = ctx ^. networkLayer
     tr = contramap MsgWallet $ ctx ^. logger @_ @WalletWorkerLog
 
 {-------------------------------------------------------------------------------
@@ -1387,20 +1573,22 @@ manageRewardBalance _ ctx wid = db & \DBLayer{..} -> do
 -------------------------------------------------------------------------------}
 
 lookupTxIns
-    :: forall ctx s k .
-        ( HasDBLayer IO s k ctx
-        , IsOurs s Address
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , IsOurs s Address
+       )
     => ctx
     -> WalletId
     -> [TxIn]
     -> ExceptT ErrDecodeTx IO [(TxIn, Maybe (TxOut, NonEmpty DerivationIndex))]
-lookupTxIns ctx wid txins = db & \DBLayer{..} -> do
-    cp <- mapExceptT atomically
-          $ withExceptT ErrDecodeTxNoSuchWallet
-          $ withNoSuchWallet wid
-          $ readCheckpoint wid
-    pure $ map (\i -> (i, lookupTxIn cp i)) txins
+lookupTxIns ctx wid txins =
+    db & \DBLayer {..} -> do
+        cp <-
+            mapExceptT atomically $
+                withExceptT ErrDecodeTxNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+        pure $ map (\i -> (i, lookupTxIn cp i)) txins
   where
     db = ctx ^. dbLayer @IO @s @k
     lookupTxIn :: Wallet s -> TxIn -> Maybe (TxOut, NonEmpty DerivationIndex)
@@ -1410,83 +1598,91 @@ lookupTxIns ctx wid txins = db & \DBLayer{..} -> do
         return (out, path)
 
 lookupTxOuts
-    :: forall ctx s k .
-        ( HasDBLayer IO s k ctx
-        , IsOurs s Address
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , IsOurs s Address
+       )
     => ctx
     -> WalletId
     -> [TxOut]
     -> ExceptT ErrDecodeTx IO [(TxOut, Maybe (NonEmpty DerivationIndex))]
-lookupTxOuts ctx wid txouts = db & \DBLayer{..} -> do
-    cp <- mapExceptT atomically
-          $ withExceptT ErrDecodeTxNoSuchWallet
-          $ withNoSuchWallet wid
-          $ readCheckpoint wid
-    -- NOTE: We evolve the state (in practice an address pool) as we loop
-    -- through the outputs, but we don't consider pending transactions.
-    -- /Theoretically/ the outputs might only be discoverable after discovering
-    -- outputs other pending transactions.
-    pure $ flip evalState (getState cp) $ forM txouts $ \out@(TxOut addr _) -> do
-        (out,) <$> state (isOurs addr)
+lookupTxOuts ctx wid txouts =
+    db & \DBLayer {..} -> do
+        cp <-
+            mapExceptT atomically $
+                withExceptT ErrDecodeTxNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+        -- NOTE: We evolve the state (in practice an address pool) as we loop
+        -- through the outputs, but we don't consider pending transactions.
+        -- /Theoretically/ the outputs might only be discoverable after discovering
+        -- outputs other pending transactions.
+        pure $ flip evalState (getState cp) $ forM txouts $ \out@(TxOut addr _) -> do
+            (out,) <$> state (isOurs addr)
   where
     db = ctx ^. dbLayer @IO @s @k
 
 -- | List all addresses of a wallet with their metadata. Addresses
 -- are ordered from the most-recently-discovered to the oldest known.
 listAddresses
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , CompareDiscovery s
-        , KnownAddresses s
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , CompareDiscovery s
+       , KnownAddresses s
+       )
     => ctx
     -> WalletId
     -> (s -> Address -> Maybe Address)
-        -- ^ A function to normalize address, so that delegated addresses
-        -- non-delegation addresses found in the transaction history are
-        -- shown with their delegation settings.
-        -- Use 'Just' for wallet without delegation settings.
+    -- ^ A function to normalize address, so that delegated addresses
+    -- non-delegation addresses found in the transaction history are
+    -- shown with their delegation settings.
+    -- Use 'Just' for wallet without delegation settings.
     -> ExceptT ErrNoSuchWallet IO [(Address, AddressState, NonEmpty DerivationIndex)]
-listAddresses ctx wid normalize = db & \DBLayer{..} -> do
-    cp <- mapExceptT atomically
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
-    let s = getState cp
+listAddresses ctx wid normalize =
+    db & \DBLayer {..} -> do
+        cp <-
+            mapExceptT atomically $
+                withNoSuchWallet wid $
+                    readCheckpoint wid
+        let s = getState cp
 
-    -- FIXME
-    -- Stream this instead of returning it as a single block.
-    return
-        $ L.sortBy (\(a,_,_) (b,_,_) -> compareDiscovery s a b)
-        $ mapMaybe (\(addr, st,path) -> (,st,path) <$> normalize s addr)
-        $ knownAddresses s
+        -- FIXME
+        -- Stream this instead of returning it as a single block.
+        return $
+            L.sortBy (\(a, _, _) (b, _, _) -> compareDiscovery s a b) $
+                mapMaybe (\(addr, st, path) -> (,st,path) <$> normalize s addr) $
+                    knownAddresses s
   where
     db = ctx ^. dbLayer @IO @s @k
 
 createRandomAddress
-    :: forall ctx s k n.
-        ( HasDBLayer IO s k ctx
-        , PaymentAddress n k 'CredFromKeyK
-        , RndStateLike s
-        , k ~ ByronKey
-        , AddressBookIso s
-        )
+    :: forall ctx s k n
+     . ( HasDBLayer IO s k ctx
+       , PaymentAddress n k 'CredFromKeyK
+       , RndStateLike s
+       , k ~ ByronKey
+       , AddressBookIso s
+       )
     => ctx
     -> WalletId
     -> Passphrase "user"
     -> Maybe (Index 'Hardened 'CredFromKeyK)
     -> ExceptT ErrCreateRandomAddress IO (Address, NonEmpty DerivationIndex)
-createRandomAddress ctx wid pwd mIx = db & \DBLayer{..} ->
-    withRootKey @ctx @s @k ctx wid pwd ErrCreateAddrWithRootKey $ \xprv scheme -> do
-        ExceptT $ atomically $ modifyDBMaybe walletsDB $
-            adjustNoSuchWallet wid ErrCreateAddrNoSuchWallet $
-                createRandomAddress' xprv scheme
+createRandomAddress ctx wid pwd mIx =
+    db & \DBLayer {..} ->
+        withRootKey @ctx @s @k ctx wid pwd ErrCreateAddrWithRootKey $ \xprv scheme -> do
+            ExceptT $
+                atomically $
+                    modifyDBMaybe walletsDB $
+                        adjustNoSuchWallet wid ErrCreateAddrNoSuchWallet $
+                            createRandomAddress' xprv scheme
   where
     db = ctx ^. dbLayer @IO @s @k
 
     createRandomAddress' xprv scheme wal = case mIx of
-        Just addrIx | isKnownIndex addrIx s0 ->
-            Left $ ErrIndexAlreadyExists addrIx
+        Just addrIx
+            | isKnownIndex addrIx s0 ->
+                Left $ ErrIndexAlreadyExists addrIx
         Just addrIx ->
             Right $ addAddress ((liftIndex accIx, liftIndex addrIx), s0)
         Nothing ->
@@ -1499,7 +1695,7 @@ createRandomAddress ctx wid pwd mIx = db & \DBLayer{..} ->
             (liftIndex accIx, liftIndex addrIx) `Set.member` Rnd.unavailablePaths s
 
         addAddress (path, s1) =
-            ( [ ReplacePrologue $ getPrologue $ Rnd.addPendingAddress addr path s1 ]
+            ( [ReplacePrologue $ getPrologue $ Rnd.addPendingAddress addr path s1]
             , (addr, Rnd.toDerivationIndexes path)
             )
           where
@@ -1507,27 +1703,32 @@ createRandomAddress ctx wid pwd mIx = db & \DBLayer{..} ->
             addr = Rnd.deriveRndStateAddress @n xprv prepared path
 
 importRandomAddresses
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , RndStateLike s
-        , k ~ ByronKey
-        , AddressBookIso s
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , RndStateLike s
+       , k ~ ByronKey
+       , AddressBookIso s
+       )
     => ctx
     -> WalletId
     -> [Address]
     -> ExceptT ErrImportRandomAddress IO ()
-importRandomAddresses ctx wid addrs = db & \DBLayer{..} ->
-    ExceptT $ atomically $ modifyDBMaybe walletsDB $
-        adjustNoSuchWallet wid ErrImportAddrNoSuchWallet
-            importRandomAddresses'
+importRandomAddresses ctx wid addrs =
+    db & \DBLayer {..} ->
+        ExceptT $
+            atomically $
+                modifyDBMaybe walletsDB $
+                    adjustNoSuchWallet
+                        wid
+                        ErrImportAddrNoSuchWallet
+                        importRandomAddresses'
   where
     db = ctx ^. dbLayer @IO @s @k
     importRandomAddresses' wal = case es1 of
         Left err -> Left $ ErrImportAddr err
-        Right s1 -> Right ([ ReplacePrologue $ getPrologue s1 ], ())
+        Right s1 -> Right ([ReplacePrologue $ getPrologue s1], ())
       where
-        s0  = getState $ getLatest wal
+        s0 = getState $ getLatest wal
         es1 = foldl' (\s addr -> s >>= Rnd.importAddress addr) (Right s0) addrs
 
 -- NOTE
@@ -1535,10 +1736,10 @@ importRandomAddresses ctx wid addrs = db & \DBLayer{..} ->
 -- delegation addresses. So we normalize them all to be delegation addresses
 -- to make sure that we compare them correctly.
 normalizeDelegationAddress
-    :: forall s k n.
-        ( DelegationAddress n k 'CredFromKeyK
-        , s ~ SeqState n k
-        )
+    :: forall s k n
+     . ( DelegationAddress n k 'CredFromKeyK
+       , s ~ SeqState n k
+       )
     => s
     -> Address
     -> Maybe Address
@@ -1567,17 +1768,19 @@ normalizeDelegationAddress s addr = do
 data PartialTx era = PartialTx
     { tx :: Cardano.Tx era
     , inputs :: Cardano.UTxO era
-      -- ^ NOTE: Can we rename this to something better? Perhaps 'extraUTxO'?
+    -- ^ NOTE: Can we rename this to something better? Perhaps 'extraUTxO'?
     , redeemers :: [Redeemer]
-    } deriving (Show, Generic, Eq)
+    }
+    deriving (Show, Generic, Eq)
 
 instance Buildable (PartialTx era) where
-    build (PartialTx tx (Cardano.UTxO ins) redeemers)
-        = nameF "PartialTx" $ mconcat
-            [ nameF "inputs" (blockListF' "-" inF (Map.toList ins))
-            , nameF "redeemers" (pretty redeemers)
-            , nameF "tx" (cardanoTxF tx)
-            ]
+    build (PartialTx tx (Cardano.UTxO ins) redeemers) =
+        nameF "PartialTx" $
+            mconcat
+                [ nameF "inputs" (blockListF' "-" inF (Map.toList ins))
+                , nameF "redeemers" (pretty redeemers)
+                , nameF "tx" (cardanoTxF tx)
+                ]
       where
         inF = build . show
 
@@ -1585,14 +1788,14 @@ instance Buildable (PartialTx era) where
         cardanoTxF tx' = pretty $ pShow tx'
 
 balanceTransaction
-    :: forall era m s k ktype ctx.
-        ( HasTransactionLayer k ktype ctx
-        , GenChange s
-        , MonadRandom m
-        , HasLogger m WalletWorkerLog ctx
-        , Cardano.IsShelleyBasedEra era
-        , BoundedAddressLength k
-        )
+    :: forall era m s k ktype ctx
+     . ( HasTransactionLayer k ktype ctx
+       , GenChange s
+       , MonadRandom m
+       , HasLogger m WalletWorkerLog ctx
+       , Cardano.IsShelleyBasedEra era
+       , BoundedAddressLength k
+       )
     => ctx
     -> ArgGenChange s
     -> (W.ProtocolParameters, Cardano.ProtocolParameters)
@@ -1622,23 +1825,29 @@ balanceTransaction
 balanceTransaction ctx change pp ti wallet ptx = do
     let balanceWith strategy =
             balanceTransactionWithSelectionStrategy @era @m @s @k @ktype
-                ctx change pp ti wallet strategy ptx
+                ctx
+                change
+                pp
+                ti
+                wallet
+                strategy
+                ptx
     balanceWith SelectionStrategyOptimal
         `catchE` \case
-            ErrBalanceTxMaxSizeLimitExceeded
-                -> balanceWith SelectionStrategyMinimal
-            otherErr
-                -> throwE otherErr
+            ErrBalanceTxMaxSizeLimitExceeded ->
+                balanceWith SelectionStrategyMinimal
+            otherErr ->
+                throwE otherErr
 
 balanceTransactionWithSelectionStrategy
-    :: forall era m s k ktype ctx.
-        ( HasTransactionLayer k ktype ctx
-        , GenChange s
-        , BoundedAddressLength k
-        , MonadRandom m
-        , HasLogger m WalletWorkerLog ctx
-        , Cardano.IsShelleyBasedEra era
-        )
+    :: forall era m s k ktype ctx
+     . ( HasTransactionLayer k ktype ctx
+       , GenChange s
+       , BoundedAddressLength k
+       , MonadRandom m
+       , HasLogger m WalletWorkerLog ctx
+       , Cardano.IsShelleyBasedEra era
+       )
     => ctx
     -> ArgGenChange s
     -> (W.ProtocolParameters, Cardano.ProtocolParameters)
@@ -1654,480 +1863,515 @@ balanceTransactionWithSelectionStrategy
     ti
     (internalUtxoAvailable, wallet, _pendingTxs)
     selectionStrategy
-    ptx@(PartialTx partialTx inputUTxO redeemers)
-    = do
-    guardExistingCollateral partialTx
-    guardExistingTotalCollateral partialTx
-    guardExistingReturnCollateral partialTx
-    guardZeroAdaOutputs (extractOutputsFromTx $ toSealed partialTx)
-    guardConflictingWithdrawalNetworks partialTx
-    guardWalletUTxOConsistencyWith inputUTxO
+    ptx@(PartialTx partialTx inputUTxO redeemers) =
+        do
+            guardExistingCollateral partialTx
+            guardExistingTotalCollateral partialTx
+            guardExistingReturnCollateral partialTx
+            guardZeroAdaOutputs (extractOutputsFromTx $ toSealed partialTx)
+            guardConflictingWithdrawalNetworks partialTx
+            guardWalletUTxOConsistencyWith inputUTxO
 
-    let era = Cardano.anyCardanoEra $ Cardano.cardanoEra @era
+            let era = Cardano.anyCardanoEra $ Cardano.cardanoEra @era
 
-    (balance0, minfee0) <- balanceAfterSettingMinFee partialTx
+            (balance0, minfee0) <- balanceAfterSettingMinFee partialTx
 
-    (extraInputs, extraCollateral, extraOutputs) <- do
+            (extraInputs, extraCollateral, extraOutputs) <- do
+                -- NOTE: It is not possible to know the script execution cost in
+                -- advance because it actually depends on the final transaction. Inputs
+                -- selected as part of the fee balancing might have an influence on the
+                -- execution cost.
+                -- However, they are bounded so it is possible to balance the
+                -- transaction considering only the maximum cost, and only after, try to
+                -- adjust the change and ExUnits of each redeemer to something more
+                -- sensible than the max execution cost.
 
-        -- NOTE: It is not possible to know the script execution cost in
-        -- advance because it actually depends on the final transaction. Inputs
-        -- selected as part of the fee balancing might have an influence on the
-        -- execution cost.
-        -- However, they are bounded so it is possible to balance the
-        -- transaction considering only the maximum cost, and only after, try to
-        -- adjust the change and ExUnits of each redeemer to something more
-        -- sensible than the max execution cost.
+                randomSeed <- stdGenSeed
+                let transform :: s -> Selection -> ([(TxIn, TxOut)], [TxIn], [TxOut])
+                    transform s sel =
+                        let (sel', _) = assignChangeAddresses generateChange sel s
+                            inputs = F.toList (sel' ^. #inputs)
+                         in ( inputs
+                            , fst <$> (sel' ^. #collateral)
+                            , sel' ^. #change
+                            )
 
-        randomSeed <- stdGenSeed
-        let
-            transform :: s -> Selection -> ([(TxIn, TxOut)], [TxIn], [TxOut])
-            transform s sel =
-                let (sel', _) = assignChangeAddresses generateChange sel s
-                    inputs = F.toList (sel' ^. #inputs)
-                in  ( inputs
-                    , fst <$> (sel' ^. #collateral)
-                    , sel' ^. #change
-                    )
+                lift $
+                    traceWith tr $
+                        MsgSelectionForBalancingStart
+                            (UTxOIndex.size internalUtxoAvailable)
+                            (BuildableInAnyEra Cardano.cardanoEra ptx)
 
-        lift $ traceWith tr $ MsgSelectionForBalancingStart
-            (UTxOIndex.size internalUtxoAvailable)
-            (BuildableInAnyEra Cardano.cardanoEra ptx)
+                externalSelectedUtxo <- extractExternallySelectedUTxO ptx
+                let mSel =
+                        selectAssets'
+                            era
+                            (extractOutputsFromTx $ toSealed partialTx)
+                            ( UTxOSelection.fromIndexPair
+                                (internalUtxoAvailable, externalSelectedUtxo)
+                            )
+                            balance0
+                            minfee0
+                            randomSeed
 
-        externalSelectedUtxo <- extractExternallySelectedUTxO ptx
-        let mSel = selectAssets'
-                era
-                (extractOutputsFromTx $ toSealed partialTx)
-                (UTxOSelection.fromIndexPair
-                    (internalUtxoAvailable, externalSelectedUtxo))
-                balance0
-                minfee0
-                randomSeed
+                case mSel of
+                    Left e ->
+                        lift $
+                            traceWith tr $
+                                MsgSelectionError e
+                    Right sel -> lift $ do
+                        traceWith tr $
+                            MsgSelectionReportSummarized $
+                                makeSelectionReportSummarized sel
+                        traceWith tr $
+                            MsgSelectionReportDetailed $
+                                makeSelectionReportDetailed sel
 
-        case mSel of
-            Left e -> lift $
-                traceWith tr $ MsgSelectionError e
-            Right sel -> lift $ do
-                traceWith tr $ MsgSelectionReportSummarized
-                    $ makeSelectionReportSummarized sel
-                traceWith tr $ MsgSelectionReportDetailed
-                    $ makeSelectionReportDetailed sel
+                withExceptT (ErrBalanceTxSelectAssets . ErrSelectAssetsSelectionError)
+                    . ExceptT
+                    . pure
+                    $ transform (getState wallet) <$> mSel
 
-        withExceptT (ErrBalanceTxSelectAssets . ErrSelectAssetsSelectionError)
-            . ExceptT . pure $
-                transform (getState wallet) <$> mSel
+            -- NOTE:
+            -- Once the coin selection is done, we need to
+            --
+            -- (a) Add selected inputs, collateral and change outputs to the transaction
+            -- (b) Assign correct execution units to every redeemer
+            -- (c) Correctly reference redeemed entities with redeemer pointers
+            -- (d) Adjust fees and change output(s) to the new fees.
+            --
+            -- There's a strong assumption that modifying the fee value AND increasing
+            -- the coin values of change outputs does not modify transaction fees; or
+            -- more exactly, does not modify the execution units of scripts. This is in
+            -- principle a fair assumption because script validators ought to be
+            -- unaware of change outputs. If their execution costs increase when change
+            -- output values increase, then it becomes impossible to guarantee that fee
+            -- balancing will ever converge towards a fixed point. A script validator
+            -- doing such a thing is considered bonkers and this is not a behavior we
+            -- ought to support.
 
-    -- NOTE:
-    -- Once the coin selection is done, we need to
-    --
-    -- (a) Add selected inputs, collateral and change outputs to the transaction
-    -- (b) Assign correct execution units to every redeemer
-    -- (c) Correctly reference redeemed entities with redeemer pointers
-    -- (d) Adjust fees and change output(s) to the new fees.
-    --
-    -- There's a strong assumption that modifying the fee value AND increasing
-    -- the coin values of change outputs does not modify transaction fees; or
-    -- more exactly, does not modify the execution units of scripts. This is in
-    -- principle a fair assumption because script validators ought to be
-    -- unaware of change outputs. If their execution costs increase when change
-    -- output values increase, then it becomes impossible to guarantee that fee
-    -- balancing will ever converge towards a fixed point. A script validator
-    -- doing such a thing is considered bonkers and this is not a behavior we
-    -- ought to support.
-
-    let unsafeFromLovelace (Cardano.Lovelace l) = Coin.unsafeFromIntegral l
-    candidateTx <- assembleTransaction $ TxUpdate
-        { extraInputs
-        , extraCollateral
-        , extraOutputs
-        , feeUpdate = UseNewTxFee $ unsafeFromLovelace minfee0
-        }
-
-    (balance, candidateMinFee) <- balanceAfterSettingMinFee candidateTx
-    surplus <- case Cardano.selectLovelace balance of
-        (Cardano.Lovelace c)
-            | c >= 0 ->
-                pure $ Coin.unsafeFromIntegral c
-            | otherwise ->
-                throwE . ErrBalanceTxInternalError $
-                ErrUnderestimatedFee
-                    (Coin.unsafeFromIntegral (-c))
-                    (toSealed candidateTx)
-
-    let feeAndChange = TxFeeAndChange
-            (unsafeFromLovelace candidateMinFee)
-            (extraOutputs)
-    let feePolicy = view (#txParameters . #getFeePolicy) pp
-
-    -- @distributeSurplus@ should never fail becase we have provided enough
-    -- padding in @selectAssets'@.
-    TxFeeAndChange updatedFee updatedChange <- withExceptT
-        (\(ErrMoreSurplusNeeded c) ->
-            ErrBalanceTxInternalError
-                $ ErrUnderestimatedFee c (toSealed candidateTx))
-        (ExceptT . pure $ distributeSurplus tl feePolicy surplus feeAndChange)
-
-    guardTxSize =<< guardTxBalanced =<< (assembleTransaction $ TxUpdate
-        { extraInputs
-        , extraCollateral
-        , extraOutputs = updatedChange
-        , feeUpdate = UseNewTxFee updatedFee
-        })
-  where
-    tl = ctx ^. transactionLayer @k @ktype
-    tr = contramap MsgWallet $ ctx ^. logger @m
-
-    toSealed :: Cardano.Tx era -> SealedTx
-    toSealed = sealedTxFromCardano . Cardano.InAnyCardanoEra Cardano.cardanoEra
-
-    -- | Extract the inputs from the raw 'tx' of the 'Partialtx', with the
-    -- corresponding 'TxOut' according to @combinedUTxO@.
-    --
-    -- === Examples using pseudo-code
-    --
-    -- >>> let extraUTxO = {inA -> outA, inB -> outB }
-    -- >>> let tx = addInputs [inA] emptyTx
-    -- >>> let ptx = PartialTx tx extraUTxO []
-    -- >>> extractExternallySelectedUTxO ptx
-    -- Right (UTxOIndex.fromMap {inA -> outA})
-    --
-    -- >>> let extraUTxO = {inB -> outB }
-    -- >>> let tx = addInputs [inA, inC] emptyTx
-    -- >>> let ptx = PartialTx tx extraUTxO []
-    -- >>> extractExternallySelectedUTxO ptx
-    -- Left (ErrBalanceTxUnresolvedInputs [inA, inC])
-    extractExternallySelectedUTxO
-        :: PartialTx era
-        -> ExceptT ErrBalanceTx m (UTxOIndex WalletUTxO)
-    extractExternallySelectedUTxO (PartialTx tx _ _rdms) = do
-        let res = flip map txIns $ \(i, _) -> do
-                case Map.lookup i utxo of
-                    Nothing ->
-                       Left i
-                    Just o -> do
-                        let i' = fromCardanoTxIn tl i
-                        let TxOut addr bundle = fromCardanoTxOut tl o
-                        pure (WalletUTxO i' addr, bundle)
-
-        case partitionEithers res of
-            ([], resolved) ->
-                pure $ UTxOIndex.fromSequence resolved
-            (unresolvedInsHead:unresolvedInsTail, _) ->
-                throwE
-                . ErrBalanceTxUnresolvedInputs
-                . fmap (fromCardanoTxIn tl)
-                $ (unresolvedInsHead :| unresolvedInsTail)
-      where
-        Cardano.UTxO utxo = combinedUTxO
-        Cardano.Tx (Cardano.TxBody (Cardano.TxBodyContent { Cardano.txIns })) _
-            = tx
-
-    guardTxSize :: Cardano.Tx era -> ExceptT ErrBalanceTx m (Cardano.Tx era)
-    guardTxSize tx = do
-        let size = estimateSignedTxSize tl nodePParams tx
-        let maxSize = TxSize
-                . intCast
-                . getQuantity
-                $ view (#txParameters . #getTxMaxSize) pp
-        when (size > maxSize) $
-            throwE ErrBalanceTxMaxSizeLimitExceeded
-        return tx
-
-    guardTxBalanced :: Cardano.Tx era -> ExceptT ErrBalanceTx m (Cardano.Tx era)
-    guardTxBalanced tx = do
-        let bal = txBalance tx
-        if bal == mempty
-            then pure tx
-            else throwE $ ErrBalanceTxInternalError $ ErrFailedBalancing bal
-
-    txBalance :: Cardano.Tx era -> Cardano.Value
-    txBalance tx =
-        evaluateTransactionBalance tl tx nodePParams combinedUTxO
-
-    balanceAfterSettingMinFee
-        :: Cardano.Tx era
-        -> ExceptT ErrBalanceTx m (Cardano.Value, Cardano.Lovelace)
-    balanceAfterSettingMinFee tx = ExceptT . pure $ do
-        -- NOTE: evaluateMinimumFee relies on correctly estimating the required
-        -- number of witnesses.
-        let minfee = evaluateMinimumFee tl nodePParams tx
-        let update = TxUpdate [] [] [] (UseNewTxFee minfee)
-        tx' <- left ErrBalanceTxUpdateError $ updateTx tl tx update
-        let balance = evaluateTransactionBalance tl tx' nodePParams combinedUTxO
-        let minfee' = Cardano.Lovelace $ fromIntegral $ unCoin minfee
-        return (balance, minfee')
-
-    -- | Ensure the wallet UTxO is consistent with a provided @Cardano.UTxO@.
-    --
-    -- They are not consistent iff an input can be looked up in both UTxO sets
-    -- with different @Address@, or @TokenBundle@ values.
-    --
-    -- The @Cardano.UTxO era@ is allowed to contain additional information, like
-    -- datum hashes, which the wallet UTxO cannot represent.
-    --
-    -- NOTE: Representing the wallet utxo as a @Cardano.UTxO@ will not make this
-    -- check easier, even if it may be useful in other regards.
-    guardWalletUTxOConsistencyWith
-        :: Cardano.UTxO era
-        -> ExceptT ErrBalanceTx m ()
-    guardWalletUTxOConsistencyWith u' = do
-        let u = Map.mapKeys (fromCardanoTxIn tl)
-                . Map.map (fromCardanoTxOut tl)
-                $ (unUTxO u')
-        let conflicts = lefts $ flip map (Map.toList u) $ \(i, o) ->
-                case i `UTxO.lookup` walletUTxO of
-                    Just o' -> unless (o == o') $ Left (o, o')
-                    Nothing -> pure ()
-
-        case conflicts of
-            [] -> return ()
-            (c:cs) -> throwE $ ErrBalanceTxInputResolutionConflicts (c :| cs)
-      where
-         unUTxO (Cardano.UTxO u) = u
-
-    walletUTxO :: UTxO
-    walletUTxO = CS.toExternalUTxOMap $ UTxOIndex.toMap internalUtxoAvailable
-
-    combinedUTxO :: Cardano.UTxO era
-    combinedUTxO = Cardano.UTxO $ mconcat
-         -- The @Cardano.UTxO@ can contain strictly more information than
-         -- @W.UTxO@. Therefore we make the user-specified @inputUTxO@ to take
-         -- precedence. This matters if a user is trying to balance a tx making
-         -- use of a datum hash in a UTxO which is also present in the wallet
-         -- UTxO set. (Whether or not this is a sane thing for the user to do,
-         -- is another question.)
-         [ unUTxO inputUTxO
-         , unUTxO $ toCardanoUTxO tl walletUTxO []
-         ]
-      where
-         unUTxO (Cardano.UTxO u) = u
-
-    assembleTransaction
-        :: TxUpdate
-        -> ExceptT ErrBalanceTx m (Cardano.Tx era)
-    assembleTransaction update = ExceptT . pure $ do
-        tx' <- left ErrBalanceTxUpdateError $ updateTx tl partialTx update
-        left ErrBalanceTxAssignRedeemers $ assignScriptRedeemers
-            tl nodePParams ti combinedUTxO redeemers tx'
-
-    guardZeroAdaOutputs outputs = do
-        -- We seem to produce imbalanced transactions if zero-ada
-        -- outputs are pre-specified. Example from
-        -- 'prop_balanceTransactionBalanced':
-        --
-        -- balanced tx:
-        --  2afeed9b
-        --  []
-        --  inputs 2nd 01f4b788
-        --  outputs address: 82d81858...6f57b300
-        --          coin: 0.000000
-        --          tokens: []
-        --  []
-        --  metadata:
-        --  scriptValidity: valid
-
-        --  Lovelace 1000000 /= Lovelace 0
-        --
-        --  This is probably due to selectAssets replacing 0 ada outputs with
-        --  minUTxOValue in the selection, which doesn't end up in the CBOR tx.
-        let zeroAdaOutputs =
-                filter (\o -> view (#tokens . #coin) o == Coin 0 ) outputs
-
-        unless (null zeroAdaOutputs) $
-            throwE ErrBalanceTxZeroAdaOutput
-
-    extractOutputsFromTx tx =
-        let
-            era = Cardano.AnyCardanoEra $ Cardano.cardanoEra @era
-            (Tx {outputs}, _, _, _, _) = decodeTx tl era tx
-        in outputs
-
-    guardConflictingWithdrawalNetworks
-        (Cardano.Tx (Cardano.TxBody body) _) = do
-        -- Use of withdrawals with different networks breaks balancing.
-        --
-        -- For instance the partial tx might contain two withdrawals with the
-        -- same key but different networks:
-        -- [ (Mainnet, pkh1, coin1)
-        -- , (Testnet, pkh1, coin2)
-        -- ]
-        --
-        -- Even though this is absurd, the node/ledger
-        -- @evaluateTransactionBalance@ will count @coin1+coin2@ towards the
-        -- total balance. Because the wallet does not consider the network tag,
-        -- it will drop one of the two, leading to a discrepancy.
-        let networkOfWdrl ((Cardano.StakeAddress nw _), _, _) = nw
-        let conflictingWdrlNetworks = case Cardano.txWithdrawals body of
-                Cardano.TxWithdrawalsNone -> False
-                Cardano.TxWithdrawals _ wdrls -> Set.size
-                    (Set.fromList $ map networkOfWdrl wdrls) > 1
-        when conflictingWdrlNetworks $
-            throwE ErrBalanceTxConflictingNetworks
-
-    guardExistingCollateral (Cardano.Tx (Cardano.TxBody body) _) = do
-        -- Coin selection does not support pre-defining collateral. In Sep 2021
-        -- consensus was that we /could/ allow for it with just a day's work or
-        -- so, but that the need for it was unclear enough that it was not in
-        -- any way a priority.
-        case Cardano.txInsCollateral body of
-            Cardano.TxInsCollateralNone -> return ()
-            Cardano.TxInsCollateral _ [] -> return ()
-            Cardano.TxInsCollateral _ _ ->
-                throwE ErrBalanceTxExistingCollateral
-
-    guardExistingTotalCollateral (Cardano.Tx (Cardano.TxBody body) _) =
-        case Cardano.txTotalCollateral body of
-            Cardano.TxTotalCollateralNone -> return ()
-            Cardano.TxTotalCollateral _ _ ->
-               throwE ErrBalanceTxExistingTotalCollateral
-
-    guardExistingReturnCollateral (Cardano.Tx (Cardano.TxBody body) _) =
-        case Cardano.txReturnCollateral body of
-            Cardano.TxReturnCollateralNone -> return ()
-            Cardano.TxReturnCollateral _ _ ->
-               throwE ErrBalanceTxExistingReturnCollateral
-
-    -- | Select assets to cover the specified balance and fee.
-    --
-    -- If the transaction contains redeemers, the function will also ensure the
-    -- selection covers the fees for the maximum allowed execution units of a
-    -- transaction. For this, and other reasons, the selection may include too
-    -- much ada.
-    selectAssets'
-        :: Cardano.AnyCardanoEra
-        -> [TxOut]
-        -> UTxOSelection WalletUTxO
-        -- ^ Describes which utxos are pre-selected, and which can be used as
-        -- inputs or collateral.
-        -> Cardano.Value -- Balance to cover
-        -> Cardano.Lovelace -- Current minfee (before selecting assets)
-        -> StdGenSeed
-        -> Either (SelectionError WalletSelectionContext) Selection
-    selectAssets' era outs utxoSelection balance fee0 seed =
-        let
-            txPlutusScriptExecutionCost = maxScriptExecutionCost tl pp redeemers
-            colReq =
-                if txPlutusScriptExecutionCost > Coin 0 then
-                    SelectionCollateralRequired
-                else
-                    SelectionCollateralNotRequired
-
-            (positiveBundle, negativeBundle) = posAndNegFromCardanoValue balance
-            (TokenBundle positiveAda positiveTokens) = positiveBundle
-            (TokenBundle negativeAda negativeTokens) = negativeBundle
-
-            adaInOutputs = F.foldMap (TokenBundle.getCoin . view #tokens) outs
-            tokensInOutputs = F.foldMap (TokenBundle.tokens . view #tokens) outs
-            tokensInInputs = TokenBundle.tokens
-                $ UTxOSelection.selectedBalance utxoSelection
-            adaInInputs = TokenBundle.getCoin
-                $ UTxOSelection.selectedBalance utxoSelection
-
-            boringFee =
-                let
-                    boringSkeleton = SelectionSkeleton
-                        { skeletonInputCount =
-                            UTxOSelection.selectedSize utxoSelection
-                        , skeletonOutputs = outs
-                        , skeletonChange = []
+            let unsafeFromLovelace (Cardano.Lovelace l) = Coin.unsafeFromIntegral l
+            candidateTx <-
+                assembleTransaction $
+                    TxUpdate
+                        { extraInputs
+                        , extraCollateral
+                        , extraOutputs
+                        , feeUpdate = UseNewTxFee $ unsafeFromLovelace minfee0
                         }
-                in calcMinimumCost
-                        tl
-                        era
-                        pp
-                        defaultTransactionCtx
-                        boringSkeleton
 
-            feePadding =
-                let LinearFee LinearFunction {slope = perByte} =
-                        view (#txParameters . #getFeePolicy) pp
-                    scriptIntegrityHashBytes = 32 + 2
+            (balance, candidateMinFee) <- balanceAfterSettingMinFee candidateTx
+            surplus <- case Cardano.selectLovelace balance of
+                (Cardano.Lovelace c)
+                    | c >= 0 ->
+                        pure $ Coin.unsafeFromIntegral c
+                    | otherwise ->
+                        throwE . ErrBalanceTxInternalError $
+                            ErrUnderestimatedFee
+                                (Coin.unsafeFromIntegral (-c))
+                                (toSealed candidateTx)
 
-                    -- Add padding to allow the fee value to increase.
-                    -- Out of caution, assume it can increase by the theoretical
-                    -- maximum of 8 bytes ('maximumCostOfIncreasingCoin').
-                    --
-                    -- NOTE: It's not convenient to import the constant at the
-                    -- moment because of the package split.
-                    --
-                    -- Any overestimation will be reduced by 'distributeSurplus'
-                    -- in the final stage of 'balanceTransaction'.
-                    extraBytes = 8
-                in
-                Coin $ (round perByte) * (extraBytes + scriptIntegrityHashBytes)
+            let feeAndChange =
+                    TxFeeAndChange
+                        (unsafeFromLovelace candidateMinFee)
+                        (extraOutputs)
+            let feePolicy = view (#txParameters . #getFeePolicy) pp
 
-            fromCardanoLovelace (Cardano.Lovelace l) = Coin.unsafeFromIntegral l
+            -- @distributeSurplus@ should never fail becase we have provided enough
+            -- padding in @selectAssets'@.
+            TxFeeAndChange updatedFee updatedChange <-
+                withExceptT
+                    ( \(ErrMoreSurplusNeeded c) ->
+                        ErrBalanceTxInternalError $
+                            ErrUnderestimatedFee c (toSealed candidateTx)
+                    )
+                    (ExceptT . pure $ distributeSurplus tl feePolicy surplus feeAndChange)
 
-            selectionConstraints = SelectionConstraints
-                { assessTokenBundleSize =
-                    view #assessTokenBundleSize $
-                    tokenBundleSizeAssessor tl $
-                    pp ^. (#txParameters . #getTokenBundleMaxSize)
-                , certificateDepositAmount =
-                    view #stakeKeyDeposit pp
-                , computeMinimumAdaQuantity =
-                    view #txOutputMinimumAdaQuantity
-                        (constraints tl era pp)
-                , isBelowMinimumAdaQuantity =
-                    view #txOutputBelowMinimumAdaQuantity
-                        (constraints tl era pp)
-                , computeMinimumCost = \skeleton -> mconcat
-                    [ feePadding
-                    , fromCardanoLovelace fee0
-                    , calcMinimumCost tl era pp
-                        (defaultTransactionCtx
-                            { txPlutusScriptExecutionCost =
-                                txPlutusScriptExecutionCost })
-                        skeleton
-                    ] `Coin.difference` boringFee
-                , computeSelectionLimit = \_ -> NoLimit
-                , maximumCollateralInputCount =
-                    intCast @Word16 @Int $ view #maximumCollateralInputCount pp
-                , minimumCollateralPercentage =
-                    view #minimumCollateralPercentage pp
-                , maximumLengthChangeAddress =
-                    maxLengthAddressFor $ Proxy @k
-                }
+            guardTxSize
+                =<< guardTxBalanced
+                =<< ( assembleTransaction $
+                        TxUpdate
+                            { extraInputs
+                            , extraCollateral
+                            , extraOutputs = updatedChange
+                            , feeUpdate = UseNewTxFee updatedFee
+                            }
+                    )
+      where
+        tl = ctx ^. transactionLayer @k @ktype
+        tr = contramap MsgWallet $ ctx ^. logger @m
 
-            selectionParams = SelectionParams
-                -- The following fields are essensially adjusting the coin
-                -- selections notion of balance by @balance0 - sum inputs + sum
-                -- outputs + fee0@ where @balance0@ is the balance of the
-                -- partial tx.
-                { assetsToMint = positiveTokens <> tokensInOutputs
-                , assetsToBurn = negativeTokens <> tokensInInputs
-                , extraCoinIn =
-                    positiveAda
-                    <> adaInOutputs
-                    <> fromCardanoLovelace fee0
-                , extraCoinOut = negativeAda <> adaInInputs
+        toSealed :: Cardano.Tx era -> SealedTx
+        toSealed = sealedTxFromCardano . Cardano.InAnyCardanoEra Cardano.cardanoEra
 
-                -- We don't use the following 3 fields because certs and
-                -- withdrawals are already included in the balance (passed in
-                -- above).
-                , rewardWithdrawal = Coin 0
-                , certificateDepositsReturned = 0
-                , certificateDepositsTaken = 0
+        -- \| Extract the inputs from the raw 'tx' of the 'Partialtx', with the
+        -- corresponding 'TxOut' according to @combinedUTxO@.
+        --
+        -- === Examples using pseudo-code
+        --
+        -- >>> let extraUTxO = {inA -> outA, inB -> outB }
+        -- >>> let tx = addInputs [inA] emptyTx
+        -- >>> let ptx = PartialTx tx extraUTxO []
+        -- >>> extractExternallySelectedUTxO ptx
+        -- Right (UTxOIndex.fromMap {inA -> outA})
+        --
+        -- >>> let extraUTxO = {inB -> outB }
+        -- >>> let tx = addInputs [inA, inC] emptyTx
+        -- >>> let ptx = PartialTx tx extraUTxO []
+        -- >>> extractExternallySelectedUTxO ptx
+        -- Left (ErrBalanceTxUnresolvedInputs [inA, inC])
+        extractExternallySelectedUTxO
+            :: PartialTx era
+            -> ExceptT ErrBalanceTx m (UTxOIndex WalletUTxO)
+        extractExternallySelectedUTxO (PartialTx tx _ _rdms) = do
+            let res = flip map txIns $ \(i, _) -> do
+                    case Map.lookup i utxo of
+                        Nothing ->
+                            Left i
+                        Just o -> do
+                            let i' = fromCardanoTxIn tl i
+                            let TxOut addr bundle = fromCardanoTxOut tl o
+                            pure (WalletUTxO i' addr, bundle)
 
-                -- NOTE: It is important that coin selection has the correct
-                -- notion of fees, because it will be used to tell how much
-                -- collateral is needed.
-                , collateralRequirement = colReq
-                , outputsToCover = outs
-                , utxoAvailableForCollateral =
-                      UTxOSelection.availableMap utxoSelection
-                , utxoAvailableForInputs = utxoSelection
-                , selectionStrategy = selectionStrategy
-                }
-            in
-                flip evalRand (stdGenFromSeed seed)
-                    $ runExceptT
-                    $ performSelection selectionConstraints selectionParams
+            case partitionEithers res of
+                ([], resolved) ->
+                    pure $ UTxOIndex.fromSequence resolved
+                (unresolvedInsHead : unresolvedInsTail, _) ->
+                    throwE
+                        . ErrBalanceTxUnresolvedInputs
+                        . fmap (fromCardanoTxIn tl)
+                        $ (unresolvedInsHead :| unresolvedInsTail)
+          where
+            Cardano.UTxO utxo = combinedUTxO
+            Cardano.Tx (Cardano.TxBody (Cardano.TxBodyContent {Cardano.txIns})) _ =
+                tx
+
+        guardTxSize :: Cardano.Tx era -> ExceptT ErrBalanceTx m (Cardano.Tx era)
+        guardTxSize tx = do
+            let size = estimateSignedTxSize tl nodePParams tx
+            let maxSize =
+                    TxSize
+                        . intCast
+                        . getQuantity
+                        $ view (#txParameters . #getTxMaxSize) pp
+            when (size > maxSize) $
+                throwE ErrBalanceTxMaxSizeLimitExceeded
+            return tx
+
+        guardTxBalanced :: Cardano.Tx era -> ExceptT ErrBalanceTx m (Cardano.Tx era)
+        guardTxBalanced tx = do
+            let bal = txBalance tx
+            if bal == mempty
+                then pure tx
+                else throwE $ ErrBalanceTxInternalError $ ErrFailedBalancing bal
+
+        txBalance :: Cardano.Tx era -> Cardano.Value
+        txBalance tx =
+            evaluateTransactionBalance tl tx nodePParams combinedUTxO
+
+        balanceAfterSettingMinFee
+            :: Cardano.Tx era
+            -> ExceptT ErrBalanceTx m (Cardano.Value, Cardano.Lovelace)
+        balanceAfterSettingMinFee tx = ExceptT . pure $ do
+            -- NOTE: evaluateMinimumFee relies on correctly estimating the required
+            -- number of witnesses.
+            let minfee = evaluateMinimumFee tl nodePParams tx
+            let update = TxUpdate [] [] [] (UseNewTxFee minfee)
+            tx' <- left ErrBalanceTxUpdateError $ updateTx tl tx update
+            let balance = evaluateTransactionBalance tl tx' nodePParams combinedUTxO
+            let minfee' = Cardano.Lovelace $ fromIntegral $ unCoin minfee
+            return (balance, minfee')
+
+        -- \| Ensure the wallet UTxO is consistent with a provided @Cardano.UTxO@.
+        --
+        -- They are not consistent iff an input can be looked up in both UTxO sets
+        -- with different @Address@, or @TokenBundle@ values.
+        --
+        -- The @Cardano.UTxO era@ is allowed to contain additional information, like
+        -- datum hashes, which the wallet UTxO cannot represent.
+        --
+        -- NOTE: Representing the wallet utxo as a @Cardano.UTxO@ will not make this
+        -- check easier, even if it may be useful in other regards.
+        guardWalletUTxOConsistencyWith
+            :: Cardano.UTxO era
+            -> ExceptT ErrBalanceTx m ()
+        guardWalletUTxOConsistencyWith u' = do
+            let u =
+                    Map.mapKeys (fromCardanoTxIn tl)
+                        . Map.map (fromCardanoTxOut tl)
+                        $ (unUTxO u')
+            let conflicts = lefts $ flip map (Map.toList u) $ \(i, o) ->
+                    case i `UTxO.lookup` walletUTxO of
+                        Just o' -> unless (o == o') $ Left (o, o')
+                        Nothing -> pure ()
+
+            case conflicts of
+                [] -> return ()
+                (c : cs) -> throwE $ ErrBalanceTxInputResolutionConflicts (c :| cs)
+          where
+            unUTxO (Cardano.UTxO u) = u
+
+        walletUTxO :: UTxO
+        walletUTxO = CS.toExternalUTxOMap $ UTxOIndex.toMap internalUtxoAvailable
+
+        combinedUTxO :: Cardano.UTxO era
+        combinedUTxO =
+            Cardano.UTxO $
+                mconcat
+                    -- The @Cardano.UTxO@ can contain strictly more information than
+                    -- @W.UTxO@. Therefore we make the user-specified @inputUTxO@ to take
+                    -- precedence. This matters if a user is trying to balance a tx making
+                    -- use of a datum hash in a UTxO which is also present in the wallet
+                    -- UTxO set. (Whether or not this is a sane thing for the user to do,
+                    -- is another question.)
+                    [ unUTxO inputUTxO
+                    , unUTxO $ toCardanoUTxO tl walletUTxO []
+                    ]
+          where
+            unUTxO (Cardano.UTxO u) = u
+
+        assembleTransaction
+            :: TxUpdate
+            -> ExceptT ErrBalanceTx m (Cardano.Tx era)
+        assembleTransaction update = ExceptT . pure $ do
+            tx' <- left ErrBalanceTxUpdateError $ updateTx tl partialTx update
+            left ErrBalanceTxAssignRedeemers $
+                assignScriptRedeemers
+                    tl
+                    nodePParams
+                    ti
+                    combinedUTxO
+                    redeemers
+                    tx'
+
+        guardZeroAdaOutputs outputs = do
+            -- We seem to produce imbalanced transactions if zero-ada
+            -- outputs are pre-specified. Example from
+            -- 'prop_balanceTransactionBalanced':
+            --
+            -- balanced tx:
+            --  2afeed9b
+            --  []
+            --  inputs 2nd 01f4b788
+            --  outputs address: 82d81858...6f57b300
+            --          coin: 0.000000
+            --          tokens: []
+            --  []
+            --  metadata:
+            --  scriptValidity: valid
+
+            --  Lovelace 1000000 /= Lovelace 0
+            --
+            --  This is probably due to selectAssets replacing 0 ada outputs with
+            --  minUTxOValue in the selection, which doesn't end up in the CBOR tx.
+            let zeroAdaOutputs =
+                    filter (\o -> view (#tokens . #coin) o == Coin 0) outputs
+
+            unless (null zeroAdaOutputs) $
+                throwE ErrBalanceTxZeroAdaOutput
+
+        extractOutputsFromTx tx =
+            let era = Cardano.AnyCardanoEra $ Cardano.cardanoEra @era
+                (Tx {outputs}, _, _, _, _) = decodeTx tl era tx
+             in outputs
+
+        guardConflictingWithdrawalNetworks
+            (Cardano.Tx (Cardano.TxBody body) _) = do
+                -- Use of withdrawals with different networks breaks balancing.
+                --
+                -- For instance the partial tx might contain two withdrawals with the
+                -- same key but different networks:
+                -- [ (Mainnet, pkh1, coin1)
+                -- , (Testnet, pkh1, coin2)
+                -- ]
+                --
+                -- Even though this is absurd, the node/ledger
+                -- @evaluateTransactionBalance@ will count @coin1+coin2@ towards the
+                -- total balance. Because the wallet does not consider the network tag,
+                -- it will drop one of the two, leading to a discrepancy.
+                let networkOfWdrl ((Cardano.StakeAddress nw _), _, _) = nw
+                let conflictingWdrlNetworks = case Cardano.txWithdrawals body of
+                        Cardano.TxWithdrawalsNone -> False
+                        Cardano.TxWithdrawals _ wdrls ->
+                            Set.size
+                                (Set.fromList $ map networkOfWdrl wdrls)
+                                > 1
+                when conflictingWdrlNetworks $
+                    throwE ErrBalanceTxConflictingNetworks
+
+        guardExistingCollateral (Cardano.Tx (Cardano.TxBody body) _) = do
+            -- Coin selection does not support pre-defining collateral. In Sep 2021
+            -- consensus was that we /could/ allow for it with just a day's work or
+            -- so, but that the need for it was unclear enough that it was not in
+            -- any way a priority.
+            case Cardano.txInsCollateral body of
+                Cardano.TxInsCollateralNone -> return ()
+                Cardano.TxInsCollateral _ [] -> return ()
+                Cardano.TxInsCollateral _ _ ->
+                    throwE ErrBalanceTxExistingCollateral
+
+        guardExistingTotalCollateral (Cardano.Tx (Cardano.TxBody body) _) =
+            case Cardano.txTotalCollateral body of
+                Cardano.TxTotalCollateralNone -> return ()
+                Cardano.TxTotalCollateral _ _ ->
+                    throwE ErrBalanceTxExistingTotalCollateral
+
+        guardExistingReturnCollateral (Cardano.Tx (Cardano.TxBody body) _) =
+            case Cardano.txReturnCollateral body of
+                Cardano.TxReturnCollateralNone -> return ()
+                Cardano.TxReturnCollateral _ _ ->
+                    throwE ErrBalanceTxExistingReturnCollateral
+
+        -- \| Select assets to cover the specified balance and fee.
+        --
+        -- If the transaction contains redeemers, the function will also ensure the
+        -- selection covers the fees for the maximum allowed execution units of a
+        -- transaction. For this, and other reasons, the selection may include too
+        -- much ada.
+        selectAssets'
+            :: Cardano.AnyCardanoEra
+            -> [TxOut]
+            -> UTxOSelection WalletUTxO
+            -- \^ Describes which utxos are pre-selected, and which can be used as
+            -- inputs or collateral.
+            -> Cardano.Value -- Balance to cover
+            -> Cardano.Lovelace -- Current minfee (before selecting assets)
+            -> StdGenSeed
+            -> Either (SelectionError WalletSelectionContext) Selection
+        selectAssets' era outs utxoSelection balance fee0 seed =
+            let txPlutusScriptExecutionCost = maxScriptExecutionCost tl pp redeemers
+                colReq =
+                    if txPlutusScriptExecutionCost > Coin 0
+                        then SelectionCollateralRequired
+                        else SelectionCollateralNotRequired
+
+                (positiveBundle, negativeBundle) = posAndNegFromCardanoValue balance
+                (TokenBundle positiveAda positiveTokens) = positiveBundle
+                (TokenBundle negativeAda negativeTokens) = negativeBundle
+
+                adaInOutputs = F.foldMap (TokenBundle.getCoin . view #tokens) outs
+                tokensInOutputs = F.foldMap (TokenBundle.tokens . view #tokens) outs
+                tokensInInputs =
+                    TokenBundle.tokens $
+                        UTxOSelection.selectedBalance utxoSelection
+                adaInInputs =
+                    TokenBundle.getCoin $
+                        UTxOSelection.selectedBalance utxoSelection
+
+                boringFee =
+                    let boringSkeleton =
+                            SelectionSkeleton
+                                { skeletonInputCount =
+                                    UTxOSelection.selectedSize utxoSelection
+                                , skeletonOutputs = outs
+                                , skeletonChange = []
+                                }
+                     in calcMinimumCost
+                            tl
+                            era
+                            pp
+                            defaultTransactionCtx
+                            boringSkeleton
+
+                feePadding =
+                    let LinearFee LinearFunction {slope = perByte} =
+                            view (#txParameters . #getFeePolicy) pp
+                        scriptIntegrityHashBytes = 32 + 2
+
+                        -- Add padding to allow the fee value to increase.
+                        -- Out of caution, assume it can increase by the theoretical
+                        -- maximum of 8 bytes ('maximumCostOfIncreasingCoin').
+                        --
+                        -- NOTE: It's not convenient to import the constant at the
+                        -- moment because of the package split.
+                        --
+                        -- Any overestimation will be reduced by 'distributeSurplus'
+                        -- in the final stage of 'balanceTransaction'.
+                        extraBytes = 8
+                     in Coin $ (round perByte) * (extraBytes + scriptIntegrityHashBytes)
+
+                fromCardanoLovelace (Cardano.Lovelace l) = Coin.unsafeFromIntegral l
+
+                selectionConstraints =
+                    SelectionConstraints
+                        { assessTokenBundleSize =
+                            view #assessTokenBundleSize $
+                                tokenBundleSizeAssessor tl $
+                                    pp ^. (#txParameters . #getTokenBundleMaxSize)
+                        , certificateDepositAmount =
+                            view #stakeKeyDeposit pp
+                        , computeMinimumAdaQuantity =
+                            view
+                                #txOutputMinimumAdaQuantity
+                                (constraints tl era pp)
+                        , isBelowMinimumAdaQuantity =
+                            view
+                                #txOutputBelowMinimumAdaQuantity
+                                (constraints tl era pp)
+                        , computeMinimumCost = \skeleton ->
+                            mconcat
+                                [ feePadding
+                                , fromCardanoLovelace fee0
+                                , calcMinimumCost
+                                    tl
+                                    era
+                                    pp
+                                    ( defaultTransactionCtx
+                                        { txPlutusScriptExecutionCost =
+                                            txPlutusScriptExecutionCost
+                                        }
+                                    )
+                                    skeleton
+                                ]
+                                `Coin.difference` boringFee
+                        , computeSelectionLimit = \_ -> NoLimit
+                        , maximumCollateralInputCount =
+                            intCast @Word16 @Int $ view #maximumCollateralInputCount pp
+                        , minimumCollateralPercentage =
+                            view #minimumCollateralPercentage pp
+                        , maximumLengthChangeAddress =
+                            maxLengthAddressFor $ Proxy @k
+                        }
+
+                selectionParams =
+                    SelectionParams
+                        { -- The following fields are essensially adjusting the coin
+                          -- selections notion of balance by @balance0 - sum inputs + sum
+                          -- outputs + fee0@ where @balance0@ is the balance of the
+                          -- partial tx.
+                          assetsToMint = positiveTokens <> tokensInOutputs
+                        , assetsToBurn = negativeTokens <> tokensInInputs
+                        , extraCoinIn =
+                            positiveAda
+                                <> adaInOutputs
+                                <> fromCardanoLovelace fee0
+                        , extraCoinOut = negativeAda <> adaInInputs
+                        , -- We don't use the following 3 fields because certs and
+                          -- withdrawals are already included in the balance (passed in
+                          -- above).
+                          rewardWithdrawal = Coin 0
+                        , certificateDepositsReturned = 0
+                        , certificateDepositsTaken = 0
+                        , -- NOTE: It is important that coin selection has the correct
+                          -- notion of fees, because it will be used to tell how much
+                          -- collateral is needed.
+                          collateralRequirement = colReq
+                        , outputsToCover = outs
+                        , utxoAvailableForCollateral =
+                            UTxOSelection.availableMap utxoSelection
+                        , utxoAvailableForInputs = utxoSelection
+                        , selectionStrategy = selectionStrategy
+                        }
+             in flip evalRand (stdGenFromSeed seed) $
+                    runExceptT $
+                        performSelection selectionConstraints selectionParams
 
 -- | Augments the given outputs with new outputs. These new outputs correspond
 -- to change outputs to which new addresses have been assigned. This updates
 -- the wallet state as it needs to keep track of new pending change addresses.
 assignChangeAddresses
-    :: forall s. GenChange s
+    :: forall s
+     . GenChange s
     => ArgGenChange s
     -> Selection
     -> s
@@ -2136,47 +2380,55 @@ assignChangeAddresses argGenChange sel = runState $ do
     changeOuts <- forM (view #change sel) $ \bundle -> do
         addr <- state (genChange argGenChange)
         pure $ TxOut addr bundle
-    pure $ sel { change = changeOuts }
+    pure $ sel {change = changeOuts}
 
 assignChangeAddressesAndUpdateDb
-    :: forall ctx s k.
-        ( GenChange s
-        , HasDBLayer IO s k ctx
-        , AddressBookIso s
-        )
+    :: forall ctx s k
+     . ( GenChange s
+       , HasDBLayer IO s k ctx
+       , AddressBookIso s
+       )
     => ctx
     -> WalletId
     -> ArgGenChange s
     -> Selection
     -> ExceptT ErrSignPayment IO (SelectionOf TxOut)
 assignChangeAddressesAndUpdateDb ctx wid generateChange selection =
-    db & \DBLayer{..} -> ExceptT $ atomically $ modifyDBMaybe walletsDB $
-        adjustNoSuchWallet wid ErrSignPaymentNoSuchWallet
-            assignChangeAddressesAndUpdateDb'
+    db & \DBLayer {..} ->
+        ExceptT $
+            atomically $
+                modifyDBMaybe walletsDB $
+                    adjustNoSuchWallet
+                        wid
+                        ErrSignPaymentNoSuchWallet
+                        assignChangeAddressesAndUpdateDb'
   where
     db = ctx ^. dbLayer @IO @s @k
-    assignChangeAddressesAndUpdateDb' wallet = Right
-        -- Newly generated change addresses only change the Prologue
-        ([ReplacePrologue $ getPrologue stateUpdated], selectionUpdated)
+    assignChangeAddressesAndUpdateDb' wallet =
+        Right
+            -- Newly generated change addresses only change the Prologue
+            ([ReplacePrologue $ getPrologue stateUpdated], selectionUpdated)
       where
         s = getState $ getLatest wallet
         (selectionUpdated, stateUpdated) =
             assignChangeAddresses generateChange selection s
 
 assignChangeAddressesWithoutDbUpdate
-    :: forall ctx s k.
-        ( GenChange s
-        , HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( GenChange s
+       , HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> ArgGenChange s
     -> Selection
     -> ExceptT ErrConstructTx IO (SelectionOf TxOut)
 assignChangeAddressesWithoutDbUpdate ctx wid generateChange selection =
-    db & \DBLayer{..} -> mapExceptT atomically $ do
-        cp <- withExceptT ErrConstructTxNoSuchWallet $
-            withNoSuchWallet wid $ readCheckpoint wid
+    db & \DBLayer {..} -> mapExceptT atomically $ do
+        cp <-
+            withExceptT ErrConstructTxNoSuchWallet $
+                withNoSuchWallet wid $
+                    readCheckpoint wid
         let (selectionUpdated, _) =
                 assignChangeAddresses generateChange selection (getState cp)
         pure selectionUpdated
@@ -2184,13 +2436,13 @@ assignChangeAddressesWithoutDbUpdate ctx wid generateChange selection =
     db = ctx ^. dbLayer @IO @s @k
 
 selectionToUnsignedTx
-    :: forall s input output change withdrawal.
-        ( IsOurs s Address
-        , input ~ (TxIn, TxOut, NonEmpty DerivationIndex)
-        , output ~ TxOut
-        , change ~ TxChange (NonEmpty DerivationIndex)
-        , withdrawal ~ (RewardAccount, Coin, NonEmpty DerivationIndex)
-        )
+    :: forall s input output change withdrawal
+     . ( IsOurs s Address
+       , input ~ (TxIn, TxOut, NonEmpty DerivationIndex)
+       , output ~ TxOut
+       , change ~ TxChange (NonEmpty DerivationIndex)
+       , withdrawal ~ (RewardAccount, Coin, NonEmpty DerivationIndex)
+       )
     => Withdrawal
     -> SelectionOf TxOut
     -> s
@@ -2232,7 +2484,7 @@ selectionToUnsignedTx wdrl sel s =
       where
         mkChange (TxOut address bundle, derivationPath) = TxChange {..}
           where
-            amount = view #coin   bundle
+            amount = view #coin bundle
             assets = view #tokens bundle
 
     fullyQualifiedWithdrawal :: Withdrawal -> [withdrawal]
@@ -2247,39 +2499,42 @@ selectionToUnsignedTx wdrl sel s =
 -- | Read a wallet checkpoint and index its UTxO, for 'selectAssets' and
 -- 'selectAssetsNoOutputs'.
 readWalletUTxOIndex
-    :: forall ctx s k. HasDBLayer IO s k ctx
+    :: forall ctx s k
+     . HasDBLayer IO s k ctx
     => ctx
     -> WalletId
     -> ExceptT ErrNoSuchWallet IO (UTxOIndex WalletUTxO, Wallet s, Set Tx)
 readWalletUTxOIndex ctx wid = do
     (cp, _, pending) <- readWallet @ctx @s @k ctx wid
-    let utxo = UTxOIndex.fromMap $
-            CS.toInternalUTxOMap $ availableUTxO @s pending cp
+    let utxo =
+            UTxOIndex.fromMap $
+                CS.toInternalUTxOMap $
+                    availableUTxO @s pending cp
     return (utxo, cp, pending)
 
 -- | Calculate the minimum coin values required for a bunch of specified
 -- outputs.
 calcMinimumCoinValues
-    :: forall ctx k ktype f.
-        ( HasTransactionLayer k ktype ctx
-        , HasNetworkLayer IO ctx
-        , Applicative f
-        )
+    :: forall ctx k ktype f
+     . ( HasTransactionLayer k ktype ctx
+       , HasNetworkLayer IO ctx
+       , Applicative f
+       )
     => ctx
     -> Cardano.AnyCardanoEra
     -> f TxOut
     -> IO (f Coin)
 calcMinimumCoinValues ctx era outs = do
     pp <- currentProtocolParameters nl
-    pure
-        $ uncurry (view #txOutputMinimumAdaQuantity (constraints tl era pp))
-        . (\o -> (view #address o, view (#tokens . #tokens) o)) <$> outs
+    pure $
+        uncurry (view #txOutputMinimumAdaQuantity (constraints tl era pp))
+            . (\o -> (view #address o, view (#tokens . #tokens) o))
+            <$> outs
   where
     nl = ctx ^. networkLayer
     tl = ctx ^. transactionLayer @k @ktype
 
 -- | Parameters for the 'selectAssets' function.
---
 data SelectAssetsParams s result = SelectAssetsParams
     { outputs :: [TxOut]
     , pendingTxs :: Set Tx
@@ -2289,9 +2544,9 @@ data SelectAssetsParams s result = SelectAssetsParams
     , utxoAvailableForInputs :: UTxOSelection WalletUTxO
     , wallet :: Wallet s
     , selectionStrategy :: SelectionStrategy
-        -- ^ Specifies which selection strategy to use. See 'SelectionStrategy'.
+    -- ^ Specifies which selection strategy to use. See 'SelectionStrategy'.
     }
-    deriving Generic
+    deriving (Generic)
 
 -- | Selects assets from a wallet.
 --
@@ -2311,14 +2566,13 @@ data SelectAssetsParams s result = SelectAssetsParams
 -- However, if a concrete value is specified for the optional 'randomSeed'
 -- parameter, then that value will be used instead as the seed for random
 -- selection.
---
 selectAssets
-    :: forall ctx m s k ktype result.
-        ( BoundedAddressLength k
-        , HasTransactionLayer k ktype ctx
-        , HasLogger m WalletWorkerLog ctx
-        , MonadRandom m
-        )
+    :: forall ctx m s k ktype result
+     . ( BoundedAddressLength k
+       , HasTransactionLayer k ktype ctx
+       , HasLogger m WalletWorkerLog ctx
+       , MonadRandom m
+       )
     => ctx
     -> Cardano.AnyCardanoEra
     -> ProtocolParameters
@@ -2327,76 +2581,92 @@ selectAssets
     -> ExceptT ErrSelectAssets m result
 selectAssets ctx era pp params transform = do
     guardPendingWithdrawal
-    lift $ traceWith tr $ MsgSelectionStart
-        (UTxOSelection.availableSize
-            $ params ^. #utxoAvailableForInputs)
-        (params ^. #outputs)
-    let selectionConstraints = SelectionConstraints
-            { assessTokenBundleSize =
-                view #assessTokenBundleSize $
-                tokenBundleSizeAssessor tl $
-                pp ^. (#txParameters . #getTokenBundleMaxSize)
-            , certificateDepositAmount =
-                view #stakeKeyDeposit pp
-            , computeMinimumAdaQuantity =
-                view #txOutputMinimumAdaQuantity
-                    (constraints tl era pp)
-            , isBelowMinimumAdaQuantity =
-                view #txOutputBelowMinimumAdaQuantity
-                    (constraints tl era pp)
-            , computeMinimumCost =
-                calcMinimumCost tl era pp $ params ^. #txContext
-            , computeSelectionLimit =
-                Cardano.Wallet.Transaction.computeSelectionLimit
-                    tl era pp $ params ^. #txContext
-            , maximumCollateralInputCount =
-                intCast @Word16 @Int $ view #maximumCollateralInputCount pp
-            , minimumCollateralPercentage =
-                view #minimumCollateralPercentage pp
-            , maximumLengthChangeAddress =
-                maxLengthAddressFor $ Proxy @k
-            }
-    let selectionParams = SelectionParams
-            { assetsToMint =
-                fst $ params ^. (#txContext . #txAssetsToMint)
-            , assetsToBurn =
-                fst $ params ^. (#txContext . #txAssetsToBurn)
-            , extraCoinIn = Coin 0
-            , extraCoinOut = Coin 0
-            , outputsToCover = params ^. #outputs
-            , rewardWithdrawal =
-                withdrawalToCoin $ params ^. (#txContext . #txWithdrawal)
-            , certificateDepositsReturned =
-                case params ^. (#txContext . #txDelegationAction) of
-                    Just Quit -> 1
-                    _ -> 0
-            , certificateDepositsTaken =
-                case params ^. (#txContext . #txDelegationAction) of
-                    Just (RegisterKeyAndJoin _) -> 1
-                    _ -> 0
-            , collateralRequirement =
-                params ^. (#txContext . #txCollateralRequirement)
-            , utxoAvailableForCollateral =
-                params ^. #utxoAvailableForCollateral
-            , utxoAvailableForInputs =
-                params ^. #utxoAvailableForInputs
-            , selectionStrategy =
-                view #selectionStrategy params
-            }
+    lift $
+        traceWith tr $
+            MsgSelectionStart
+                ( UTxOSelection.availableSize $
+                    params ^. #utxoAvailableForInputs
+                )
+                (params ^. #outputs)
+    let selectionConstraints =
+            SelectionConstraints
+                { assessTokenBundleSize =
+                    view #assessTokenBundleSize $
+                        tokenBundleSizeAssessor tl $
+                            pp ^. (#txParameters . #getTokenBundleMaxSize)
+                , certificateDepositAmount =
+                    view #stakeKeyDeposit pp
+                , computeMinimumAdaQuantity =
+                    view
+                        #txOutputMinimumAdaQuantity
+                        (constraints tl era pp)
+                , isBelowMinimumAdaQuantity =
+                    view
+                        #txOutputBelowMinimumAdaQuantity
+                        (constraints tl era pp)
+                , computeMinimumCost =
+                    calcMinimumCost tl era pp $ params ^. #txContext
+                , computeSelectionLimit =
+                    Cardano.Wallet.Transaction.computeSelectionLimit
+                        tl
+                        era
+                        pp
+                        $ params ^. #txContext
+                , maximumCollateralInputCount =
+                    intCast @Word16 @Int $ view #maximumCollateralInputCount pp
+                , minimumCollateralPercentage =
+                    view #minimumCollateralPercentage pp
+                , maximumLengthChangeAddress =
+                    maxLengthAddressFor $ Proxy @k
+                }
+    let selectionParams =
+            SelectionParams
+                { assetsToMint =
+                    fst $ params ^. (#txContext . #txAssetsToMint)
+                , assetsToBurn =
+                    fst $ params ^. (#txContext . #txAssetsToBurn)
+                , extraCoinIn = Coin 0
+                , extraCoinOut = Coin 0
+                , outputsToCover = params ^. #outputs
+                , rewardWithdrawal =
+                    withdrawalToCoin $ params ^. (#txContext . #txWithdrawal)
+                , certificateDepositsReturned =
+                    case params ^. (#txContext . #txDelegationAction) of
+                        Just Quit -> 1
+                        _ -> 0
+                , certificateDepositsTaken =
+                    case params ^. (#txContext . #txDelegationAction) of
+                        Just (RegisterKeyAndJoin _) -> 1
+                        _ -> 0
+                , collateralRequirement =
+                    params ^. (#txContext . #txCollateralRequirement)
+                , utxoAvailableForCollateral =
+                    params ^. #utxoAvailableForCollateral
+                , utxoAvailableForInputs =
+                    params ^. #utxoAvailableForInputs
+                , selectionStrategy =
+                    view #selectionStrategy params
+                }
     randomSeed <- maybe stdGenSeed pure (params ^. #randomSeed)
-    let mSel = flip evalRand (stdGenFromSeed randomSeed)
-            $ runExceptT
-            $ performSelection selectionConstraints selectionParams
+    let mSel =
+            flip evalRand (stdGenFromSeed randomSeed) $
+                runExceptT $
+                    performSelection selectionConstraints selectionParams
     case mSel of
-        Left e -> lift $
-            traceWith tr $ MsgSelectionError e
+        Left e ->
+            lift $
+                traceWith tr $
+                    MsgSelectionError e
         Right sel -> lift $ do
-            traceWith tr $ MsgSelectionReportSummarized
-                $ makeSelectionReportSummarized sel
-            traceWith tr $ MsgSelectionReportDetailed
-                $ makeSelectionReportDetailed sel
-    withExceptT ErrSelectAssetsSelectionError $ except $
-        transform (getState $ params ^. #wallet) <$> mSel
+            traceWith tr $
+                MsgSelectionReportSummarized $
+                    makeSelectionReportSummarized sel
+            traceWith tr $
+                MsgSelectionReportDetailed $
+                    makeSelectionReportDetailed sel
+    withExceptT ErrSelectAssetsSelectionError $
+        except $
+            transform (getState $ params ^. #wallet) <$> mSel
   where
     tl = ctx ^. transactionLayer @k @ktype
     tr = contramap MsgWallet $ ctx ^. logger @m
@@ -2422,30 +2692,29 @@ selectAssets ctx era pp params transform = do
         txWithdrawal = params ^. (#txContext . #txWithdrawal)
 
 signTransaction
-  :: forall k ktype
-   . ( WalletKey k
-     , HardDerivation k
-     , Bounded (Index (AddressIndexDerivationType k) (AddressCredential k))
-     )
-  => TransactionLayer k ktype SealedTx
-  -- ^ The way to interact with the wallet backend
-  -> Cardano.AnyCardanoEra
-  -- ^ Preferred latest era
-  -> (Address -> Maybe (k ktype XPrv, Passphrase "encryption"))
-  -- ^ The wallets address-key lookup function
-  -> (k 'RootK XPrv, Passphrase "encryption")
-  -- ^ The root key of the wallet
-  -> UTxO
-  -- ^ The total UTxO set of the wallet (i.e. if pending transactions all
-  -- applied).
-  -> SealedTx
-  -- ^ The transaction to sign
-  -> SealedTx
-  -- ^ The original transaction, with additional signatures added where
-  -- necessary
+    :: forall k ktype
+     . ( WalletKey k
+       , HardDerivation k
+       , Bounded (Index (AddressIndexDerivationType k) (AddressCredential k))
+       )
+    => TransactionLayer k ktype SealedTx
+    -- ^ The way to interact with the wallet backend
+    -> Cardano.AnyCardanoEra
+    -- ^ Preferred latest era
+    -> (Address -> Maybe (k ktype XPrv, Passphrase "encryption"))
+    -- ^ The wallets address-key lookup function
+    -> (k 'RootK XPrv, Passphrase "encryption")
+    -- ^ The root key of the wallet
+    -> UTxO
+    -- ^ The total UTxO set of the wallet (i.e. if pending transactions all
+    -- applied).
+    -> SealedTx
+    -- ^ The transaction to sign
+    -> SealedTx
+    -- ^ The original transaction, with additional signatures added where
+    -- necessary
 signTransaction tl preferredLatestEra keyLookup (rootKey, rootPwd) utxo =
-    let
-        rewardAcnt :: (XPrv, Passphrase "encryption")
+    let rewardAcnt :: (XPrv, Passphrase "encryption")
         rewardAcnt =
             (getRawKey $ deriveRewardAccount @k rootPwd rootKey, rootPwd)
 
@@ -2462,8 +2731,7 @@ signTransaction tl preferredLatestEra keyLookup (rootKey, rootPwd) utxo =
         inputResolver i = do
             TxOut addr _ <- UTxO.lookup i utxo
             pure addr
-    in
-        addVkWitnesses
+     in addVkWitnesses
             tl
             preferredLatestEra
             rewardAcnt
@@ -2476,69 +2744,77 @@ signTransaction tl preferredLatestEra keyLookup (rootKey, rootPwd) utxo =
 -- Requires the encryption passphrase in order to decrypt the root private key.
 -- Note that this doesn't broadcast the transaction to the network. In order to
 -- do so, use 'submitTx'.
---
 buildAndSignTransaction
-    :: forall ctx s k.
-        ( HasTransactionLayer k 'CredFromKeyK ctx
-        , HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        , IsOwned s k 'CredFromKeyK
-        )
+    :: forall ctx s k
+     . ( HasTransactionLayer k 'CredFromKeyK ctx
+       , HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       , IsOwned s k 'CredFromKeyK
+       )
     => ctx
     -> WalletId
     -> Cardano.AnyCardanoEra
-    -> ( (k 'RootK XPrv, Passphrase "encryption") ->
-         (         XPrv, Passphrase "encryption")
+    -> ( (k 'RootK XPrv, Passphrase "encryption")
+         -> (XPrv, Passphrase "encryption")
        )
-       -- ^ Reward account derived from the root key (or somewhere else).
+    -- ^ Reward account derived from the root key (or somewhere else).
     -> Passphrase "user"
     -> TransactionCtx
     -> SelectionOf TxOut
     -> ExceptT ErrSignPayment IO (Tx, TxMeta, UTCTime, SealedTx)
-buildAndSignTransaction ctx wid era mkRwdAcct pwd txCtx sel = db & \DBLayer{..} -> do
-    withRootKey @_ @s ctx wid pwd ErrSignPaymentWithRootKey $ \xprv scheme -> do
-        let pwdP = preparePassphrase scheme pwd
-        mapExceptT atomically $ do
-            cp <- withExceptT ErrSignPaymentNoSuchWallet
-                $ withNoSuchWallet wid
-                $ readCheckpoint wid
-            pp <- liftIO $ currentProtocolParameters nl
-            let keyFrom = isOwned (getState cp) (xprv, pwdP)
-            let rewardAcnt = mkRwdAcct (xprv, pwdP)
-            (tx, sealedTx) <- withExceptT ErrSignPaymentMkTx $ ExceptT $ pure $
-                mkTransaction tl era rewardAcnt keyFrom pp txCtx sel
-            (time, meta) <- liftIO $
-                mkTxMeta ti (currentTip cp) (getState cp) txCtx sel
-            return (tx, meta, time, sealedTx)
+buildAndSignTransaction ctx wid era mkRwdAcct pwd txCtx sel =
+    db & \DBLayer {..} -> do
+        withRootKey @_ @s ctx wid pwd ErrSignPaymentWithRootKey $ \xprv scheme -> do
+            let pwdP = preparePassphrase scheme pwd
+            mapExceptT atomically $ do
+                cp <-
+                    withExceptT ErrSignPaymentNoSuchWallet $
+                        withNoSuchWallet wid $
+                            readCheckpoint wid
+                pp <- liftIO $ currentProtocolParameters nl
+                let keyFrom = isOwned (getState cp) (xprv, pwdP)
+                let rewardAcnt = mkRwdAcct (xprv, pwdP)
+                (tx, sealedTx) <-
+                    withExceptT ErrSignPaymentMkTx $
+                        ExceptT $
+                            pure $
+                                mkTransaction tl era rewardAcnt keyFrom pp txCtx sel
+                (time, meta) <-
+                    liftIO $
+                        mkTxMeta ti (currentTip cp) (getState cp) txCtx sel
+                return (tx, meta, time, sealedTx)
   where
     db = ctx ^. dbLayer @IO @s @k
     tl = ctx ^. transactionLayer @k @CredFromKeyK
     nl = ctx ^. networkLayer
     ti = timeInterpreter nl
 
-
 -- | Construct an unsigned transaction from a given selection.
 constructTransaction
-    :: forall ctx s k (n :: NetworkDiscriminant).
-        ( HasTransactionLayer k 'CredFromKeyK ctx
-        , HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        , Typeable s
-        , Typeable n
-        )
+    :: forall ctx s k (n :: NetworkDiscriminant)
+     . ( HasTransactionLayer k 'CredFromKeyK ctx
+       , HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       , Typeable s
+       , Typeable n
+       )
     => ctx
     -> WalletId
     -> Cardano.AnyCardanoEra
     -> TransactionCtx
     -> SelectionOf TxOut
     -> ExceptT ErrConstructTx IO SealedTx
-constructTransaction ctx wid era txCtx sel = db & \DBLayer{..} -> do
-    (_, xpub, _) <- withExceptT ErrConstructTxReadRewardAccount $
-        readRewardAccount @ctx @s @k @n ctx wid
-    mapExceptT atomically $ do
-        pp <- liftIO $ currentProtocolParameters nl
-        withExceptT ErrConstructTxBody $ ExceptT $ pure $
-            mkUnsignedTransaction tl era xpub pp txCtx sel
+constructTransaction ctx wid era txCtx sel =
+    db & \DBLayer {..} -> do
+        (_, xpub, _) <-
+            withExceptT ErrConstructTxReadRewardAccount $
+                readRewardAccount @ctx @s @k @n ctx wid
+        mapExceptT atomically $ do
+            pp <- liftIO $ currentProtocolParameters nl
+            withExceptT ErrConstructTxBody $
+                ExceptT $
+                    pure $
+                        mkUnsignedTransaction tl era xpub pp txCtx sel
   where
     db = ctx ^. dbLayer @IO @s @k
     tl = ctx ^. transactionLayer @k @CredFromKeyK
@@ -2547,52 +2823,60 @@ constructTransaction ctx wid era txCtx sel = db & \DBLayer{..} -> do
 -- | Construct an unsigned transaction from a given selection
 -- for a shared wallet.
 constructSharedTransaction
-    :: forall ctx s k (n :: NetworkDiscriminant).
-        ( HasTransactionLayer k 'CredFromScriptK ctx
-        , HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        , k ~ SharedKey
-        , s ~ SharedState n k
-        , Typeable n
-        )
+    :: forall ctx s k (n :: NetworkDiscriminant)
+     . ( HasTransactionLayer k 'CredFromScriptK ctx
+       , HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       , k ~ SharedKey
+       , s ~ SharedState n k
+       , Typeable n
+       )
     => ctx
     -> WalletId
     -> Cardano.AnyCardanoEra
     -> TransactionCtx
     -> SelectionOf TxOut
     -> ExceptT ErrConstructTx IO SealedTx
-constructSharedTransaction ctx wid era txCtx sel = db & \DBLayer{..} -> do
-    cp <- withExceptT ErrConstructTxNoSuchWallet
-        $ mapExceptT atomically
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
-    let s = getState cp
-    let accXPub = getRawKey $ Shared.accountXPub s
-    let xpub = CA.getKey $
-            deriveDelegationPublicKey (CA.liftXPub accXPub) minBound
-    let allInps =
-            (view #collateral sel) ++
-            NE.toList (view #inputs sel)
-    let getScript (_, TxOut addr _) = case fst (isShared addr s) of
-            Nothing ->
-                error $ "Some inputs selected by coin selection do not belong "
-                <> "to multi-signature wallet"
-            Just (ix,role) ->
-                let template = paymentTemplate s
-                    role' = case role of
-                        UtxoExternal -> CAShelley.UTxOExternal
-                        UtxoInternal -> CAShelley.UTxOInternal
-                        MutableAccount ->
-                            error "role is specified only for payment credential"
-                in replaceCosignersWithVerKeys role' template ix
-    let scriptInps =
-            foldr (\inp@(txin,_) -> Map.insert txin (getScript inp))
-            Map.empty allInps
-    let txCtx' = txCtx {txNativeScriptInputs = scriptInps}
-    mapExceptT atomically $ do
-        pp <- liftIO $ currentProtocolParameters nl
-        withExceptT ErrConstructTxBody $ ExceptT $ pure $
-            mkUnsignedTransaction tl era xpub pp txCtx' sel
+constructSharedTransaction ctx wid era txCtx sel =
+    db & \DBLayer {..} -> do
+        cp <-
+            withExceptT ErrConstructTxNoSuchWallet $
+                mapExceptT atomically $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+        let s = getState cp
+        let accXPub = getRawKey $ Shared.accountXPub s
+        let xpub =
+                CA.getKey $
+                    deriveDelegationPublicKey (CA.liftXPub accXPub) minBound
+        let allInps =
+                (view #collateral sel)
+                    ++ NE.toList (view #inputs sel)
+        let getScript (_, TxOut addr _) = case fst (isShared addr s) of
+                Nothing ->
+                    error $
+                        "Some inputs selected by coin selection do not belong "
+                            <> "to multi-signature wallet"
+                Just (ix, role) ->
+                    let template = paymentTemplate s
+                        role' = case role of
+                            UtxoExternal -> CAShelley.UTxOExternal
+                            UtxoInternal -> CAShelley.UTxOInternal
+                            MutableAccount ->
+                                error "role is specified only for payment credential"
+                     in replaceCosignersWithVerKeys role' template ix
+        let scriptInps =
+                foldr
+                    (\inp@(txin, _) -> Map.insert txin (getScript inp))
+                    Map.empty
+                    allInps
+        let txCtx' = txCtx {txNativeScriptInputs = scriptInps}
+        mapExceptT atomically $ do
+            pp <- liftIO $ currentProtocolParameters nl
+            withExceptT ErrConstructTxBody $
+                ExceptT $
+                    pure $
+                        mkUnsignedTransaction tl era xpub pp txCtx' sel
   where
     db = ctx ^. dbLayer @IO @s @k
     tl = ctx ^. transactionLayer @k @CredFromScriptK
@@ -2616,25 +2900,27 @@ getTxExpiry ti maybeTTL = do
     ttl = fromMaybe defaultTTL maybeTTL
 
     defaultTTL :: NominalDiffTime
-    defaultTTL = 7200  -- that's 2 hours
+    defaultTTL = 7200 -- that's 2 hours
 
 constructTxMeta
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> TransactionCtx
     -> [(TxIn, Coin)]
     -> [TxOut]
     -> ExceptT ErrSubmitTransaction IO TxMeta
-constructTxMeta ctx wid txCtx inps outs = db & \DBLayer{..} -> do
-    mapExceptT atomically $ do
-        cp <- withExceptT ErrSubmitTransactionNoSuchWallet
-              $ withNoSuchWallet wid
-              $ readCheckpoint wid
-        liftIO $
-            mkTxMetaWithoutSel (currentTip cp) txCtx inps outs
+constructTxMeta ctx wid txCtx inps outs =
+    db & \DBLayer {..} -> do
+        mapExceptT atomically $ do
+            cp <-
+                withExceptT ErrSubmitTransactionNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+            liftIO $
+                mkTxMetaWithoutSel (currentTip cp) txCtx inps outs
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -2645,23 +2931,23 @@ mkTxMetaWithoutSel
     -> [TxOut]
     -> IO TxMeta
 mkTxMetaWithoutSel blockHeader txCtx inps outs =
-    let
-        amtOuts = F.fold $ map txOutCoin outs
+    let amtOuts = F.fold $ map txOutCoin outs
 
-        amtInps
-            = F.fold (map snd inps)
-            & case txWithdrawal txCtx of
-                w@WithdrawalSelf{} -> Coin.add (withdrawalToCoin w)
-                WithdrawalExternal{} -> Prelude.id
-                NoWithdrawal -> Prelude.id
-    in return TxMeta
-       { status = Pending
-       , direction = if amtInps > amtOuts then Outgoing else Incoming
-       , slotNo = blockHeader ^. #slotNo
-       , blockHeight = blockHeader ^. #blockHeight
-       , amount = Coin.distance amtInps amtOuts
-       , expiry = Just (snd $ txValidityInterval txCtx)
-       }
+        amtInps =
+            F.fold (map snd inps)
+                & case txWithdrawal txCtx of
+                    w@WithdrawalSelf {} -> Coin.add (withdrawalToCoin w)
+                    WithdrawalExternal {} -> Prelude.id
+                    NoWithdrawal -> Prelude.id
+     in return
+            TxMeta
+                { status = Pending
+                , direction = if amtInps > amtOuts then Outgoing else Incoming
+                , slotNo = blockHeader ^. #slotNo
+                , blockHeight = blockHeader ^. #blockHeight
+                , amount = Coin.distance amtInps amtOuts
+                , expiry = Just (snd $ txValidityInterval txCtx)
+                }
 
 ourCoin
     :: IsOurs s Address
@@ -2670,7 +2956,7 @@ ourCoin
     -> Maybe Coin
 ourCoin (TxOut addr tokens) wState =
     case fst (isOurs addr wState) of
-        Just{}  -> Just (TokenBundle.getCoin tokens)
+        Just {} -> Just (TokenBundle.getCoin tokens)
         Nothing -> Nothing
 
 -- | Construct transaction metadata for a pending transaction from the block
@@ -2687,37 +2973,36 @@ mkTxMeta
     -> SelectionOf TxOut
     -> IO (UTCTime, TxMeta)
 mkTxMeta ti' blockHeader wState txCtx sel =
-    let
-        amtOuts = F.fold $
-            (txOutCoin <$> view #change sel)
-            ++
-            mapMaybe (`ourCoin` wState) (view #outputs sel)
+    let amtOuts =
+            F.fold $
+                (txOutCoin <$> view #change sel)
+                    ++ mapMaybe (`ourCoin` wState) (view #outputs sel)
 
-        amtInps
-            = F.fold (txOutCoin . snd <$> view #inputs sel)
-            -- NOTE: In case where rewards were pulled from an external
-            -- source, they aren't added to the calculation because the
-            -- money is considered to come from outside of the wallet; which
-            -- changes the way we look at transactions (in such case, a
-            -- transaction is considered 'Incoming' since it brings extra money
-            -- to the wallet from elsewhere).
-            & case txWithdrawal txCtx of
-                w@WithdrawalSelf{} -> Coin.add (withdrawalToCoin w)
-                WithdrawalExternal{} -> Prelude.id
-                NoWithdrawal -> Prelude.id
-    in do
-        t <- slotStartTime' (blockHeader ^. #slotNo)
-        return
-            ( t
-            , TxMeta
-                { status = Pending
-                , direction = if amtInps > amtOuts then Outgoing else Incoming
-                , slotNo = blockHeader ^. #slotNo
-                , blockHeight = blockHeader ^. #blockHeight
-                , amount = Coin.distance amtInps amtOuts
-                , expiry = Just (snd $ txValidityInterval txCtx)
-                }
-            )
+        amtInps =
+            F.fold (txOutCoin . snd <$> view #inputs sel)
+                -- NOTE: In case where rewards were pulled from an external
+                -- source, they aren't added to the calculation because the
+                -- money is considered to come from outside of the wallet; which
+                -- changes the way we look at transactions (in such case, a
+                -- transaction is considered 'Incoming' since it brings extra money
+                -- to the wallet from elsewhere).
+                & case txWithdrawal txCtx of
+                    w@WithdrawalSelf {} -> Coin.add (withdrawalToCoin w)
+                    WithdrawalExternal {} -> Prelude.id
+                    NoWithdrawal -> Prelude.id
+     in do
+            t <- slotStartTime' (blockHeader ^. #slotNo)
+            return
+                ( t
+                , TxMeta
+                    { status = Pending
+                    , direction = if amtInps > amtOuts then Outgoing else Incoming
+                    , slotNo = blockHeader ^. #slotNo
+                    , blockHeight = blockHeader ^. #blockHeight
+                    , amount = Coin.distance amtInps amtOuts
+                    , expiry = Just (snd $ txValidityInterval txCtx)
+                    }
+                )
   where
     slotStartTime' = interpretQuery ti . slotToUTCTime
       where
@@ -2725,23 +3010,25 @@ mkTxMeta ti' blockHeader wState txCtx sel =
 
 -- | Broadcast a (signed) transaction to the network.
 submitTx
-    :: forall ctx s k.
-        ( HasNetworkLayer IO ctx
-        , HasDBLayer IO s k ctx
-        , HasLogger IO WalletWorkerLog ctx
-        )
+    :: forall ctx s k
+     . ( HasNetworkLayer IO ctx
+       , HasDBLayer IO s k ctx
+       , HasLogger IO WalletWorkerLog ctx
+       )
     => ctx
     -> WalletId
     -> (Tx, TxMeta, SealedTx)
     -> ExceptT ErrSubmitTx IO ()
-submitTx ctx wid (tx, meta, binary) = traceResult tr' $ db & \DBLayer{..} -> do
-    withExceptT ErrSubmitTxNetwork $
-        postTx nw binary
-    mapExceptT atomically $ do
-        withExceptT ErrSubmitTxNoSuchWallet $
-            putTxHistory wid [(tx, meta)]
-        withExceptT handleLocalTxSubmissionErr $
-            putLocalTxSubmission wid (tx ^. #txId) binary (meta ^. #slotNo)
+submitTx ctx wid (tx, meta, binary) =
+    traceResult tr' $
+        db & \DBLayer {..} -> do
+            withExceptT ErrSubmitTxNetwork $
+                postTx nw binary
+            mapExceptT atomically $ do
+                withExceptT ErrSubmitTxNoSuchWallet $
+                    putTxHistory wid [(tx, meta)]
+                withExceptT handleLocalTxSubmissionErr $
+                    putLocalTxSubmission wid (tx ^. #txId) binary (meta ^. #slotNo)
   where
     db = ctx ^. dbLayer @IO @s @k
     nw = ctx ^. networkLayer
@@ -2758,11 +3045,11 @@ submitTx ctx wid (tx, meta, binary) = traceResult tr' $ db & \DBLayer{..} -> do
 -- NOTE: external transactions will not be added to the LocalTxSubmission pool,
 -- so the user must retry submission themselves.
 submitExternalTx
-    :: forall ctx k ktype.
-        ( HasNetworkLayer IO ctx
-        , HasTransactionLayer k ktype ctx
-        , HasLogger IO TxSubmitLog ctx
-        )
+    :: forall ctx k ktype
+     . ( HasNetworkLayer IO ctx
+       , HasTransactionLayer k ktype ctx
+       , HasLogger IO TxSubmitLog ctx
+       )
     => ctx
     -> SealedTx
     -> ExceptT ErrPostTx IO Tx
@@ -2786,15 +3073,16 @@ submitExternalTx ctx sealedTx = do
 -- If a 'Pending' transaction is removed, but later appears in a block, it will
 -- be added back to the transaction history.
 forgetTx
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> Hash "Tx"
     -> ExceptT ErrRemoveTx IO ()
-forgetTx ctx wid tid = db & \DBLayer{..} -> do
-    mapExceptT atomically $ removePendingOrExpiredTx wid tid
+forgetTx ctx wid tid =
+    db & \DBLayer {..} -> do
+        mapExceptT atomically $ removePendingOrExpiredTx wid tid
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -2803,7 +3091,8 @@ forgetTx ctx wid tid = db & \DBLayer{..} -> do
 --
 -- The current implementation is really basic. Retry about once _n_ blocks.
 scheduleLocalTxSubmission
-    :: Word64  -- ^ Resubmission interval in terms of expected blocks.
+    :: Word64
+    -- ^ Resubmission interval in terms of expected blocks.
     -> SlottingParameters
     -> LocalTxSubmissionStatus tx
     -> SlotNo
@@ -2815,10 +3104,11 @@ scheduleLocalTxSubmission numBlocks sp st = (st ^. #latestSubmission) + numSlots
 -- | Parameters for 'runLocalTxSubmissionPool'
 data LocalTxSubmissionConfig = LocalTxSubmissionConfig
     { rateLimit :: DiffTime
-        -- ^ Minimum time between checks of pending transactions
+    -- ^ Minimum time between checks of pending transactions
     , blockInterval :: Word64
-        -- ^ Resubmission interval, in terms of expected blocks.
-    } deriving (Generic, Show, Eq)
+    -- ^ Resubmission interval, in terms of expected blocks.
+    }
+    deriving (Generic, Show, Eq)
 
 -- | The current default is to resubmit any pending transaction about once every
 -- 10 blocks.
@@ -2835,32 +3125,37 @@ defaultLocalTxSubmissionConfig = LocalTxSubmissionConfig 1 10
 --
 -- This only exits if the network layer 'watchNodeTip' function exits.
 runLocalTxSubmissionPool
-    :: forall ctx s k m.
-        ( MonadUnliftIO m
-        , MonadMonotonicTime m
-        , HasLogger IO WalletWorkerLog ctx
-        , HasNetworkLayer m ctx
-        , HasDBLayer m s k ctx
-        )
+    :: forall ctx s k m
+     . ( MonadUnliftIO m
+       , MonadMonotonicTime m
+       , HasLogger IO WalletWorkerLog ctx
+       , HasNetworkLayer m ctx
+       , HasDBLayer m s k ctx
+       )
     => LocalTxSubmissionConfig
     -> ctx
     -> WalletId
     -> m ()
-runLocalTxSubmissionPool cfg ctx wid = db & \DBLayer{..} -> do
-    submitPending <- rateLimited $ \bh -> bracketTracer trBracket $ do
-        sp <- currentSlottingParameters nw
-        pending <- atomically $ readLocalTxSubmissionPending wid
-        let sl = bh ^. #slotNo
-        -- Re-submit transactions due, ignore errors
-        forM_ (filter (isScheduled sp sl) pending) $ \st -> do
-            _ <- runExceptT $ traceResult (trRetry (st ^. #txId)) $
-                postTx nw (st ^. #submittedTx)
-            atomically $ runExceptT $ putLocalTxSubmission
-                wid
-                (st ^. #txId)
-                (st ^. #submittedTx)
-                sl
-    watchNodeTip nw submitPending
+runLocalTxSubmissionPool cfg ctx wid =
+    db & \DBLayer {..} -> do
+        submitPending <- rateLimited $ \bh -> bracketTracer trBracket $ do
+            sp <- currentSlottingParameters nw
+            pending <- atomically $ readLocalTxSubmissionPending wid
+            let sl = bh ^. #slotNo
+            -- Re-submit transactions due, ignore errors
+            forM_ (filter (isScheduled sp sl) pending) $ \st -> do
+                _ <-
+                    runExceptT $
+                        traceResult (trRetry (st ^. #txId)) $
+                            postTx nw (st ^. #submittedTx)
+                atomically $
+                    runExceptT $
+                        putLocalTxSubmission
+                            wid
+                            (st ^. #txId)
+                            (st ^. #submittedTx)
+                            sl
+        watchNodeTip nw submitPending
   where
     nw = ctx ^. networkLayer @m
     db = ctx ^. dbLayer @m @s @k
@@ -2870,8 +3165,10 @@ runLocalTxSubmissionPool cfg ctx wid = db & \DBLayer{..} -> do
 
     rateLimited = throttle (rateLimit cfg) . const
 
-    tr = unliftIOTracer $ contramap (MsgWallet . MsgTxSubmit) $
-        ctx ^. logger @_ @WalletWorkerLog
+    tr =
+        unliftIOTracer $
+            contramap (MsgWallet . MsgTxSubmit) $
+                ctx ^. logger @_ @WalletWorkerLog
     trBracket = contramap MsgProcessPendingPool tr
     trRetry i = contramap (MsgRetryPostTx i) tr
 
@@ -2886,32 +3183,34 @@ throttle interval action = do
     pure $ \arg -> modifyMVar_ var $ \prev -> do
         now <- getMonotonicTime
         if (maybe interval (diffTime now) prev >= interval)
-           then action now arg $> Just now
-           else pure prev
+            then action now arg $> Just now
+            else pure prev
 
 -- | List all transactions and metadata from history for a given wallet.
 listTransactions
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       )
     => ctx
     -> WalletId
     -> Maybe Coin
-        -- Inclusive minimum value of at least one withdrawal in each transaction
+    -- Inclusive minimum value of at least one withdrawal in each transaction
     -> Maybe UTCTime
-        -- Inclusive minimum time bound.
+    -- Inclusive minimum time bound.
     -> Maybe UTCTime
-        -- Inclusive maximum time bound.
+    -- Inclusive maximum time bound.
     -> SortOrder
     -> ExceptT ErrListTransactions IO [TransactionInfo]
-listTransactions ctx wid mMinWithdrawal mStart mEnd order = db & \DBLayer{..} -> do
-    when (Just True == ( (<(Coin 1)) <$> mMinWithdrawal )) $
-        throwE ErrListTransactionsMinWithdrawalWrong
-    mapExceptT atomically $ do
-        mapExceptT liftIO getSlotRange >>= maybe
-            (pure [])
-            (\r -> lift (readTxHistory wid mMinWithdrawal order r Nothing))
+listTransactions ctx wid mMinWithdrawal mStart mEnd order =
+    db & \DBLayer {..} -> do
+        when (Just True == ((< (Coin 1)) <$> mMinWithdrawal)) $
+            throwE ErrListTransactionsMinWithdrawalWrong
+        mapExceptT atomically $ do
+            mapExceptT liftIO getSlotRange
+                >>= maybe
+                    (pure [])
+                    (\r -> lift (readTxHistory wid mMinWithdrawal order r Nothing))
   where
     ti :: TimeInterpreter (ExceptT PastHorizonException IO)
     ti = timeInterpreter (ctx ^. networkLayer)
@@ -2928,51 +3227,57 @@ listTransactions ctx wid mMinWithdrawal mStart mEnd order = db & \DBLayer{..} ->
             let err = ErrStartTimeLaterThanEndTime start end
             throwE (ErrListTransactionsStartTimeLaterThanEndTime err)
         _ -> do
-            withExceptT ErrListTransactionsPastHorizonException
-                $ interpretQuery ti
-                $ slotRangeFromTimeRange
-                $ Range mStart mEnd
+            withExceptT ErrListTransactionsPastHorizonException $
+                interpretQuery ti $
+                    slotRangeFromTimeRange $
+                        Range mStart mEnd
 
 -- | Extract assets associated with a given wallet from its transaction history.
 listAssets
-    :: forall s k ctx. (HasDBLayer IO s k ctx, IsOurs s Address)
+    :: forall s k ctx
+     . (HasDBLayer IO s k ctx, IsOurs s Address)
     => ctx
     -> WalletId
     -> ExceptT ErrNoSuchWallet IO (Set TokenMap.AssetId)
-listAssets ctx wid = db & \DBLayer{..} -> do
-    cp <- mapExceptT atomically $ withNoSuchWallet wid $ readCheckpoint wid
-    txs <- lift . atomically $
-        let noMinWithdrawal = Nothing
-            allTxStatuses = Nothing
-        in readTxHistory wid noMinWithdrawal Ascending wholeRange allTxStatuses
-    let txAssets :: TransactionInfo -> Set TokenMap.AssetId
-        txAssets = Set.unions
-            . map (TokenBundle.getAssets . view #tokens)
-            . filter ourOut
-            . txInfoOutputs
-        ourOut TxOut{address} = ourAddress address
-        ourAddress addr = isJust . fst . isOurs addr $ getState cp
-    pure $ Set.unions $ map txAssets txs
+listAssets ctx wid =
+    db & \DBLayer {..} -> do
+        cp <- mapExceptT atomically $ withNoSuchWallet wid $ readCheckpoint wid
+        txs <-
+            lift . atomically $
+                let noMinWithdrawal = Nothing
+                    allTxStatuses = Nothing
+                 in readTxHistory wid noMinWithdrawal Ascending wholeRange allTxStatuses
+        let txAssets :: TransactionInfo -> Set TokenMap.AssetId
+            txAssets =
+                Set.unions
+                    . map (TokenBundle.getAssets . view #tokens)
+                    . filter ourOut
+                    . txInfoOutputs
+            ourOut TxOut {address} = ourAddress address
+            ourAddress addr = isJust . fst . isOurs addr $ getState cp
+        pure $ Set.unions $ map txAssets txs
   where
     db = ctx ^. dbLayer @IO @s @k
 
 -- | Get transaction and metadata from history for a given wallet.
 getTransaction
-    :: forall ctx s k. HasDBLayer IO s k ctx
+    :: forall ctx s k
+     . HasDBLayer IO s k ctx
     => ctx
     -> WalletId
     -> Hash "Tx"
     -> ExceptT ErrGetTransaction IO TransactionInfo
-getTransaction ctx wid tid = db & \DBLayer{..} -> do
-    res <- lift $ atomically $ runExceptT $ getTx wid tid
-    case res of
-        Left err -> do
-            throwE (ErrGetTransactionNoSuchWallet err)
-        Right Nothing -> do
-            let err' = ErrNoSuchTransaction wid tid
-            throwE (ErrGetTransactionNoSuchTransaction err')
-        Right (Just tx) ->
-            pure tx
+getTransaction ctx wid tid =
+    db & \DBLayer {..} -> do
+        res <- lift $ atomically $ runExceptT $ getTx wid tid
+        case res of
+            Left err -> do
+                throwE (ErrGetTransactionNoSuchWallet err)
+            Right Nothing -> do
+                let err' = ErrNoSuchTransaction wid tid
+                throwE (ErrGetTransactionNoSuchTransaction err')
+            Right (Just tx) ->
+                pure tx
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -2981,26 +3286,27 @@ getTransaction ctx wid tid = db & \DBLayer{..} -> do
 -------------------------------------------------------------------------------}
 
 createMigrationPlan
-    :: forall ctx k s.
-        ( HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        , HasTransactionLayer k 'CredFromKeyK ctx
-        )
+    :: forall ctx k s
+     . ( HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       , HasTransactionLayer k 'CredFromKeyK ctx
+       )
     => ctx
     -> Cardano.AnyCardanoEra
     -> WalletId
     -> Withdrawal
     -> ExceptT ErrCreateMigrationPlan IO MigrationPlan
 createMigrationPlan ctx era wid rewardWithdrawal = do
-    (wallet, _, pending) <- withExceptT ErrCreateMigrationPlanNoSuchWallet $
-        readWallet @ctx @s @k ctx wid
+    (wallet, _, pending) <-
+        withExceptT ErrCreateMigrationPlanNoSuchWallet $
+            readWallet @ctx @s @k ctx wid
     pp <- liftIO $ currentProtocolParameters nl
     let txConstraints = constraints tl era pp
     let utxo = availableUTxO @s pending wallet
-    pure
-        $ Migration.createPlan txConstraints utxo
-        $ Migration.RewardWithdrawal
-        $ withdrawalToCoin rewardWithdrawal
+    pure $
+        Migration.createPlan txConstraints utxo $
+            Migration.RewardWithdrawal $
+                withdrawalToCoin rewardWithdrawal
   where
     nl = ctx ^. networkLayer
     tl = ctx ^. transactionLayer @k @CredFromKeyK
@@ -3012,14 +3318,14 @@ migrationPlanToSelectionWithdrawals
     -> Withdrawal
     -> NonEmpty Address
     -> Maybe (NonEmpty (SelectionWithoutChange, Withdrawal))
-migrationPlanToSelectionWithdrawals plan rewardWithdrawal outputAddressesToCycle
-    = NE.nonEmpty
-    $ L.reverse
-    $ fst
-    $ L.foldl'
-        (flip accumulate)
-        ([], NE.toList $ NE.cycle outputAddressesToCycle)
-        (view #selections plan)
+migrationPlanToSelectionWithdrawals plan rewardWithdrawal outputAddressesToCycle =
+    NE.nonEmpty $
+        L.reverse $
+            fst $
+                L.foldl'
+                    (flip accumulate)
+                    ([], NE.toList $ NE.cycle outputAddressesToCycle)
+                    (view #selections plan)
   where
     accumulate
         :: Migration.Selection (TxIn, TxOut)
@@ -3030,16 +3336,17 @@ migrationPlanToSelectionWithdrawals plan rewardWithdrawal outputAddressesToCycle
         , outputAddressesRemaining
         )
       where
-        selection = Selection
-            { inputs = view #inputIds migrationSelection
-            , collateral = []
-            , outputs
-            , extraCoinSource
-            , extraCoinSink = Coin 0
-            , change = []
-            , assetsToMint = TokenMap.empty
-            , assetsToBurn = TokenMap.empty
-            }
+        selection =
+            Selection
+                { inputs = view #inputIds migrationSelection
+                , collateral = []
+                , outputs
+                , extraCoinSource
+                , extraCoinSink = Coin 0
+                , change = []
+                , assetsToMint = TokenMap.empty
+                , assetsToBurn = TokenMap.empty
+                }
 
         -- NOTE:
         --
@@ -3060,13 +3367,15 @@ migrationPlanToSelectionWithdrawals plan rewardWithdrawal outputAddressesToCycle
 
         withdrawal =
             if (view #rewardWithdrawal migrationSelection) > Coin 0
-            then rewardWithdrawal
-            else NoWithdrawal
+                then rewardWithdrawal
+                else NoWithdrawal
 
         outputs :: [TxOut]
-        outputs = zipWith TxOut
-            (outputAddresses)
-            (NE.toList $ view #outputs migrationSelection)
+        outputs =
+            zipWith
+                TxOut
+                (outputAddresses)
+                (NE.toList $ view #outputs migrationSelection)
 
         outputAddressesRemaining :: [Address]
         outputAddressesRemaining =
@@ -3077,11 +3386,11 @@ migrationPlanToSelectionWithdrawals plan rewardWithdrawal outputAddressesToCycle
 -------------------------------------------------------------------------------}
 
 joinStakePool
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        , HasLogger IO WalletWorkerLog ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       , HasLogger IO WalletWorkerLog ctx
+       )
     => ctx
     -> W.EpochNo
     -> Set PoolId
@@ -3091,30 +3400,35 @@ joinStakePool
     -> ExceptT ErrStakePoolDelegation IO (DelegationAction, Maybe Coin)
     -- ^ snd is the deposit
 joinStakePool ctx currentEpoch knownPools pid poolStatus wid =
-    db & \DBLayer{..} -> do
+    db & \DBLayer {..} -> do
         (walMeta, isKeyReg) <- mapExceptT atomically $ do
-            walMeta <- withExceptT ErrStakePoolDelegationNoSuchWallet
-                $ withNoSuchWallet wid
-                $ readWalletMeta wid
-            isKeyReg <- withExceptT ErrStakePoolDelegationNoSuchWallet
-                $ isStakeKeyRegistered wid
+            walMeta <-
+                withExceptT ErrStakePoolDelegationNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readWalletMeta wid
+            isKeyReg <-
+                withExceptT ErrStakePoolDelegationNoSuchWallet $
+                    isStakeKeyRegistered wid
             pure (walMeta, isKeyReg)
 
-        let mRetirementEpoch = view #retirementEpoch <$>
-                W.getPoolRetirementCertificate poolStatus
+        let mRetirementEpoch =
+                view #retirementEpoch
+                    <$> W.getPoolRetirementCertificate poolStatus
         let retirementInfo =
                 PoolRetirementEpochInfo currentEpoch <$> mRetirementEpoch
 
-        withExceptT ErrStakePoolJoin $ except $
-            guardJoin knownPools (walMeta ^. #delegation) pid retirementInfo
+        withExceptT ErrStakePoolJoin $
+            except $
+                guardJoin knownPools (walMeta ^. #delegation) pid retirementInfo
 
         liftIO $ traceWith tr $ MsgIsStakeKeyRegistered isKeyReg
 
         dep <- liftIO $ stakeKeyDeposit <$> currentProtocolParameters nl
 
-        return $ if isKeyReg
-            then (Join pid, Nothing)
-            else (RegisterKeyAndJoin pid, Just dep)
+        return $
+            if isKeyReg
+                then (Join pid, Nothing)
+                else (RegisterKeyAndJoin pid, Just dep)
   where
     db = ctx ^. dbLayer @IO @s @k
     tr = contramap MsgWallet $ ctx ^. logger
@@ -3122,26 +3436,30 @@ joinStakePool ctx currentEpoch knownPools pid poolStatus wid =
 
 -- | Helper function to factor necessary logic for quitting a stake pool.
 quitStakePool
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> Withdrawal
     -> ExceptT ErrStakePoolDelegation IO DelegationAction
-quitStakePool ctx wid wdrl = db & \DBLayer{..} -> do
-    walMeta <- mapExceptT atomically
-        $ withExceptT ErrStakePoolDelegationNoSuchWallet
-        $ withNoSuchWallet wid
-        $ readWalletMeta wid
+quitStakePool ctx wid wdrl =
+    db & \DBLayer {..} -> do
+        walMeta <-
+            mapExceptT atomically $
+                withExceptT ErrStakePoolDelegationNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readWalletMeta wid
 
-    rewards <- liftIO
-        $ fetchRewardBalance @ctx @s @k ctx wid
+        rewards <-
+            liftIO $
+                fetchRewardBalance @ctx @s @k ctx wid
 
-    withExceptT ErrStakePoolQuit $ except $
-        guardQuit (walMeta ^. #delegation) wdrl rewards
+        withExceptT ErrStakePoolQuit $
+            except $
+                guardQuit (walMeta ^. #delegation) wdrl rewards
 
-    pure Quit
+        pure Quit
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -3155,7 +3473,8 @@ data FeeEstimation = FeeEstimation
     -- ^ Most coin selections will result in a fee higher than this.
     , estMaxFee :: Word64
     -- ^ Most coin selections will result in a fee lower than this.
-    } deriving (Show, Eq, Generic)
+    }
+    deriving (Show, Eq, Generic)
 
 instance NFData FeeEstimation
 
@@ -3164,20 +3483,21 @@ instance NFData FeeEstimation
 -- the key deposit protocol parameters if the wallet has no registered stake
 -- key.
 calcMinimumDeposit
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , HasNetworkLayer IO ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , HasNetworkLayer IO ctx
+       )
     => ctx
     -> WalletId
     -> ExceptT ErrSelectAssets IO Coin
-calcMinimumDeposit ctx wid = db & \DBLayer{..} ->
-    withExceptT ErrSelectAssetsNoSuchWallet $ do
-        mapExceptT atomically (isStakeKeyRegistered wid) >>= \case
-            True ->
-                pure $ Coin 0
-            False ->
-                liftIO $ stakeKeyDeposit <$> currentProtocolParameters nl
+calcMinimumDeposit ctx wid =
+    db & \DBLayer {..} ->
+        withExceptT ErrSelectAssetsNoSuchWallet $ do
+            mapExceptT atomically (isStakeKeyRegistered wid) >>= \case
+                True ->
+                    pure $ Coin 0
+                False ->
+                    liftIO $ stakeKeyDeposit <$> currentProtocolParameters nl
   where
     db = ctx ^. dbLayer @IO @s @k
     nl = ctx ^. networkLayer
@@ -3187,26 +3507,28 @@ calcMinimumDeposit ctx wid = db & \DBLayer{..} ->
 -- 'FeeEstimation', the minimum fee is that which 90% of the sampled fees are
 -- greater than. The maximum fee is the highest fee observed in the samples.
 estimateFee
-    :: forall m. Monad m
+    :: forall m
+     . Monad m
     => ExceptT ErrSelectAssets m Coin
     -> ExceptT ErrSelectAssets m FeeEstimation
-estimateFee
-    = fmap deciles
-    . handleErrors
-    . replicateM repeats
-    . runExceptT
-    . fmap unCoin
-    . (`catchE` handleCannotCover)
+estimateFee =
+    fmap deciles
+        . handleErrors
+        . replicateM repeats
+        . runExceptT
+        . fmap unCoin
+        . (`catchE` handleCannotCover)
   where
     -- Use method R-8 from to get top 90%.
     -- https://en.wikipedia.org/wiki/Quantile#Estimating_quantiles_from_a_sample
-    deciles = mkFeeEstimation
-        . map round
-        . V.toList
-        . quantiles medianUnbiased (V.fromList [1, 10]) 10
-        . V.fromList
-        . map fromIntegral
-    mkFeeEstimation [a,b] = FeeEstimation a b
+    deciles =
+        mkFeeEstimation
+            . map round
+            . V.toList
+            . quantiles medianUnbiased (V.fromList [1, 10]) 10
+            . V.fromList
+            . map fromIntegral
+    mkFeeEstimation [a, b] = FeeEstimation a b
     mkFeeEstimation _ = error "estimateFee: impossible"
 
     -- Remove failed coin selections from samples. Unless they all failed, in
@@ -3217,14 +3539,14 @@ estimateFee
         skipFailed samples = case partitionEithers samples of
             ([], []) ->
                 error "estimateFee: impossible empty list"
-            ((e:_), []) ->
+            ((e : _), []) ->
                 Left e
             (_, samples') ->
                 Right samples'
 
     repeats = 100 -- TODO: modify repeats based on data
 
-    -- | When estimating fee, it is rather cumbersome to return "cannot cover fee"
+    -- \| When estimating fee, it is rather cumbersome to return "cannot cover fee"
     -- if clients are just asking for an estimation. Therefore, we convert
     -- "cannot cover" errors into the necessary fee amount, even though there isn't
     -- enough in the wallet to cover for these fees.
@@ -3236,55 +3558,60 @@ estimateFee
                     UnableToConstructChangeError {requiredCost} ->
                         pure requiredCost
             _ ->
-                throwE  e
+                throwE e
         e ->
             throwE e
 
 {-------------------------------------------------------------------------------
                                   Key Store
 -------------------------------------------------------------------------------}
+
 -- | The password here undergoes PBKDF2 encryption using HMAC
 -- with the hash algorithm SHA512 which is realized in encryptPassphrase
 attachPrivateKeyFromPwdScheme
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> (k 'RootK XPrv, (PassphraseScheme, Passphrase "user"))
     -> ExceptT ErrNoSuchWallet IO ()
-attachPrivateKeyFromPwdScheme ctx wid (xprv, (scheme, pwd)) = db & \_ -> do
-    hpwd <- liftIO $ encryptPassphrase' scheme pwd
-    -- NOTE Only new wallets are constructed through this function, so the
-    -- passphrase is encrypted with the new scheme (i.e. PBKDF2)
-    --
-    -- We do an extra sanity check after having encrypted the passphrase: we
-    -- tried to avoid some programmer mistakes with the phantom types on
-    -- Passphrase, but it's still possible that someone would inadvertently call
-    -- this function with a 'Passphrase' that wasn't prepared for
-    -- 'EncryptWithPBKDF2', if this happens, this is a programmer error and we
-    -- must fail hard for this would have dramatic effects later on.
-    case checkPassphrase scheme pwd hpwd of
-        Right () -> attachPrivateKey db wid (xprv, hpwd) scheme
-        Left{} -> fail
-            "Awe crap! The passphrase given to 'attachPrivateKeyFromPwd' wasn't \
-            \rightfully constructed. This is a programmer error. Look for calls \
-            \to this function and make sure that the given Passphrase wasn't not \
-            \prepared using 'EncryptWithScrypt'!"
+attachPrivateKeyFromPwdScheme ctx wid (xprv, (scheme, pwd)) =
+    db & \_ -> do
+        hpwd <- liftIO $ encryptPassphrase' scheme pwd
+        -- NOTE Only new wallets are constructed through this function, so the
+        -- passphrase is encrypted with the new scheme (i.e. PBKDF2)
+        --
+        -- We do an extra sanity check after having encrypted the passphrase: we
+        -- tried to avoid some programmer mistakes with the phantom types on
+        -- Passphrase, but it's still possible that someone would inadvertently call
+        -- this function with a 'Passphrase' that wasn't prepared for
+        -- 'EncryptWithPBKDF2', if this happens, this is a programmer error and we
+        -- must fail hard for this would have dramatic effects later on.
+        case checkPassphrase scheme pwd hpwd of
+            Right () -> attachPrivateKey db wid (xprv, hpwd) scheme
+            Left {} ->
+                fail
+                    "Awe crap! The passphrase given to 'attachPrivateKeyFromPwd' wasn't \
+                    \rightfully constructed. This is a programmer error. Look for calls \
+                    \to this function and make sure that the given Passphrase wasn't not \
+                    \prepared using 'EncryptWithScrypt'!"
   where
     db = ctx ^. dbLayer @IO @s @k
 
 attachPrivateKeyFromPwd
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> (k 'RootK XPrv, Passphrase "user")
     -> ExceptT ErrNoSuchWallet IO ()
 attachPrivateKeyFromPwd ctx wid (xprv, pwd) =
-    attachPrivateKeyFromPwdScheme @ctx @s @k ctx wid
-       (xprv, (currentPassphraseScheme, pwd))
+    attachPrivateKeyFromPwdScheme @ctx @s @k
+        ctx
+        wid
+        (xprv, (currentPassphraseScheme, pwd))
 
 -- | The hash here is the output of Scrypt function with the following parameters:
 -- - logN = 14
@@ -3292,17 +3619,18 @@ attachPrivateKeyFromPwd ctx wid (xprv, pwd) =
 -- - p = 1
 -- - bytesNumber = 64
 attachPrivateKeyFromPwdHash
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> (k 'RootK XPrv, PassphraseHash)
     -> ExceptT ErrNoSuchWallet IO ()
-attachPrivateKeyFromPwdHash ctx wid (xprv, hpwd) = db & \_ ->
-    -- NOTE Only legacy wallets are imported through this function, passphrase
-    -- were encrypted with the legacy scheme (Scrypt).
-    attachPrivateKey db wid (xprv, hpwd) EncryptWithScrypt
+attachPrivateKeyFromPwdHash ctx wid (xprv, hpwd) =
+    db & \_ ->
+        -- NOTE Only legacy wallets are imported through this function, passphrase
+        -- were encrypted with the legacy scheme (Scrypt).
+        attachPrivateKey db wid (xprv, hpwd) EncryptWithScrypt
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -3312,18 +3640,22 @@ attachPrivateKey
     -> (k 'RootK XPrv, PassphraseHash)
     -> PassphraseScheme
     -> ExceptT ErrNoSuchWallet IO ()
-attachPrivateKey db wid (xprv, hpwd) scheme = db & \DBLayer{..} -> do
-    now <- liftIO getCurrentTime
-    mapExceptT atomically $ do
-        putPrivateKey wid (xprv, hpwd)
-        meta <- withNoSuchWallet wid $ readWalletMeta wid
-        let modify x = x
-                { passphraseInfo = Just $ WalletPassphraseInfo
-                    { lastUpdatedAt = now
-                    , passphraseScheme = scheme
-                    }
-                }
-        putWalletMeta wid (modify meta)
+attachPrivateKey db wid (xprv, hpwd) scheme =
+    db & \DBLayer {..} -> do
+        now <- liftIO getCurrentTime
+        mapExceptT atomically $ do
+            putPrivateKey wid (xprv, hpwd)
+            meta <- withNoSuchWallet wid $ readWalletMeta wid
+            let modify x =
+                    x
+                        { passphraseInfo =
+                            Just $
+                                WalletPassphraseInfo
+                                    { lastUpdatedAt = now
+                                    , passphraseScheme = scheme
+                                    }
+                        }
+            putWalletMeta wid (modify meta)
 
 -- | Execute an action which requires holding a root XPrv.
 --
@@ -3342,26 +3674,31 @@ attachPrivateKey db wid (xprv, hpwd) scheme = db & \DBLayer{..} -> do
 --         changePassphrase (preparePassphrase scheme pwd) newPwd xprv
 -- @@@
 withRootKey
-    :: forall ctx s k e a. HasDBLayer IO s k ctx
+    :: forall ctx s k e a
+     . HasDBLayer IO s k ctx
     => ctx
     -> WalletId
     -> Passphrase "user"
     -> (ErrWithRootKey -> e)
     -> (k 'RootK XPrv -> PassphraseScheme -> ExceptT e IO a)
     -> ExceptT e IO a
-withRootKey ctx wid pwd embed action = db & \DBLayer{..} -> do
-    (xprv, scheme) <- withExceptT embed $ mapExceptT atomically $ do
-        mScheme <- (>>= (fmap passphraseScheme . passphraseInfo)) <$>
-            lift (readWalletMeta wid)
-        mXPrv <- lift $ readPrivateKey wid
-        case (mXPrv, mScheme) of
-            (Just (xprv, hpwd), Just scheme) -> do
-                withExceptT (ErrWithRootKeyWrongPassphrase wid) $ ExceptT $
-                    return $ checkPassphrase scheme pwd hpwd
-                return (xprv, scheme)
-            _ ->
-                throwE $ ErrWithRootKeyNoRootKey wid
-    action xprv scheme
+withRootKey ctx wid pwd embed action =
+    db & \DBLayer {..} -> do
+        (xprv, scheme) <- withExceptT embed $ mapExceptT atomically $ do
+            mScheme <-
+                (>>= (fmap passphraseScheme . passphraseInfo))
+                    <$> lift (readWalletMeta wid)
+            mXPrv <- lift $ readPrivateKey wid
+            case (mXPrv, mScheme) of
+                (Just (xprv, hpwd), Just scheme) -> do
+                    withExceptT (ErrWithRootKeyWrongPassphrase wid) $
+                        ExceptT $
+                            return $
+                                checkPassphrase scheme pwd hpwd
+                    return (xprv, scheme)
+                _ ->
+                    throwE $ ErrWithRootKeyNoRootKey wid
+        action xprv scheme
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -3371,148 +3708,169 @@ withRootKey ctx wid pwd embed action = db & \DBLayer{..} -> do
 -- This is experimental, and will likely be replaced by a more robust to
 -- arbitrary message signing using COSE, or a subset of it.
 signMetadataWith
-    :: forall ctx s k n.
-        ( HasDBLayer IO s k ctx
-        , HardDerivation k
-        , AddressIndexDerivationType k ~ 'Soft
-        , WalletKey k
-        , s ~ SeqState n k
-        )
+    :: forall ctx s k n
+     . ( HasDBLayer IO s k ctx
+       , HardDerivation k
+       , AddressIndexDerivationType k ~ 'Soft
+       , WalletKey k
+       , s ~ SeqState n k
+       )
     => ctx
     -> WalletId
     -> Passphrase "user"
     -> (Role, DerivationIndex)
     -> TxMetadata
     -> ExceptT ErrSignMetadataWith IO (Signature TxMetadata)
-signMetadataWith ctx wid pwd (role_, ix) metadata = db & \DBLayer{..} -> do
-    addrIx <- withExceptT ErrSignMetadataWithInvalidIndex $ guardSoftIndex ix
+signMetadataWith ctx wid pwd (role_, ix) metadata =
+    db & \DBLayer {..} -> do
+        addrIx <- withExceptT ErrSignMetadataWithInvalidIndex $ guardSoftIndex ix
 
-    cp <- mapExceptT atomically
-        $ withExceptT ErrSignMetadataWithNoSuchWallet
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
+        cp <-
+            mapExceptT atomically $
+                withExceptT ErrSignMetadataWithNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
 
-    withRootKey @ctx @s @k ctx wid pwd ErrSignMetadataWithRootKey
-        $ \rootK scheme -> do
-            let encPwd = preparePassphrase scheme pwd
-            let DerivationPrefix (_, _, acctIx) = Seq.derivationPrefix (getState cp)
-            let acctK = deriveAccountPrivateKey encPwd rootK acctIx
-            let addrK = deriveAddressPrivateKey encPwd acctK role_ addrIx
-            pure $
-                Signature $ BA.convert $
-                CC.sign encPwd (getRawKey addrK) $
-                hash @ByteString @Blake2b_256 $
-                serialiseToCBOR metadata
+        withRootKey @ctx @s @k ctx wid pwd ErrSignMetadataWithRootKey $
+            \rootK scheme -> do
+                let encPwd = preparePassphrase scheme pwd
+                let DerivationPrefix (_, _, acctIx) = Seq.derivationPrefix (getState cp)
+                let acctK = deriveAccountPrivateKey encPwd rootK acctIx
+                let addrK = deriveAddressPrivateKey encPwd acctK role_ addrIx
+                pure $
+                    Signature $
+                        BA.convert $
+                            CC.sign encPwd (getRawKey addrK) $
+                                hash @ByteString @Blake2b_256 $
+                                    serialiseToCBOR metadata
   where
     db = ctx ^. dbLayer @IO @s @k
 
 derivePublicKey
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , SoftDerivation k
-        , GetAccount s k
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , SoftDerivation k
+       , GetAccount s k
+       )
     => ctx
     -> WalletId
     -> Role
     -> DerivationIndex
     -> ExceptT ErrDerivePublicKey IO (k (AddressCredential k) XPub)
-derivePublicKey ctx wid role_ ix = db & \DBLayer{..} -> do
-    addrIx <- withExceptT ErrDerivePublicKeyInvalidIndex $ guardSoftIndex ix
+derivePublicKey ctx wid role_ ix =
+    db & \DBLayer {..} -> do
+        addrIx <- withExceptT ErrDerivePublicKeyInvalidIndex $ guardSoftIndex ix
 
-    cp <- mapExceptT atomically
-        $ withExceptT ErrDerivePublicKeyNoSuchWallet
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
+        cp <-
+            mapExceptT atomically $
+                withExceptT ErrDerivePublicKeyNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
 
-    let acctK = getAccount $ getState cp
-    let addrK = deriveAddressPublicKey acctK role_ addrIx
+        let acctK = getAccount $ getState cp
+        let addrK = deriveAddressPublicKey acctK role_ addrIx
 
-    return addrK
+        return addrK
   where
     db = ctx ^. dbLayer @IO @s @k
 
 -- | Retrieve current public account key of a wallet.
 readAccountPublicKey
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , GetAccount s k
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , GetAccount s k
+       )
     => ctx
     -> WalletId
     -> ExceptT ErrReadAccountPublicKey IO (k 'AccountK XPub)
-readAccountPublicKey ctx wid = db & \DBLayer{..} -> do
-    cp <- mapExceptT atomically
-        $ withExceptT ErrReadAccountPublicKeyNoSuchWallet
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
-    pure $ getAccount (getState cp)
+readAccountPublicKey ctx wid =
+    db & \DBLayer {..} -> do
+        cp <-
+            mapExceptT atomically $
+                withExceptT ErrReadAccountPublicKeyNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+        pure $ getAccount (getState cp)
   where
     db = ctx ^. dbLayer @IO @s @k
 
 writePolicyPublicKey
-    :: forall ctx s (n :: NetworkDiscriminant).
-        ( HasDBLayer IO s ShelleyKey ctx
-        , s ~ SeqState n ShelleyKey
-        )
+    :: forall ctx s (n :: NetworkDiscriminant)
+     . ( HasDBLayer IO s ShelleyKey ctx
+       , s ~ SeqState n ShelleyKey
+       )
     => ctx
     -> WalletId
     -> Passphrase "user"
     -> ExceptT ErrWritePolicyPublicKey IO (ShelleyKey 'PolicyK XPub)
-writePolicyPublicKey ctx wid pwd = db & \DBLayer{..} -> do
-    cp <- mapExceptT atomically
-        $ withExceptT ErrWritePolicyPublicKeyNoSuchWallet
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
+writePolicyPublicKey ctx wid pwd =
+    db & \DBLayer {..} -> do
+        cp <-
+            mapExceptT atomically $
+                withExceptT ErrWritePolicyPublicKeyNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
 
-    let (SeqPrologue seqState) = getPrologue $ getState cp
+        let (SeqPrologue seqState) = getPrologue $ getState cp
 
-    policyXPub <- withRootKey
-        @ctx @s @ShelleyKey ctx wid pwd ErrWritePolicyPublicKeyWithRootKey $
-        \rootK scheme -> do
-            let encPwd = preparePassphrase scheme pwd
-            let xprv = derivePolicyPrivateKey encPwd (getRawKey rootK) minBound
-            pure $ liftRawKey $ toXPub xprv
+        policyXPub <- withRootKey
+            @ctx
+            @s
+            @ShelleyKey
+            ctx
+            wid
+            pwd
+            ErrWritePolicyPublicKeyWithRootKey
+            $ \rootK scheme -> do
+                let encPwd = preparePassphrase scheme pwd
+                let xprv = derivePolicyPrivateKey encPwd (getRawKey rootK) minBound
+                pure $ liftRawKey $ toXPub xprv
 
-    let seqState' = seqState & #policyXPub .~ Just policyXPub
-    ExceptT $ atomically $ modifyDBMaybe walletsDB $
-        adjustNoSuchWallet wid ErrWritePolicyPublicKeyNoSuchWallet $
-        \_ -> Right ( [ReplacePrologue $ SeqPrologue seqState'], () )
+        let seqState' = seqState & #policyXPub .~ Just policyXPub
+        ExceptT $
+            atomically $
+                modifyDBMaybe walletsDB $
+                    adjustNoSuchWallet wid ErrWritePolicyPublicKeyNoSuchWallet $
+                        \_ -> Right ([ReplacePrologue $ SeqPrologue seqState'], ())
 
-    pure policyXPub
+        pure policyXPub
   where
     db = ctx ^. dbLayer @IO @s @ShelleyKey
 
 -- | Retrieve any public account key of a wallet.
 getAccountPublicKeyAtIndex
-    :: forall ctx s k.
-        ( HasDBLayer IO s k ctx
-        , WalletKey k
-        , GetPurpose k
-        )
+    :: forall ctx s k
+     . ( HasDBLayer IO s k ctx
+       , WalletKey k
+       , GetPurpose k
+       )
     => ctx
     -> WalletId
     -> Passphrase "user"
     -> DerivationIndex
     -> Maybe DerivationIndex
     -> ExceptT ErrReadAccountPublicKey IO (k 'AccountK XPub)
-getAccountPublicKeyAtIndex ctx wid pwd ix purposeM = db & \DBLayer{..} -> do
-    acctIx <- withExceptT ErrReadAccountPublicKeyInvalidAccountIndex $ guardHardIndex ix
+getAccountPublicKeyAtIndex ctx wid pwd ix purposeM =
+    db & \DBLayer {..} -> do
+        acctIx <- withExceptT ErrReadAccountPublicKeyInvalidAccountIndex $ guardHardIndex ix
 
-    purpose <- maybe (pure (getPurpose @k))
-        (withExceptT ErrReadAccountPublicKeyInvalidPurposeIndex . guardHardIndex)
-        purposeM
+        purpose <-
+            maybe
+                (pure (getPurpose @k))
+                (withExceptT ErrReadAccountPublicKeyInvalidPurposeIndex . guardHardIndex)
+                purposeM
 
-    _cp <- mapExceptT atomically
-        $ withExceptT ErrReadAccountPublicKeyNoSuchWallet
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
+        _cp <-
+            mapExceptT atomically $
+                withExceptT ErrReadAccountPublicKeyNoSuchWallet $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
 
-    withRootKey @ctx @s @k ctx wid pwd ErrReadAccountPublicKeyRootKey
-        $ \rootK scheme -> do
-            let encPwd = preparePassphrase scheme pwd
-            let xprv = deriveAccountPrivateKeyShelley purpose encPwd (getRawKey rootK) acctIx
-            pure $ liftRawKey $ toXPub xprv
+        withRootKey @ctx @s @k ctx wid pwd ErrReadAccountPublicKeyRootKey $
+            \rootK scheme -> do
+                let encPwd = preparePassphrase scheme pwd
+                let xprv = deriveAccountPrivateKeyShelley purpose encPwd (getRawKey rootK) acctIx
+                pure $ liftRawKey $ toXPub xprv
   where
     db = ctx ^. dbLayer @IO @s @k
 
@@ -3522,8 +3880,8 @@ guardSoftIndex
     -> ExceptT (ErrInvalidDerivationIndex 'Soft 'CredFromKeyK) m (Index 'Soft whatever)
 guardSoftIndex ix =
     if ix > DerivationIndex (getIndex @Soft maxBound) || ix < DerivationIndex (getIndex @Soft minBound)
-    then throwE $ ErrIndexOutOfBound minBound maxBound ix
-    else pure (Index $ getDerivationIndex ix)
+        then throwE $ ErrIndexOutOfBound minBound maxBound ix
+        else pure (Index $ getDerivationIndex ix)
 
 guardHardIndex
     :: Monad m
@@ -3531,31 +3889,37 @@ guardHardIndex
     -> ExceptT (ErrInvalidDerivationIndex 'Hardened level) m (Index 'Hardened whatever)
 guardHardIndex ix =
     if ix > DerivationIndex (getIndex @Hardened maxBound) || ix < DerivationIndex (getIndex @Hardened minBound)
-    then throwE $ ErrIndexOutOfBound minBound maxBound ix
-    else pure (Index $ getDerivationIndex ix)
+        then throwE $ ErrIndexOutOfBound minBound maxBound ix
+        else pure (Index $ getDerivationIndex ix)
 
 updateCosigner
-    :: forall ctx s k n.
-        ( s ~ SharedState n k
-        , k ~ SharedKey
-        , Shared.SupportsDiscovery n k
-        , WalletKey k
-        , HasDBLayer IO s k ctx
-        )
+    :: forall ctx s k n
+     . ( s ~ SharedState n k
+       , k ~ SharedKey
+       , Shared.SupportsDiscovery n k
+       , WalletKey k
+       , HasDBLayer IO s k ctx
+       )
     => ctx
     -> WalletId
     -> k 'AccountK XPub
     -> Cosigner
     -> CredentialType
     -> ExceptT ErrAddCosignerKey IO ()
-updateCosigner ctx wid cosignerXPub cosigner cred = db & \DBLayer{..} -> do
-    cp <- withExceptT ErrAddCosignerKeyNoSuchWallet
-        $ mapExceptT atomically
-        $ withNoSuchWallet wid
-        $ readCheckpoint wid
-    ExceptT $ atomically $ modifyDBMaybe walletsDB $
-        adjustNoSuchWallet wid ErrAddCosignerKeyNoSuchWallet
-            (updateCosigner' cp)
+updateCosigner ctx wid cosignerXPub cosigner cred =
+    db & \DBLayer {..} -> do
+        cp <-
+            withExceptT ErrAddCosignerKeyNoSuchWallet $
+                mapExceptT atomically $
+                    withNoSuchWallet wid $
+                        readCheckpoint wid
+        ExceptT $
+            atomically $
+                modifyDBMaybe walletsDB $
+                    adjustNoSuchWallet
+                        wid
+                        ErrAddCosignerKeyNoSuchWallet
+                        (updateCosigner' cp)
   where
     db = ctx ^. dbLayer @_ @s @k
     updateCosigner' cp wallet =
@@ -3565,7 +3929,7 @@ updateCosigner ctx wid cosignerXPub cosigner cred = db & \DBLayer{..} -> do
                 Shared.Pending ->
                     Right (prologueUpdate s1, ())
                 Shared.Active _ ->
-                  Right (prologueUpdate s1 ++ discoveriesUpdate s1, ())
+                    Right (prologueUpdate s1 ++ discoveriesUpdate s1, ())
       where
         s0 = getState $ getLatest wallet
         prologueUpdate s =
@@ -3573,9 +3937,10 @@ updateCosigner ctx wid cosignerXPub cosigner cred = db & \DBLayer{..} -> do
         wc@(WS.WalletCheckpoint bh utxo' _) = snd $ fromWallet cp
         discoveriesUpdate s =
             [ UpdateCheckpoints
-              [ PutCheckpoint (getSlot wc)
-                (WS.WalletCheckpoint bh utxo' (getDiscoveries s))
-              ]
+                [ PutCheckpoint
+                    (getSlot wc)
+                    (WS.WalletCheckpoint bh utxo' (getDiscoveries s))
+                ]
             ]
 
 -- NOTE
@@ -3583,7 +3948,8 @@ updateCosigner ctx wid cosignerXPub cosigner cred = db & \DBLayer{..} -> do
 -- base addresses (containing both payment and delegation credentials).
 -- So we normalize them all to be base addresses to make sure that we compare them correctly.
 normalizeSharedAddress
-    :: forall n k. ( Shared.SupportsDiscovery n k, k ~ SharedKey )
+    :: forall n k
+     . (Shared.SupportsDiscovery n k, k ~ SharedKey)
     => SharedState n k
     -> Address
     -> Maybe Address
@@ -3594,7 +3960,7 @@ normalizeSharedAddress st addr = case Shared.ready st of
         fingerprint <- eitherToMaybe (paymentKeyFingerprint @k addr)
         let (ixM, _) = Shared.isShared addr st
         case (dTM, ixM) of
-            (Just dT, Just (ix,_)) ->
+            (Just dT, Just (ix, _)) ->
                 pure $ Shared.liftDelegationAddress @n ix dT fingerprint
             _ ->
                 pure $ Shared.liftPaymentAddress @n fingerprint
@@ -3604,44 +3970,44 @@ normalizeSharedAddress st addr = case Shared.ready st of
 -------------------------------------------------------------------------------}
 
 data ErrSignMetadataWith
-    = ErrSignMetadataWithRootKey ErrWithRootKey
-        -- ^ The wallet exists, but there's no root key attached to it
-    | ErrSignMetadataWithNoSuchWallet ErrNoSuchWallet
-        -- ^ The wallet doesn't exist?
-    | ErrSignMetadataWithInvalidIndex (ErrInvalidDerivationIndex 'Soft 'CredFromKeyK)
-        -- ^ User provided a derivation index outside of the 'Soft' domain
+    = -- | The wallet exists, but there's no root key attached to it
+      ErrSignMetadataWithRootKey ErrWithRootKey
+    | -- | The wallet doesn't exist?
+      ErrSignMetadataWithNoSuchWallet ErrNoSuchWallet
+    | -- | User provided a derivation index outside of the 'Soft' domain
+      ErrSignMetadataWithInvalidIndex (ErrInvalidDerivationIndex 'Soft 'CredFromKeyK)
     deriving (Eq, Show)
 
 data ErrDerivePublicKey
-    = ErrDerivePublicKeyNoSuchWallet ErrNoSuchWallet
-        -- ^ The wallet doesn't exist?
-    | ErrDerivePublicKeyInvalidIndex (ErrInvalidDerivationIndex 'Soft 'CredFromKeyK)
-        -- ^ User provided a derivation index outside of the 'Soft' domain
+    = -- | The wallet doesn't exist?
+      ErrDerivePublicKeyNoSuchWallet ErrNoSuchWallet
+    | -- | User provided a derivation index outside of the 'Soft' domain
+      ErrDerivePublicKeyInvalidIndex (ErrInvalidDerivationIndex 'Soft 'CredFromKeyK)
     deriving (Eq, Show)
 
 data ErrAddCosignerKey
-    = ErrAddCosignerKeyNoSuchWallet ErrNoSuchWallet
-        -- ^ The shared wallet doesn't exist?
-    | ErrAddCosignerKey ErrAddCosigner
-        -- ^ Error adding this co-signer to the shared wallet.
+    = -- | The shared wallet doesn't exist?
+      ErrAddCosignerKeyNoSuchWallet ErrNoSuchWallet
+    | -- | Error adding this co-signer to the shared wallet.
+      ErrAddCosignerKey ErrAddCosigner
     deriving (Eq, Show)
 
 data ErrConstructSharedWallet
-    = ErrConstructSharedWalletWrongScriptTemplate ErrScriptTemplate
-        -- ^ The shared wallet' script template doesn't pass validation
-    | ErrConstructSharedWalletInvalidIndex (ErrInvalidDerivationIndex 'Hardened 'AccountK)
-        -- ^ User provided a derivation index outside of the 'Hard' domain
+    = -- | The shared wallet' script template doesn't pass validation
+      ErrConstructSharedWalletWrongScriptTemplate ErrScriptTemplate
+    | -- | User provided a derivation index outside of the 'Hard' domain
+      ErrConstructSharedWalletInvalidIndex (ErrInvalidDerivationIndex 'Hardened 'AccountK)
     deriving (Eq, Show)
 
 data ErrReadAccountPublicKey
-    = ErrReadAccountPublicKeyNoSuchWallet ErrNoSuchWallet
-        -- ^ The wallet doesn't exist?
-    | ErrReadAccountPublicKeyInvalidAccountIndex (ErrInvalidDerivationIndex 'Hardened 'AccountK)
-        -- ^ User provided a derivation index for account outside of the 'Hard' domain
-    | ErrReadAccountPublicKeyInvalidPurposeIndex (ErrInvalidDerivationIndex 'Hardened 'PurposeK)
-        -- ^ User provided a derivation index for purpose outside of the 'Hard' domain
-    | ErrReadAccountPublicKeyRootKey ErrWithRootKey
-        -- ^ The wallet exists, but there's no root key attached to it
+    = -- | The wallet doesn't exist?
+      ErrReadAccountPublicKeyNoSuchWallet ErrNoSuchWallet
+    | -- | User provided a derivation index for account outside of the 'Hard' domain
+      ErrReadAccountPublicKeyInvalidAccountIndex (ErrInvalidDerivationIndex 'Hardened 'AccountK)
+    | -- | User provided a derivation index for purpose outside of the 'Hard' domain
+      ErrReadAccountPublicKeyInvalidPurposeIndex (ErrInvalidDerivationIndex 'Hardened 'PurposeK)
+    | -- | The wallet exists, but there's no root key attached to it
+      ErrReadAccountPublicKeyRootKey ErrWithRootKey
     deriving (Eq, Show)
 
 data ErrInvalidDerivationIndex derivation level
@@ -3715,8 +4081,8 @@ data ErrGetPolicyId
     deriving (Show, Eq)
 
 newtype ErrMintBurnAssets
-    = ErrMintBurnNotImplemented T.Text
-      -- ^ Temporary error constructor.
+    = -- | Temporary error constructor.
+      ErrMintBurnNotImplemented T.Text
     deriving (Show, Eq)
 
 -- | Errors that can occur when signing a transaction.
@@ -3772,7 +4138,8 @@ data ErrGetTransaction
 data ErrStartTimeLaterThanEndTime = ErrStartTimeLaterThanEndTime
     { errStartTime :: UTCTime
     , errEndTime :: UTCTime
-    } deriving (Show, Eq)
+    }
+    deriving (Show, Eq)
 
 data ErrCreateMigrationPlan
     = ErrCreateMigrationPlanEmpty
@@ -3861,10 +4228,10 @@ withNoSuchWallet wid =
 data PoolRetirementEpochInfo = PoolRetirementEpochInfo
     { currentEpoch
         :: W.EpochNo
-        -- ^ The current epoch.
+    -- ^ The current epoch.
     , retirementEpoch
         :: W.EpochNo
-        -- ^ The retirement epoch of a pool.
+    -- ^ The retirement epoch of a pool.
     }
     deriving (Eq, Generic, Show)
 
@@ -3895,7 +4262,7 @@ guardQuit
     -> Withdrawal
     -> Coin
     -> Either ErrCannotQuit ()
-guardQuit WalletDelegation{active,next} wdrl rewards = do
+guardQuit WalletDelegation {active, next} wdrl rewards = do
     let last_ = maybe active (view #status) $ lastMay next
 
     unless (isDelegatingTo anyone last_) $
@@ -3904,8 +4271,8 @@ guardQuit WalletDelegation{active,next} wdrl rewards = do
     case wdrl of
         WithdrawalSelf {} -> return ()
         _
-            | rewards == Coin 0  -> return ()
-            | otherwise          -> Left $ ErrNonNullRewards rewards
+            | rewards == Coin 0 -> return ()
+            | otherwise -> Left $ ErrNonNullRewards rewards
   where
     anyone = const True
 
@@ -3944,11 +4311,13 @@ data WalletFollowLog
     deriving (Show, Eq)
 
 -- | Helper wrapper type for the sake of logging.
-data BuildableInAnyEra tx = forall era.
-    ( Eq (tx era)
-    , Show (tx era)
-    , Buildable (tx era)
-    ) => BuildableInAnyEra (Cardano.CardanoEra era) (tx era)
+data BuildableInAnyEra tx
+    = forall era.
+        ( Eq (tx era)
+        , Show (tx era)
+        , Buildable (tx era)
+        ) =>
+      BuildableInAnyEra (Cardano.CardanoEra era) (tx era)
 
 instance Show (BuildableInAnyEra a) where
     show (BuildableInAnyEra _ a) = show a
@@ -3982,21 +4351,24 @@ data WalletLog
 instance ToText WalletFollowLog where
     toText = \case
         MsgDiscoveredDelegationCert slotNo cert -> case cert of
-            CertDelegateNone{} -> mconcat
-                [ "Discovered end of delegation within slot "
-                , pretty slotNo
-                ]
-            CertDelegateFull{} -> mconcat
-                [ "Discovered delegation to pool "
-                , pretty (dlgCertPoolId cert)
-                , " within slot "
-                , pretty slotNo
-                ]
-            CertRegisterKey {} -> mconcat
-                [ "Discovered stake key registration "
-                , " within slot "
-                , pretty slotNo
-                ]
+            CertDelegateNone {} ->
+                mconcat
+                    [ "Discovered end of delegation within slot "
+                    , pretty slotNo
+                    ]
+            CertDelegateFull {} ->
+                mconcat
+                    [ "Discovered delegation to pool "
+                    , pretty (dlgCertPoolId cert)
+                    , " within slot "
+                    , pretty slotNo
+                    ]
+            CertRegisterKey {} ->
+                mconcat
+                    [ "Discovered stake key registration "
+                    , " within slot "
+                    , pretty slotNo
+                    ]
         MsgCheckpoint checkpointTip ->
             "Creating checkpoint at " <> pretty checkpointTip
         MsgDiscoveredTxs txs ->
@@ -4010,19 +4382,27 @@ instance ToText WalletFollowLog where
 instance ToText WalletLog where
     toText = \case
         MsgSelectionStart utxoSize recipients ->
-            "Starting coin selection " <>
-            "|utxo| = "+|utxoSize|+" " <>
-            "#recipients = "+|length recipients|+""
+            "Starting coin selection "
+                <> "|utxo| = "
+                +| utxoSize
+                |+ " "
+                    <> "#recipients = "
+                +| length recipients
+                |+ ""
         MsgSelectionForBalancingStart utxoSize partialTx ->
-            "Starting coin selection for balancing " <>
-            "|utxo| = "+|utxoSize|+" " <>
-            "partialTx = "+|partialTx|+""
+            "Starting coin selection for balancing "
+                <> "|utxo| = "
+                +| utxoSize
+                |+ " "
+                    <> "partialTx = "
+                +| partialTx
+                |+ ""
         MsgSelectionError e ->
-            "Failed to select assets:\n"+|| e ||+""
+            "Failed to select assets:\n" +|| e ||+ ""
         MsgSelectionReportSummarized s ->
-            "Selection report (summarized):\n"+| s |+""
+            "Selection report (summarized):\n" +| s |+ ""
         MsgSelectionReportDetailed s ->
-            "Selection report (detailed):\n"+| s |+""
+            "Selection report (detailed):\n" +| s |+ ""
         MsgMigrationUTxOBefore summary ->
             "About to migrate the following distribution: \n" <> pretty summary
         MsgMigrationUTxOAfter summary ->
@@ -4032,11 +4412,11 @@ instance ToText WalletLog where
         MsgRewardBalanceResult (Right amt) ->
             "The reward balance is " <> pretty amt
         MsgRewardBalanceNoSuchWallet err ->
-            "Trying to store a balance for a wallet that doesn't exist (yet?): " <>
-            T.pack (show err)
+            "Trying to store a balance for a wallet that doesn't exist (yet?): "
+                <> T.pack (show err)
         MsgRewardBalanceResult (Left err) ->
-            "Problem fetching reward balance. Will try again on next chain update. " <>
-            T.pack (show err)
+            "Problem fetching reward balance. Will try again on next chain update. "
+                <> T.pack (show err)
         MsgRewardBalanceExited ->
             "Reward balance worker has exited."
         MsgTxSubmit msg ->
@@ -4047,6 +4427,7 @@ instance ToText WalletLog where
             "Wallet stake key is not registered. Will register..."
 
 instance HasPrivacyAnnotation WalletFollowLog
+
 instance HasSeverityAnnotation WalletFollowLog where
     getSeverityAnnotation = \case
         MsgDiscoveredDelegationCert _ _ -> Info
@@ -4057,19 +4438,20 @@ instance HasSeverityAnnotation WalletFollowLog where
         MsgStoringCBOR {} -> Debug
 
 instance HasPrivacyAnnotation WalletLog
+
 instance HasSeverityAnnotation WalletLog where
     getSeverityAnnotation = \case
-        MsgSelectionStart{} -> Debug
-        MsgSelectionForBalancingStart{} -> Debug
-        MsgSelectionError{} -> Debug
-        MsgSelectionReportSummarized{} -> Info
-        MsgSelectionReportDetailed{} -> Debug
+        MsgSelectionStart {} -> Debug
+        MsgSelectionForBalancingStart {} -> Debug
+        MsgSelectionError {} -> Debug
+        MsgSelectionReportSummarized {} -> Info
+        MsgSelectionReportDetailed {} -> Debug
         MsgMigrationUTxOBefore _ -> Info
         MsgMigrationUTxOAfter _ -> Info
         MsgRewardBalanceQuery _ -> Debug
         MsgRewardBalanceResult (Right _) -> Debug
         MsgRewardBalanceResult (Left _) -> Notice
-        MsgRewardBalanceNoSuchWallet{} -> Warning
+        MsgRewardBalanceNoSuchWallet {} -> Warning
         MsgRewardBalanceExited -> Notice
         MsgTxSubmit msg -> getSeverityAnnotation msg
         MsgIsStakeKeyRegistered _ -> Info
@@ -4086,46 +4468,56 @@ instance ToText TxSubmitLog
 instance Buildable TxSubmitLog where
     build = \case
         MsgSubmitTx tx meta sealed msg -> case msg of
-            BracketStart -> unlinesF
-                [ "Submitting transaction "+|tx ^. #txId|+" to local node"
-                , blockMapF
-                    [ ("Tx" :: Text, build tx)
-                    , ("SealedTx", build sealed)
-                    , ("TxMeta", build meta) ]
-                ]
-            BracketFinish res ->
-                "Transaction "+|tx ^. #txId|+" "+|case res of
-                    Right _ -> "accepted by local node"
-                    Left err -> "failed: "+||err||+""
-            _ -> formatResultMsg "submitTx" [("txid", tx ^. #txId)] msg
-
-        MsgSubmitExternalTx txid msg -> case msg of
-            BracketStart -> "Submitting external transaction "+|txid|+
-                " to local node..."
-            BracketFinish res ->
-                "Transaction "+|txid|+" "+|case res of
-                    Right tx -> unlinesF
-                        [ "accepted by local node"
-                        , nameF "tx" (build tx)
+            BracketStart ->
+                unlinesF
+                    [ "Submitting transaction " +| tx ^. #txId |+ " to local node"
+                    , blockMapF
+                        [ ("Tx" :: Text, build tx)
+                        , ("SealedTx", build sealed)
+                        , ("TxMeta", build meta)
                         ]
-                    Left err -> "failed: "+|toText err|+""
-            _ -> formatResultMsg "submitExternalTx" [("txid", txid)] msg
-
-        MsgRetryPostTx txid msg -> case msg of
-            BracketStart -> "Retrying submission of transaction "+|txid|+
-                " to local node..."
+                    ]
             BracketFinish res ->
-                "Transaction "+|txid|+" resubmitted to local node and " <>
-                case res of
-                    Right _ -> "accepted again"
-                    Left _ -> "not accepted (this is expected)"
-            _ -> formatResultMsg "runLocalTxSubmissionPool(postTx)"
-                [("txid", txid)] msg
-
+                "Transaction " +| tx ^. #txId |+ " " +| case res of
+                    Right _ -> "accepted by local node"
+                    Left err -> "failed: " +|| err ||+ ""
+            _ -> formatResultMsg "submitTx" [("txid", tx ^. #txId)] msg
+        MsgSubmitExternalTx txid msg -> case msg of
+            BracketStart ->
+                "Submitting external transaction "
+                    +| txid
+                    |+ " to local node..."
+            BracketFinish res ->
+                "Transaction " +| txid |+ " " +| case res of
+                    Right tx ->
+                        unlinesF
+                            [ "accepted by local node"
+                            , nameF "tx" (build tx)
+                            ]
+                    Left err -> "failed: " +| toText err |+ ""
+            _ -> formatResultMsg "submitExternalTx" [("txid", txid)] msg
+        MsgRetryPostTx txid msg -> case msg of
+            BracketStart ->
+                "Retrying submission of transaction "
+                    +| txid
+                    |+ " to local node..."
+            BracketFinish res ->
+                "Transaction "
+                    +| txid
+                    |+ " resubmitted to local node and "
+                        <> case res of
+                            Right _ -> "accepted again"
+                            Left _ -> "not accepted (this is expected)"
+            _ ->
+                formatResultMsg
+                    "runLocalTxSubmissionPool(postTx)"
+                    [("txid", txid)]
+                    msg
         MsgProcessPendingPool msg ->
-            "Processing the pending local tx submission pool: "+|msg|+""
+            "Processing the pending local tx submission pool: " +| msg |+ ""
 
 instance HasPrivacyAnnotation TxSubmitLog
+
 instance HasSeverityAnnotation TxSubmitLog where
     getSeverityAnnotation = \case
         MsgSubmitTx _ _ _ b -> resultSeverity Info b
@@ -4144,18 +4536,22 @@ posAndNegFromCardanoValue
     -> (TokenBundle.TokenBundle, TokenBundle.TokenBundle)
 posAndNegFromCardanoValue = foldMap go . Cardano.valueToList
   where
-    go :: (Cardano.AssetId, Cardano.Quantity)
-       -> (TokenBundle.TokenBundle, TokenBundle.TokenBundle)
-    go (Cardano.AdaAssetId, q) = partition q $
-        TokenBundle.fromCoin . Coin.fromNatural
+    go
+        :: (Cardano.AssetId, Cardano.Quantity)
+        -> (TokenBundle.TokenBundle, TokenBundle.TokenBundle)
+    go (Cardano.AdaAssetId, q) =
+        partition q $
+            TokenBundle.fromCoin . Coin.fromNatural
     go ((Cardano.AssetId policy name), q) = partition q $ \n ->
-        TokenBundle.fromFlatList (Coin 0)
-            [ ( TokenBundle.AssetId (mkPolicyId policy) (mkTokenName name)
-              , TokenQuantity n
-              )
+        TokenBundle.fromFlatList
+            (Coin 0)
+            [
+                ( TokenBundle.AssetId (mkPolicyId policy) (mkTokenName name)
+                , TokenQuantity n
+                )
             ]
 
-    -- | Convert a 'Cardano.Quantity' to a 'TokenBundle' using the supplied
+    -- \| Convert a 'Cardano.Quantity' to a 'TokenBundle' using the supplied
     -- function. The result is stored in 'fst' for positive quantities, and
     -- 'snd' for negative quantities.
     partition
@@ -4163,7 +4559,7 @@ posAndNegFromCardanoValue = foldMap go . Cardano.valueToList
         -> (Natural -> TokenBundle.TokenBundle)
         -> (TokenBundle.TokenBundle, TokenBundle.TokenBundle)
     partition (Cardano.Quantity i) f
-        | Just n <- maybeIntegerToNatural      i  = (f n, mempty)
+        | Just n <- maybeIntegerToNatural i = (f n, mempty)
         | Just n <- maybeIntegerToNatural (abs i) = (mempty, f n)
         | otherwise = (mempty, mempty)
 

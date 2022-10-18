@@ -5,32 +5,42 @@
 -- License: Apache-2.0
 --
 -- Logging types specific to the pool database.
---
 module Cardano.Pool.DB.Log
     ( PoolDbLog (..)
     , ParseFailure (..)
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
+    ( HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
+    )
 import Cardano.DB.Sqlite
-    ( DBLog (..) )
+    ( DBLog (..)
+    )
 import Cardano.Wallet.Logging
-    ( BracketLog )
+    ( BracketLog
+    )
 import Cardano.Wallet.Primitive.Types
-    ( EpochNo, PoolId, PoolRetirementCertificate )
+    ( EpochNo
+    , PoolId
+    , PoolRetirementCertificate
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
+import Data.Text qualified as T
 import Data.Text.Class
-    ( ToText (..), toText )
+    ( ToText (..)
+    , toText
+    )
 import Fmt
-    ( pretty )
-
-import qualified Data.Text as T
+    ( pretty
+    )
+import Prelude
 
 data PoolDbLog
     = MsgGeneric DBLog
@@ -43,10 +53,10 @@ data PoolDbLog
 data ParseFailure = ParseFailure
     { parseFailureOperationName
         :: Text
-      -- ^ The name of the operation in which the parse failure occurred.
+    -- ^ The name of the operation in which the parse failure occurred.
     , parseFailure
         :: Text
-      -- ^ A description of the parse failure.
+    -- ^ A description of the parse failure.
     }
     deriving (Eq, Show)
 
@@ -63,26 +73,30 @@ instance HasSeverityAnnotation PoolDbLog where
 instance ToText PoolDbLog where
     toText = \case
         MsgGeneric e -> toText e
-        MsgParseFailure e -> mconcat
-            [ "Unexpected parse failure in '"
-            , parseFailureOperationName e
-            , "'. Description of error: "
-            , parseFailure e
-            ]
-        MsgRemovingPool p -> mconcat
-            [ "Removing the following pool from the database: "
-            , toText p
-            , "."
-            ]
+        MsgParseFailure e ->
+            mconcat
+                [ "Unexpected parse failure in '"
+                , parseFailureOperationName e
+                , "'. Description of error: "
+                , parseFailure e
+                ]
+        MsgRemovingPool p ->
+            mconcat
+                [ "Removing the following pool from the database: "
+                , toText p
+                , "."
+                ]
         MsgRemovingRetiredPools [] ->
             "There are no retired pools to remove."
-        MsgRemovingRetiredPools poolRetirementCerts -> T.unlines
-            [ "Removing the following retired pools:"
-            , T.unlines (pretty <$> poolRetirementCerts)
-            ]
-        MsgRemovingRetiredPoolsForEpoch epoch nestedMessage -> T.concat
-            [ "Removing pools that retired in or before epoch "
-            , toText epoch
-            , ": "
-            , toText nestedMessage
-            ]
+        MsgRemovingRetiredPools poolRetirementCerts ->
+            T.unlines
+                [ "Removing the following retired pools:"
+                , T.unlines (pretty <$> poolRetirementCerts)
+                ]
+        MsgRemovingRetiredPoolsForEpoch epoch nestedMessage ->
+            T.concat
+                [ "Removing pools that retired in or before epoch "
+                , toText epoch
+                , ": "
+                , toText nestedMessage
+                ]

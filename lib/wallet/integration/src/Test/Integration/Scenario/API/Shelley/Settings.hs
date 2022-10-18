@@ -9,28 +9,44 @@
 
 module Test.Integration.Scenario.API.Shelley.Settings
     ( spec
-    ) where
+    )
+where
 
-import Prelude
-
+import Cardano.Wallet.Api.Link qualified as Link
 import Cardano.Wallet.Api.Types
-    ( ApiStakePool, ApiT (..) )
+    ( ApiStakePool
+    , ApiT (..)
+    )
 import Cardano.Wallet.Primitive.Types
-    ( PoolMetadataSource (..), Settings )
+    ( PoolMetadataSource (..)
+    , Settings
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
 import Data.Either
-    ( fromRight )
+    ( fromRight
+    )
 import Data.Generics.Internal.VL.Lens
-    ( view )
+    ( view
+    )
 import Data.Maybe
-    ( isJust, isNothing )
+    ( isJust
+    , isNothing
+    )
 import Data.Text.Class
-    ( fromText )
+    ( fromText
+    )
+import Network.HTTP.Types.Status qualified as HTTP
 import Test.Hspec
-    ( SpecWith, describe, shouldBe, shouldSatisfy )
+    ( SpecWith
+    , describe
+    , shouldBe
+    , shouldSatisfy
+    )
 import Test.Hspec.Extra
-    ( it )
+    ( it
+    )
 import Test.Integration.Framework.DSL
     ( Context (..)
     , Headers (..)
@@ -45,9 +61,7 @@ import Test.Integration.Framework.DSL
     , verify
     , verifyMetadataSource
     )
-
-import qualified Cardano.Wallet.Api.Link as Link
-import qualified Network.HTTP.Types.Status as HTTP
+import Prelude
 
 spec :: SpecWith Context
 spec = describe "SHELLEY_SETTINGS" $ do
@@ -56,18 +70,30 @@ spec = describe "SHELLEY_SETTINGS" $ do
         updateMetadataSource ctx uri
         eventually "The settings are applied" $ do
             r2 <- request @(ApiT Settings) ctx Link.getSettings Default Empty
-            verify r2
+            verify
+                r2
                 [ expectResponseCode HTTP.status200
-                , expectField (#getApiT . #poolMetadataSource)
-                    (`shouldBe` (fromRight (error "no") $ fromText
-                        @PoolMetadataSource uri))
+                , expectField
+                    (#getApiT . #poolMetadataSource)
+                    ( `shouldBe`
+                        ( fromRight (error "no") $
+                            fromText
+                                @PoolMetadataSource
+                                uri
+                        )
+                    )
                 ]
 
     it "SETTINGS_02 - Changing pool_metadata_source re-syncs metadata" $ \ctx -> do
         let toNone = "none"
             toDirect = "direct"
-            getMetadata = fmap (view #metadata) . snd <$> unsafeRequest
-                @[ApiStakePool] ctx (Link.listStakePools arbitraryStake) Empty
+            getMetadata =
+                fmap (view #metadata) . snd
+                    <$> unsafeRequest
+                        @[ApiStakePool]
+                        ctx
+                        (Link.listStakePools arbitraryStake)
+                        Empty
             delay = 500 * 1000
             timeout = 120
 
@@ -88,4 +114,5 @@ spec = describe "SHELLEY_SETTINGS" $ do
 
 arbitraryStake :: Maybe Coin
 arbitraryStake = Just $ ada 10_000
-  where ada = Coin . (1000*1000*)
+  where
+    ada = Coin . (1000 * 1000 *)

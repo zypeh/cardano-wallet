@@ -2,24 +2,31 @@
 
 module Data.Function.UtilsSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Data.Function.Utils
-    ( applyN )
+    ( applyN
+    )
 import Test.Hspec
-    ( Spec, describe, it )
+    ( Spec
+    , describe
+    , it
+    )
 import Test.Hspec.Extra
-    ( parallel )
+    ( parallel
+    )
 import Test.QuickCheck
-    ( NonNegative (..), property, withMaxSuccess, (===) )
+    ( NonNegative (..)
+    , property
+    , withMaxSuccess
+    , (===)
+    )
+import Prelude
 
 spec :: Spec
 spec = parallel $ describe "Function utilities" $ do
-
     parallel $ describe "applyN" $ do
-
         it "forall m n . n >= 0 : applyN n (+ 1) m == m + n" $
             withMaxSuccess 10000 $
                 property $ \(NonNegative (n :: Int)) (m :: Int) ->

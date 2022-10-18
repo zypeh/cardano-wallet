@@ -18,20 +18,26 @@
 --
 -- Functionality specific to this backend for creating transactions is in
 -- "Cardano.Wallet.Shelley.Transaction"
-
 module Cardano.Wallet.Shelley
     ( SomeNetworkDiscriminant (..)
     , serveWallet
     , module Logging
     , module Tracers
-    ) where
+    )
+where
 
-import Prelude
-
+import Cardano.Pool.DB.Sqlite qualified as Pool
 import Cardano.Wallet.Api
-    ( ApiLayer, ApiV2 )
+    ( ApiLayer
+    , ApiV2
+    )
 import Cardano.Wallet.Api.Server
-    ( HostPreference, Listen (..), ListenError (..), TlsConfiguration )
+    ( HostPreference
+    , Listen (..)
+    , ListenError (..)
+    , TlsConfiguration
+    )
+import Cardano.Wallet.Api.Server qualified as Server
 import Cardano.Wallet.Api.Types
     ( ApiStakePool
     , DecodeAddress
@@ -39,12 +45,16 @@ import Cardano.Wallet.Api.Types
     , EncodeAddress
     , EncodeStakeAddress
     )
+import Cardano.Wallet.DB.Layer qualified as Sqlite
 import Cardano.Wallet.DB.Sqlite.Migration
-    ( DefaultFieldValues (..) )
+    ( DefaultFieldValues (..)
+    )
 import Cardano.Wallet.DB.Store.Checkpoints
-    ( PersistAddressBook )
+    ( PersistAddressBook
+    )
 import Cardano.Wallet.Network
-    ( NetworkLayer (..) )
+    ( NetworkLayer (..)
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( DelegationAddress (..)
     , Depth (..)
@@ -55,27 +65,36 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , networkDiscriminantVal
     )
 import Cardano.Wallet.Primitive.AddressDerivation.Byron
-    ( ByronKey )
+    ( ByronKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Icarus
-    ( IcarusKey )
+    ( IcarusKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
-    ( SharedKey )
+    ( SharedKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( ShelleyKey )
+    ( ShelleyKey
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery
-    ( IsOurs, MaybeLight )
+    ( IsOurs
+    , MaybeLight
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery.Random
-    ( RndState )
+    ( RndState
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
-    ( SeqState )
+    ( SeqState
+    )
 import Cardano.Wallet.Primitive.AddressDiscovery.Shared
-    ( SharedState )
+    ( SharedState
+    )
 import Cardano.Wallet.Primitive.Slotting
-    ( neverFails )
+    ( neverFails
+    )
 import Cardano.Wallet.Primitive.Types
     ( Block
     , NetworkParameters (..)
-    , NetworkParameters
     , PoolCertificate
     , ProtocolParameters (..)
     , Settings (..)
@@ -84,19 +103,26 @@ import Cardano.Wallet.Primitive.Types
     , WalletId
     )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address )
+    ( Address
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount )
+    ( RewardAccount
+    )
 import Cardano.Wallet.Primitive.Types.Tx
-    ( SealedTx )
+    ( SealedTx
+    )
 import Cardano.Wallet.Registry
-    ( HasWorkerCtx (..) )
+    ( HasWorkerCtx (..)
+    )
 import Cardano.Wallet.Shelley.Api.Server
-    ( server )
+    ( server
+    )
 import Cardano.Wallet.Shelley.BlockchainSource
-    ( BlockchainSource (..) )
+    ( BlockchainSource (..)
+    )
 import Cardano.Wallet.Shelley.Compatibility
     ( CardanoBlock
     , HasNetworkId (..)
@@ -105,11 +131,15 @@ import Cardano.Wallet.Shelley.Compatibility
     , fromCardanoBlock
     )
 import Cardano.Wallet.Shelley.Logging as Logging
-    ( ApplicationLog (..) )
+    ( ApplicationLog (..)
+    )
 import Cardano.Wallet.Shelley.Network
-    ( withNetworkLayer )
+    ( withNetworkLayer
+    )
 import Cardano.Wallet.Shelley.Network.Discriminant
-    ( SomeNetworkDiscriminant (..), networkDiscriminantToId )
+    ( SomeNetworkDiscriminant (..)
+    , networkDiscriminantToId
+    )
 import Cardano.Wallet.Shelley.Pools
     ( StakePoolLayer (..)
     , withBlockfrostStakePoolLayer
@@ -127,46 +157,67 @@ import Cardano.Wallet.Shelley.Tracers as Tracers
     , tracerSeverities
     )
 import Cardano.Wallet.Shelley.Transaction
-    ( newTransactionLayer )
+    ( newTransactionLayer
+    )
 import Cardano.Wallet.TokenMetadata
-    ( newMetadataClient )
+    ( newMetadataClient
+    )
 import Cardano.Wallet.Transaction
-    ( TransactionLayer )
+    ( TransactionLayer
+    )
 import Control.Monad.Trans.Class
-    ( lift )
+    ( lift
+    )
 import Control.Monad.Trans.Cont
-    ( ContT (ContT), evalContT )
+    ( ContT (ContT)
+    , evalContT
+    )
 import Control.Tracer
-    ( Tracer, traceWith )
+    ( Tracer
+    , traceWith
+    )
 import Data.Function
-    ( (&) )
+    ( (&)
+    )
 import Data.Maybe
-    ( fromJust )
+    ( fromJust
+    )
 import Data.Proxy
-    ( Proxy (..) )
+    ( Proxy (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Network.Ntp
-    ( NtpClient (..), NtpTrace, withWalletNtpClient )
+    ( NtpClient (..)
+    , NtpTrace
+    , withWalletNtpClient
+    )
 import Network.Socket
-    ( Socket, getSocketName )
+    ( Socket
+    , getSocketName
+    )
 import Network.URI
-    ( URI (..), parseURI )
+    ( URI (..)
+    , parseURI
+    )
 import Network.Wai.Handler.Warp
-    ( setBeforeMainLoop )
+    ( setBeforeMainLoop
+    )
+import Network.Wai.Handler.Warp qualified as Warp
 import Ouroboros.Network.Client.Wallet
-    ( PipeliningStrategy )
+    ( PipeliningStrategy
+    )
 import System.Exit
-    ( ExitCode (..) )
+    ( ExitCode (..)
+    )
 import System.IOManager
-    ( withIOManager )
+    ( withIOManager
+    )
 import Type.Reflection
-    ( Typeable )
-
-import qualified Cardano.Pool.DB.Sqlite as Pool
-import qualified Cardano.Wallet.Api.Server as Server
-import qualified Cardano.Wallet.DB.Layer as Sqlite
-import qualified Network.Wai.Handler.Warp as Warp
+    ( Typeable
+    )
+import Prelude
 
 -- | The @cardano-wallet@ main function. It takes the configuration
 -- which was passed from the CLI and environment and starts all components of
@@ -205,188 +256,197 @@ serveWallet
     -- ^ Callback to run before the main loop
     -> IO ExitCode
 serveWallet
-  blockchainSource
-  netParams@NetworkParameters
-    { protocolParameters
-    , genesisParameters
-    , slottingParameters
-    }
-  pipeliningStrategy
-  network@(SomeNetworkDiscriminant proxyNetwork)
-  shelleyGenesisPools
-  Tracers{..}
-  databaseDir
-  mPoolDatabaseDecorator
-  hostPref
-  listen
-  tlsConfig
-  settings
-  tokenMetaUri
-  block0
-  beforeMainLoop = evalContT $ do
-    lift $ case blockchainSource of
-        NodeSource nodeConn _ _ -> trace $ MsgStartingNode nodeConn
-        BlockfrostSource project -> trace $ MsgStartingLite project
-    lift . trace $ MsgNetworkName $ networkName proxyNetwork
-    netLayer <- withNetworkLayer
-        networkTracer
-        pipeliningStrategy
-        blockchainSource
-        network
-        netParams
-    stakePoolLayer <- case blockchainSource of
-        NodeSource{} -> do
-            stakePoolDbLayer <- withStakePoolDbLayer
-                poolsDbTracer
-                databaseDir
-                mPoolDatabaseDecorator
-                netLayer
-            withNodeStakePoolLayer
-                poolsEngineTracer
-                settings
-                stakePoolDbLayer
+    blockchainSource
+    netParams@NetworkParameters
+        { protocolParameters
+        , genesisParameters
+        , slottingParameters
+        }
+    pipeliningStrategy
+    network@(SomeNetworkDiscriminant proxyNetwork)
+    shelleyGenesisPools
+    Tracers {..}
+    databaseDir
+    mPoolDatabaseDecorator
+    hostPref
+    listen
+    tlsConfig
+    settings
+    tokenMetaUri
+    block0
+    beforeMainLoop = evalContT $ do
+        lift $ case blockchainSource of
+            NodeSource nodeConn _ _ -> trace $ MsgStartingNode nodeConn
+            BlockfrostSource project -> trace $ MsgStartingLite project
+        lift . trace $ MsgNetworkName $ networkName proxyNetwork
+        netLayer <-
+            withNetworkLayer
+                networkTracer
+                pipeliningStrategy
+                blockchainSource
+                network
                 netParams
-                shelleyGenesisPools
-                netLayer
-        BlockfrostSource bfProject -> do
-            withBlockfrostStakePoolLayer poolsEngineTracer bfProject network
-    randomApi <- withRandomApi netLayer
-    icarusApi  <- withIcarusApi netLayer
-    shelleyApi <- withShelleyApi netLayer
-    multisigApi <- withMultisigApi netLayer
-    ntpClient <- withNtpClient ntpClientTracer
-    bindSocket >>= lift . \case
-        Left err -> do
-            trace $ MsgServerStartupError err
-            pure $ ExitFailure $ exitCodeApiServer err
-        Right (_port, socket) -> do
-            startServer
-                proxyNetwork
-                socket
-                randomApi
-                icarusApi
-                shelleyApi
-                multisigApi
-                stakePoolLayer
-                ntpClient
-            pure ExitSuccess
+        stakePoolLayer <- case blockchainSource of
+            NodeSource {} -> do
+                stakePoolDbLayer <-
+                    withStakePoolDbLayer
+                        poolsDbTracer
+                        databaseDir
+                        mPoolDatabaseDecorator
+                        netLayer
+                withNodeStakePoolLayer
+                    poolsEngineTracer
+                    settings
+                    stakePoolDbLayer
+                    netParams
+                    shelleyGenesisPools
+                    netLayer
+            BlockfrostSource bfProject -> do
+                withBlockfrostStakePoolLayer poolsEngineTracer bfProject network
+        randomApi <- withRandomApi netLayer
+        icarusApi <- withIcarusApi netLayer
+        shelleyApi <- withShelleyApi netLayer
+        multisigApi <- withMultisigApi netLayer
+        ntpClient <- withNtpClient ntpClientTracer
+        bindSocket
+            >>= lift . \case
+                Left err -> do
+                    trace $ MsgServerStartupError err
+                    pure $ ExitFailure $ exitCodeApiServer err
+                Right (_port, socket) -> do
+                    startServer
+                        proxyNetwork
+                        socket
+                        randomApi
+                        icarusApi
+                        shelleyApi
+                        multisigApi
+                        stakePoolLayer
+                        ntpClient
+                    pure ExitSuccess
+      where
+        trace :: ApplicationLog -> IO ()
+        trace = traceWith applicationTracer
 
-  where
-    trace :: ApplicationLog -> IO ()
-    trace = traceWith applicationTracer
+        netId :: NetworkId
+        netId = networkDiscriminantToId network
 
-    netId :: NetworkId
-    netId = networkDiscriminantToId network
+        bindSocket :: ContT r IO (Either ListenError (Warp.Port, Socket))
+        bindSocket = ContT $ Server.withListeningSocket hostPref listen
 
-    bindSocket :: ContT r IO (Either ListenError (Warp.Port, Socket))
-    bindSocket = ContT $ Server.withListeningSocket hostPref listen
+        withRandomApi netLayer =
+            lift $ apiLayer (newTransactionLayer netId) netLayer Server.idleWorker
 
-    withRandomApi netLayer =
-        lift $ apiLayer (newTransactionLayer netId) netLayer Server.idleWorker
+        withIcarusApi netLayer =
+            lift $ apiLayer (newTransactionLayer netId) netLayer Server.idleWorker
 
-    withIcarusApi netLayer =
-        lift $ apiLayer (newTransactionLayer netId) netLayer Server.idleWorker
+        withShelleyApi netLayer =
+            lift $
+                apiLayer
+                    (newTransactionLayer netId)
+                    netLayer
+                    (Server.manageRewardBalance proxyNetwork)
 
-    withShelleyApi netLayer =
-        lift $ apiLayer (newTransactionLayer netId) netLayer
-            (Server.manageRewardBalance proxyNetwork)
+        withMultisigApi netLayer =
+            lift $ apiLayer (newTransactionLayer netId) netLayer Server.idleWorker
 
-    withMultisigApi netLayer =
-        lift $ apiLayer (newTransactionLayer netId) netLayer Server.idleWorker
+        startServer
+            :: forall n
+             . ( PaymentAddress n IcarusKey 'CredFromKeyK
+               , PaymentAddress n ByronKey 'CredFromKeyK
+               , DelegationAddress n ShelleyKey 'CredFromKeyK
+               , DecodeAddress n
+               , EncodeAddress n
+               , EncodeStakeAddress n
+               , DecodeStakeAddress n
+               , Typeable n
+               , HasNetworkId n
+               )
+            => Proxy n
+            -> Socket
+            -> ApiLayer (RndState n) ByronKey 'CredFromKeyK
+            -> ApiLayer (SeqState n IcarusKey) IcarusKey 'CredFromKeyK
+            -> ApiLayer (SeqState n ShelleyKey) ShelleyKey 'CredFromKeyK
+            -> ApiLayer (SharedState n SharedKey) SharedKey 'CredFromScriptK
+            -> StakePoolLayer
+            -> NtpClient
+            -> IO ()
+        startServer _proxy socket byron icarus shelley multisig spl ntp = do
+            serverUrl <- getServerUrl tlsConfig socket
+            let serverSettings =
+                    Warp.defaultSettings
+                        & setBeforeMainLoop (beforeMainLoop serverUrl)
+            let application =
+                    Server.serve (Proxy @(ApiV2 n ApiStakePool)) $
+                        server byron icarus shelley multisig spl ntp blockchainSource
+            Server.start serverSettings apiServerTracer tlsConfig socket application
 
-    startServer
-        :: forall n.
-            ( PaymentAddress n IcarusKey 'CredFromKeyK
-            , PaymentAddress n ByronKey 'CredFromKeyK
-            , DelegationAddress n ShelleyKey 'CredFromKeyK
-            , DecodeAddress n
-            , EncodeAddress n
-            , EncodeStakeAddress n
-            , DecodeStakeAddress n
-            , Typeable n
-            , HasNetworkId n
-            )
-        => Proxy n
-        -> Socket
-        -> ApiLayer (RndState n) ByronKey 'CredFromKeyK
-        -> ApiLayer (SeqState n IcarusKey) IcarusKey 'CredFromKeyK
-        -> ApiLayer (SeqState n ShelleyKey) ShelleyKey 'CredFromKeyK
-        -> ApiLayer (SharedState n SharedKey) SharedKey 'CredFromScriptK
-        -> StakePoolLayer
-        -> NtpClient
-        -> IO ()
-    startServer _proxy socket byron icarus shelley multisig spl ntp = do
-        serverUrl <- getServerUrl tlsConfig socket
-        let serverSettings = Warp.defaultSettings
-                & setBeforeMainLoop (beforeMainLoop serverUrl)
-        let application = Server.serve (Proxy @(ApiV2 n ApiStakePool)) $
-                server byron icarus shelley multisig spl ntp blockchainSource
-        Server.start serverSettings apiServerTracer tlsConfig socket application
-
-    apiLayer
-        :: forall s k ktype.
-            ( IsOurs s Address
-            , IsOurs s RewardAccount
-            , MaybeLight s
-            , PersistAddressBook s
-            , PersistPrivateKey (k 'RootK)
-            , WalletKey k
-            )
-        => TransactionLayer k ktype SealedTx
-        -> NetworkLayer IO (CardanoBlock StandardCrypto)
-        -> (WorkerCtx (ApiLayer s k ktype) -> WalletId -> IO ())
-        -> IO (ApiLayer s k ktype)
-    apiLayer txLayer netLayer coworker = do
-        tokenMetaClient <- newMetadataClient tokenMetadataTracer tokenMetaUri
-        dbFactory <- Sqlite.newDBFactory
-            walletDbTracer
-            (DefaultFieldValues
-                { defaultActiveSlotCoefficient =
-                    getActiveSlotCoefficient slottingParameters
-                , defaultDesiredNumberOfPool =
-                    desiredNumberOfStakePools protocolParameters
-                , defaultMinimumUTxOValue = Coin 0
-                    -- Unused; value does not matter anymore.
-                , defaultHardforkEpoch = Nothing
-                -- NOTE: see ADP-643
-                --
-                -- In ADP-470, we've made it possible to distinguish fees from
-                -- deposits in the API. This however required a database
-                -- migration for which the stake key deposit in vigor is needed.
-                -- This value normally comes from the Shelley genesis file, but
-                -- we have no direct access to it, nor can we reliably query the
-                -- network layer to get the current parameters. Indeed, the
-                -- `currentProtocolParameters` and `currentSlottingParameters`
-                -- functions both rely on the LSQ protocol, which would:
-                --
-                --  a) Fail if the wallet and the node are drifting too much
-                --  b) Return potentially outdated information if the node is
-                --     not synced.
-                --
-                -- Since the migration is only strictly needed for pre-existing
-                -- mainnet and testnet wallet, we currently hard-code the stake
-                -- key deposit value that _should_ be used for the migration
-                -- (which fortunately happens to be the same on both networks).
-                --
-                -- It'll do, but it ain't pretty. Without requiring the Shelley
-                -- genesis to be provided as argument I currently have no better
-                -- and safer idea than hard-coding it. And also have very little
-                -- time to do anything fancier.
-                , defaultKeyDeposit =
-                    Coin 2_000_000
-                }
-            )
-            (neverFails "db layer should never forecast into the future"
-                $ timeInterpreter netLayer)
-            databaseDir
-        Server.newApiLayer
-            walletEngineTracer
-            (block0, netParams)
-            (fromCardanoBlock genesisParameters <$> netLayer)
-            txLayer
-            dbFactory
-            tokenMetaClient
-            coworker
+        apiLayer
+            :: forall s k ktype
+             . ( IsOurs s Address
+               , IsOurs s RewardAccount
+               , MaybeLight s
+               , PersistAddressBook s
+               , PersistPrivateKey (k 'RootK)
+               , WalletKey k
+               )
+            => TransactionLayer k ktype SealedTx
+            -> NetworkLayer IO (CardanoBlock StandardCrypto)
+            -> (WorkerCtx (ApiLayer s k ktype) -> WalletId -> IO ())
+            -> IO (ApiLayer s k ktype)
+        apiLayer txLayer netLayer coworker = do
+            tokenMetaClient <- newMetadataClient tokenMetadataTracer tokenMetaUri
+            dbFactory <-
+                Sqlite.newDBFactory
+                    walletDbTracer
+                    ( DefaultFieldValues
+                        { defaultActiveSlotCoefficient =
+                            getActiveSlotCoefficient slottingParameters
+                        , defaultDesiredNumberOfPool =
+                            desiredNumberOfStakePools protocolParameters
+                        , defaultMinimumUTxOValue = Coin 0
+                        , -- Unused; value does not matter anymore.
+                          defaultHardforkEpoch = Nothing
+                        , -- NOTE: see ADP-643
+                          --
+                          -- In ADP-470, we've made it possible to distinguish fees from
+                          -- deposits in the API. This however required a database
+                          -- migration for which the stake key deposit in vigor is needed.
+                          -- This value normally comes from the Shelley genesis file, but
+                          -- we have no direct access to it, nor can we reliably query the
+                          -- network layer to get the current parameters. Indeed, the
+                          -- `currentProtocolParameters` and `currentSlottingParameters`
+                          -- functions both rely on the LSQ protocol, which would:
+                          --
+                          --  a) Fail if the wallet and the node are drifting too much
+                          --  b) Return potentially outdated information if the node is
+                          --     not synced.
+                          --
+                          -- Since the migration is only strictly needed for pre-existing
+                          -- mainnet and testnet wallet, we currently hard-code the stake
+                          -- key deposit value that _should_ be used for the migration
+                          -- (which fortunately happens to be the same on both networks).
+                          --
+                          -- It'll do, but it ain't pretty. Without requiring the Shelley
+                          -- genesis to be provided as argument I currently have no better
+                          -- and safer idea than hard-coding it. And also have very little
+                          -- time to do anything fancier.
+                          defaultKeyDeposit =
+                            Coin 2_000_000
+                        }
+                    )
+                    ( neverFails "db layer should never forecast into the future" $
+                        timeInterpreter netLayer
+                    )
+                    databaseDir
+            Server.newApiLayer
+                walletEngineTracer
+                (block0, netParams)
+                (fromCardanoBlock genesisParameters <$> netLayer)
+                txLayer
+                dbFactory
+                tokenMetaClient
+                coworker
 
 withNtpClient :: Tracer IO NtpTrace -> ContT r IO NtpClient
 withNtpClient tr = do

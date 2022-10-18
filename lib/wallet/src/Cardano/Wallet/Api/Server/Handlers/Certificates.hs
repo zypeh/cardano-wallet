@@ -7,49 +7,57 @@
 -- |
 -- Copyright: © 2020 IOHK
 -- License: Apache-2.0
---
-
 module Cardano.Wallet.Api.Server.Handlers.Certificates
     ( getApiAnyCertificates
     )
-    where
+where
 
+import Cardano.Wallet qualified as W
 import Cardano.Wallet.Api
-    ( ApiLayer )
+    ( ApiLayer
+    )
 import Cardano.Wallet.Api.Server.Error
-    ( liftHandler )
+    ( liftHandler
+    )
 import Cardano.Wallet.Api.Server.Handlers.TxCBOR
-    ( ParsedTxCBOR (..) )
+    ( ParsedTxCBOR (..)
+    )
 import Cardano.Wallet.Api.Types.Certificate
-    ( ApiAnyCertificate, mkApiAnyCertificate )
+    ( ApiAnyCertificate
+    , mkApiAnyCertificate
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( Depth (CredFromKeyK) )
+    ( Depth (CredFromKeyK)
+    )
 import Cardano.Wallet.Primitive.Types
-    ( WalletId )
+    ( WalletId
+    )
 import Cardano.Wallet.Registry
-    ( WorkerCtx )
+    ( WorkerCtx
+    )
 import Data.Typeable
-    ( Typeable )
-import Prelude hiding
-    ( (.) )
+    ( Typeable
+    )
 import Servant.Server
-    ( Handler )
-
-import qualified Cardano.Wallet as W
+    ( Handler
+    )
+import Prelude hiding
+    ( (.)
+    )
 
 -- | Promote certificates of a transaction to API type,
 -- using additional context from the 'WorkerCtx'.
 getApiAnyCertificates
-    :: forall ctx s k n.
-        ( ctx ~ ApiLayer s k 'CredFromKeyK
-        , Typeable s
-        , Typeable n
-        )
+    :: forall ctx s k n
+     . ( ctx ~ ApiLayer s k 'CredFromKeyK
+       , Typeable s
+       , Typeable n
+       )
     => WorkerCtx ctx
     -> WalletId
     -> ParsedTxCBOR
     -> Handler [ApiAnyCertificate n]
-getApiAnyCertificates wrk wid ParsedTxCBOR{certificates} = do
+getApiAnyCertificates wrk wid ParsedTxCBOR {certificates} = do
     (acct, _, acctPath) <-
         liftHandler $ W.readRewardAccount @_ @s @k @n wrk wid
     pure $ mkApiAnyCertificate acct acctPath <$> certificates

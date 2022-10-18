@@ -6,41 +6,72 @@
 -- License: Apache-2.0
 --
 -- Unit tests for 'withShutdownHandler' using pipes within a single process.
-
 module Cardano.StartupSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Startup
-    ( ShutdownHandlerLog (..), withShutdownHandler' )
+    ( ShutdownHandlerLog (..)
+    , withShutdownHandler'
+    )
 import Control.Monad
-    ( unless )
+    ( unless
+    )
 import Control.Tracer
-    ( Tracer, nullTracer )
+    ( Tracer
+    , nullTracer
+    )
 import System.IO
-    ( Handle, IOMode (..), hClose, hWaitForInput, stdin, withFile )
+    ( Handle
+    , IOMode (..)
+    , hClose
+    , hWaitForInput
+    , stdin
+    , withFile
+    )
 import System.IO.Error
-    ( isUserError )
+    ( isUserError
+    )
 import Test.Hspec
-    ( Spec, describe, it, shouldBe, shouldContain, shouldReturn, shouldThrow )
+    ( Spec
+    , describe
+    , it
+    , shouldBe
+    , shouldContain
+    , shouldReturn
+    , shouldThrow
+    )
 import Test.Hspec.Core.Spec
-    ( ResultStatus (..) )
+    ( ResultStatus (..)
+    )
 import Test.Hspec.Expectations
-    ( Expectation, HasCallStack )
+    ( Expectation
+    , HasCallStack
+    )
 import Test.Utils.Platform
-    ( nullFileName, pendingOnWindows )
+    ( nullFileName
+    , pendingOnWindows
+    )
 import Test.Utils.Trace
-    ( captureLogging )
+    ( captureLogging
+    )
 import UnliftIO.Async
-    ( race )
+    ( race
+    )
 import UnliftIO.Concurrent
-    ( threadDelay )
+    ( threadDelay
+    )
 import UnliftIO.Exception
-    ( IOException, bracket, catch, throwIO )
+    ( IOException
+    , bracket
+    , catch
+    , throwIO
+    )
 import UnliftIO.Process
-    ( createPipe )
+    ( createPipe
+    )
+import Prelude
 
 #if defined(WINDOWS)
 import UnliftIO.Concurrent
@@ -49,7 +80,7 @@ import UnliftIO.MVar
     ( MVar, newEmptyMVar, putMVar, takeMVar )
 #endif
 
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 
 spec :: Spec
 spec = describe "withShutdownHandler" $ do
@@ -153,7 +184,8 @@ spec = describe "withShutdownHandler" $ do
 
 withPipe :: ((Handle, Handle) -> IO a) -> IO a
 withPipe = bracket createPipe closePipe
-    where closePipe (a, b) = hClose b >> hClose a
+  where
+    closePipe (a, b) = hClose b >> hClose a
 
 captureLogging' :: (Tracer IO msg -> IO a) -> IO [msg]
 captureLogging' = fmap fst . captureLogging

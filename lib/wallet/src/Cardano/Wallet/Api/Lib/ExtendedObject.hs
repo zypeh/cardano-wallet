@@ -3,31 +3,38 @@
 -- |
 -- Copyright: © 2018-2022 IOHK
 -- License: Apache-2.0
-
 module Cardano.Wallet.Api.Lib.ExtendedObject
     ( parseExtendedAesonObject
     , extendAesonObject
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Wallet.Api.Lib.Options
-    ( defaultRecordTypeOptions )
+    ( defaultRecordTypeOptions
+    )
+import Data.Aeson.Key qualified as Aeson
+import Data.Aeson.KeyMap qualified as Aeson
 import Data.Aeson.Types
-    ( Parser, Value (..), genericParseJSON, genericToJSON, object, withObject )
+    ( Parser
+    , Value (..)
+    , genericParseJSON
+    , genericToJSON
+    , object
+    , withObject
+    )
+import Data.Aeson.Types qualified as Aeson
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import GHC.Generics
-    ( Generic (..) )
-
-import qualified Data.Aeson.Key as Aeson
-import qualified Data.Aeson.KeyMap as Aeson
-import qualified Data.Aeson.Types as Aeson
+    ( Generic (..)
+    )
+import Prelude
 
 parseExtendedAesonObject
     :: ( Generic a
-       , Aeson.GFromJSON Aeson.Zero (Rep a) )
+       , Aeson.GFromJSON Aeson.Zero (Rep a)
+       )
     => String
     -> Text
     -> Value
@@ -39,11 +46,12 @@ parseExtendedAesonObject txt fieldtoremove = withObject txt $ \o -> do
 
 extendAesonObject
     :: ( Generic a
-       , Aeson.GToJSON' Value Aeson.Zero (Rep a))
+       , Aeson.GToJSON' Value Aeson.Zero (Rep a)
+       )
     => [Aeson.Pair]
     -> a
     -> Value
 extendAesonObject tobeadded apipool =
     let Object obj = genericToJSON defaultRecordTypeOptions apipool
         Object obj' = object tobeadded
-    in Object $ obj <> obj'
+     in Object $ obj <> obj'

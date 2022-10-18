@@ -1,21 +1,26 @@
 -- |
 -- Copyright: © 2021 IOHK
 -- License: Apache-2.0
---
 module Test.Utils.Env
-  ( withEnv
-  , withAddedEnv
-  , clearEnv
-  ) where
-
-import Prelude
+    ( withEnv
+    , withAddedEnv
+    , clearEnv
+    )
+where
 
 import Control.Monad.IO.Unlift
-    ( MonadIO, MonadUnliftIO (..) )
+    ( MonadIO
+    , MonadUnliftIO (..)
+    )
 import UnliftIO.Environment
-    ( getEnvironment, setEnv, unsetEnv )
+    ( getEnvironment
+    , setEnv
+    , unsetEnv
+    )
 import UnliftIO.Exception
-    ( bracket )
+    ( bracket
+    )
+import Prelude
 
 -- | Runs an IO action with exactly the given environment variables.
 -- After the action finishes, the original environment variables are restored.

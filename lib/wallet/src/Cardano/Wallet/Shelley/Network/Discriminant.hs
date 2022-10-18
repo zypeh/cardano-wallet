@@ -8,12 +8,15 @@
 module Cardano.Wallet.Shelley.Network.Discriminant
     ( SomeNetworkDiscriminant (..)
     , networkDiscriminantToId
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Api.Types
-    ( DecodeAddress, DecodeStakeAddress, EncodeAddress, EncodeStakeAddress )
+    ( DecodeAddress
+    , DecodeStakeAddress
+    , EncodeAddress
+    , EncodeStakeAddress
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( DelegationAddress
     , Depth (..)
@@ -22,35 +25,43 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , PaymentAddress
     )
 import Cardano.Wallet.Primitive.AddressDerivation.Byron
-    ( ByronKey )
+    ( ByronKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Icarus
-    ( IcarusKey )
+    ( IcarusKey
+    )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
-    ( ShelleyKey )
+    ( ShelleyKey
+    )
 import Cardano.Wallet.Shelley.Compatibility
-    ( HasNetworkId (..), NetworkId )
+    ( HasNetworkId (..)
+    , NetworkId
+    )
 import Data.Proxy
-    ( Proxy )
+    ( Proxy
+    )
 import Data.Typeable
-    ( Typeable )
+    ( Typeable
+    )
+import Prelude
 
 -- | Encapsulate a network discriminant and the necessary constraints it should
 -- satisfy.
 data SomeNetworkDiscriminant where
     SomeNetworkDiscriminant
-        :: forall (n :: NetworkDiscriminant).
-            ( NetworkDiscriminantVal n
-            , PaymentAddress n IcarusKey 'CredFromKeyK
-            , PaymentAddress n ByronKey 'CredFromKeyK
-            , PaymentAddress n ShelleyKey 'CredFromKeyK
-            , DelegationAddress n ShelleyKey 'CredFromKeyK
-            , HasNetworkId n
-            , DecodeAddress n
-            , EncodeAddress n
-            , DecodeStakeAddress n
-            , EncodeStakeAddress n
-            , Typeable n
-            )
+        :: forall (n :: NetworkDiscriminant)
+         . ( NetworkDiscriminantVal n
+           , PaymentAddress n IcarusKey 'CredFromKeyK
+           , PaymentAddress n ByronKey 'CredFromKeyK
+           , PaymentAddress n ShelleyKey 'CredFromKeyK
+           , DelegationAddress n ShelleyKey 'CredFromKeyK
+           , HasNetworkId n
+           , DecodeAddress n
+           , EncodeAddress n
+           , DecodeStakeAddress n
+           , EncodeStakeAddress n
+           , Typeable n
+           )
         => Proxy n
         -> SomeNetworkDiscriminant
 

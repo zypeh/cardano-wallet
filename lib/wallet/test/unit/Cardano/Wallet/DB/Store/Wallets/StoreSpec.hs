@@ -6,34 +6,54 @@
 
 module Cardano.Wallet.DB.Store.Wallets.StoreSpec (spec, genDeltaTxWallets) where
 
-import Prelude
-
 import Cardano.DB.Sqlite
-    ( ForeignKeysSetting (..) )
+    ( ForeignKeysSetting (..)
+    )
 import Cardano.Wallet.DB.Arbitrary
-    ()
+    (
+    )
 import Cardano.Wallet.DB.Fixtures
-    ( WalletProperty, logScale, withDBInMemory, withInitializedWalletProp )
+    ( WalletProperty
+    , logScale
+    , withDBInMemory
+    , withInitializedWalletProp
+    )
 import Cardano.Wallet.DB.Store.Meta.Model
-    ( DeltaTxMetaHistory (..) )
+    ( DeltaTxMetaHistory (..)
+    )
 import Cardano.Wallet.DB.Store.Meta.ModelSpec
-    ( genDeltasForManipulate )
+    ( genDeltasForManipulate
+    )
+import Cardano.Wallet.DB.Store.Submissions.ModelSpec qualified as Subs
 import Cardano.Wallet.DB.Store.Wallets.Model
-    ( DeltaTxWalletsHistory (..), DeltaWalletsMetaWithSubmissions (..) )
+    ( DeltaTxWalletsHistory (..)
+    , DeltaWalletsMetaWithSubmissions (..)
+    )
 import Cardano.Wallet.DB.Store.Wallets.Store
-    ( mkStoreTxWalletsHistory )
+    ( mkStoreTxWalletsHistory
+    )
+import Cardano.Wallet.Primitive.Types qualified as W
 import Data.Generics.Internal.VL
-    ( view )
+    ( view
+    )
+import Data.Map.Strict qualified as Map
 import Test.DBVar
-    ( GenDelta, prop_StoreUpdates )
+    ( GenDelta
+    , prop_StoreUpdates
+    )
 import Test.Hspec
-    ( Spec, around, describe, it )
+    ( Spec
+    , around
+    , describe
+    , it
+    )
 import Test.QuickCheck
-    ( NonEmptyList (getNonEmpty), arbitrary, frequency, property )
-
-import qualified Cardano.Wallet.DB.Store.Submissions.ModelSpec as Subs
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Data.Map.Strict as Map
+    ( NonEmptyList (getNonEmpty)
+    , arbitrary
+    , frequency
+    , property
+    )
+import Prelude
 
 spec :: Spec
 spec = do
@@ -46,32 +66,34 @@ spec = do
 
 prop_StoreWalletsLaws :: WalletProperty
 prop_StoreWalletsLaws =
-  withInitializedWalletProp $ \wid runQ ->
-    prop_StoreUpdates
-      runQ
-      mkStoreTxWalletsHistory
-      (pure mempty)
-      (logScale . genDeltaTxWallets wid)
+    withInitializedWalletProp $ \wid runQ ->
+        prop_StoreUpdates
+            runQ
+            mkStoreTxWalletsHistory
+            (pure mempty)
+            (logScale . genDeltaTxWallets wid)
 
 genDeltaTxWallets :: W.WalletId -> GenDelta DeltaTxWalletsHistory
 genDeltaTxWallets wid (_, metaMap) = do
-  let metaGens = case Map.lookup wid metaMap of
-        Nothing -> []
-        Just (metas, subs) ->
-          [ ( 10,
-              ChangeTxMetaWalletsHistory wid . ChangeMeta . Manipulate
-                <$> frequency (genDeltasForManipulate metas)
-            ),
-            ( 7,
-              ChangeTxMetaWalletsHistory wid . ChangeSubmissions
-                <$> Subs.genDeltasConstrained
-                  wid
-                  subs
-                  (Just $ Map.keys $ view #relations metas)
-            ),
-            (5, pure GarbageCollectTxWalletsHistory),
-            (1, pure $ RemoveWallet wid)
-          ]
-  frequency $
-    (10, ExpandTxWalletsHistory wid . getNonEmpty <$> arbitrary) :
-    metaGens
+    let metaGens = case Map.lookup wid metaMap of
+            Nothing -> []
+            Just (metas, subs) ->
+                [
+                    ( 10
+                    , ChangeTxMetaWalletsHistory wid . ChangeMeta . Manipulate
+                        <$> frequency (genDeltasForManipulate metas)
+                    )
+                ,
+                    ( 7
+                    , ChangeTxMetaWalletsHistory wid . ChangeSubmissions
+                        <$> Subs.genDeltasConstrained
+                            wid
+                            subs
+                            (Just $ Map.keys $ view #relations metas)
+                    )
+                , (5, pure GarbageCollectTxWalletsHistory)
+                , (1, pure $ RemoveWallet wid)
+                ]
+    frequency $
+        (10, ExpandTxWalletsHistory wid . getNonEmpty <$> arbitrary)
+            : metaGens

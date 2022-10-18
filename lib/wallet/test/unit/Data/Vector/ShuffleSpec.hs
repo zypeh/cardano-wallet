@@ -2,18 +2,27 @@
 
 module Data.Vector.ShuffleSpec
     ( spec
-    ) where
+    )
+where
 
-import Prelude
-
+import Data.List qualified as L
+import Data.Text qualified as T
 import Data.Vector.Shuffle
-    ( mkSeed, shuffle, shuffleWith )
+    ( mkSeed
+    , shuffle
+    , shuffleWith
+    )
 import System.Random
-    ( mkStdGen )
+    ( mkStdGen
+    )
 import Test.Hspec
-    ( Spec, describe, it )
+    ( Spec
+    , describe
+    , it
+    )
 import Test.Hspec.Extra
-    ( parallel )
+    ( parallel
+    )
 import Test.QuickCheck
     ( Confidence (..)
     , NonEmptyList (..)
@@ -28,30 +37,37 @@ import Test.QuickCheck
     , (==>)
     )
 import Test.QuickCheck.Monadic
-    ( assert, monadicIO, monitor, pick, run )
-
-import qualified Data.List as L
-import qualified Data.Text as T
+    ( assert
+    , monadicIO
+    , monitor
+    , pick
+    , run
+    )
+import Prelude
 
 spec :: Spec
 spec = do
     parallel $ describe "shuffle" $ do
-        it "every non-empty list can be shuffled, ultimately"
+        it
+            "every non-empty list can be shuffled, ultimately"
             (checkCoverageWith lowerConfidence prop_shuffleCanShuffle)
-        it "shuffle is non-deterministic"
+        it
+            "shuffle is non-deterministic"
             (checkCoverageWith lowerConfidence prop_shuffleNotDeterministic)
-        it "sort (shuffled xs) == sort xs"
+        it
+            "sort (shuffled xs) == sort xs"
             (checkCoverageWith lowerConfidence prop_shufflePreserveElements)
 
     parallel $ describe "shuffleWith / mkSeed" $ do
-        it "shuffling with the same seed is deterministic"
+        it
+            "shuffling with the same seed is deterministic"
             (checkCoverageWith lowerConfidence prop_shuffleWithDeterministic)
-        it "different seed means different shuffles"
+        it
+            "different seed means different shuffles"
             (checkCoverageWith lowerConfidence prop_shuffleDifferentSeed)
-
   where
     lowerConfidence :: Confidence
-    lowerConfidence = Confidence (10^(6 :: Integer)) 0.75
+    lowerConfidence = Confidence (10 ^ (6 :: Integer)) 0.75
 
 {-------------------------------------------------------------------------------
                                  Properties

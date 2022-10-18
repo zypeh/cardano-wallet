@@ -1,4 +1,3 @@
-
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
@@ -7,47 +6,68 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
-{- |
-Copyright: 2022 IOHK
-License: Apache-2.0
-
-Implementation of a 'Store' for 'TxCBORHistory'.
-
--}
-
-module Cardano.Wallet.DB.Store.CBOR.Store ( mkStoreCBOR ) where
-
-import Prelude
+-- |
+--Copyright: 2022 IOHK
+--License: Apache-2.0
+--
+--Implementation of a 'Store' for 'TxCBORHistory'.
+module Cardano.Wallet.DB.Store.CBOR.Store (mkStoreCBOR) where
 
 import Cardano.Wallet.DB.Sqlite.Schema
-    ( CBOR (..), EntityField (..) )
+    ( CBOR (..)
+    , EntityField (..)
+    )
 import Cardano.Wallet.DB.Sqlite.Types
-    ( TxId (..) )
+    ( TxId (..)
+    )
 import Cardano.Wallet.DB.Store.CBOR.Model
-    ( DeltaTxCBOR (..), TxCBORHistory (..) )
+    ( DeltaTxCBOR (..)
+    , TxCBORHistory (..)
+    )
 import Cardano.Wallet.Read.Eras
 import Cardano.Wallet.Read.Tx.CBOR
-    ( TxCBOR )
+    ( TxCBOR
+    )
 import Control.Arrow
-    ( (***) )
+    ( (***)
+    )
 import Control.Exception
-    ( Exception, SomeException (..) )
+    ( Exception
+    , SomeException (..)
+    )
 import Data.Bifunctor
-    ( bimap, first )
+    ( bimap
+    , first
+    )
 import Data.ByteString
-    ( ByteString )
+    ( ByteString
+    )
+import Data.ByteString.Lazy qualified as BL
 import Data.ByteString.Lazy.Char8
-    ( fromStrict, toStrict )
+    ( fromStrict
+    , toStrict
+    )
 import Data.DBVar
-    ( Store (..) )
+    ( Store (..)
+    )
 import Data.Generics.Internal.VL
-    ( Iso', build, fromIso, iso, match, (^.) )
+    ( Iso'
+    , build
+    , fromIso
+    , iso
+    , match
+    , (^.)
+    )
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-    ( fromJust )
+    ( fromJust
+    )
 import Data.Typeable
-    ( Typeable )
+    ( Typeable
+    )
 import Data.Word
-    ( Word16 )
+    ( Word16
+    )
 import Database.Persist
     ( PersistEntity (keyFromRecordM)
     , PersistQueryWrite (deleteWhere)
@@ -57,10 +77,9 @@ import Database.Persist
     , (==.)
     )
 import Database.Persist.Sql
-    ( SqlPersistT )
-
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Map.Strict as Map
+    ( SqlPersistT
+    )
+import Prelude
 
 type TxCBORRaw = (BL.ByteString, Int)
 
@@ -70,34 +89,37 @@ i = iso (toStrict *** fromIntegral) (fromStrict *** fromIntegral)
 toTxCBOR :: (TxId, TxCBOR) -> (CBOR, TxCBORRaw)
 toTxCBOR (id', tx) =
     let r = build eraValueSerialize tx
-    in (uncurry (CBOR id') $ r ^. i, r)
+     in (uncurry (CBOR id') $ r ^. i, r)
 
-fromTxCBOR :: CBOR -> Either (CBOR, TxCBORRaw ) (TxId, TxCBOR)
-fromTxCBOR s@(CBOR {..}) = bimap (s ,) (cborTxId ,) $
-    match eraValueSerialize $ (cborTxCBOR, cborTxEra) ^. fromIso i
+fromTxCBOR :: CBOR -> Either (CBOR, TxCBORRaw) (TxId, TxCBOR)
+fromTxCBOR s@(CBOR {..}) =
+    bimap (s,) (cborTxId,) $
+        match eraValueSerialize $
+            (cborTxCBOR, cborTxEra) ^. fromIso i
 
 repsertCBORs :: TxCBORHistory -> SqlPersistT IO ()
 repsertCBORs (TxCBORHistory txs) =
     repsertMany
-        [(fromJust keyFromRecordM x, x)
+        [ (fromJust keyFromRecordM x, x)
         | x <- fst . toTxCBOR <$> Map.assocs txs
         ]
 
-newtype  CBOROutOfEra = CBOROutOfEra TxCBORRaw
+newtype CBOROutOfEra = CBOROutOfEra TxCBORRaw
     deriving (Show, Typeable)
 
 instance Exception CBOROutOfEra
 
 mkStoreCBOR :: Store (SqlPersistT IO) DeltaTxCBOR
-mkStoreCBOR = Store
-    { loadS = do
-        cbors <- selectList [] []
-        pure $ first (SomeException . CBOROutOfEra . snd) $ do
-            ps <- mapM (fromTxCBOR . entityVal) cbors
-            pure . TxCBORHistory . Map.fromList $ ps
-    , writeS = \txs -> do
-          repsertCBORs txs
-    , updateS = \_ -> \case
-          Append addendum -> repsertCBORs addendum
-          DeleteTx tid -> deleteWhere [CborTxId ==. tid ]
-    }
+mkStoreCBOR =
+    Store
+        { loadS = do
+            cbors <- selectList [] []
+            pure $ first (SomeException . CBOROutOfEra . snd) $ do
+                ps <- mapM (fromTxCBOR . entityVal) cbors
+                pure . TxCBORHistory . Map.fromList $ ps
+        , writeS = \txs -> do
+            repsertCBORs txs
+        , updateS = \_ -> \case
+            Append addendum -> repsertCBORs addendum
+            DeleteTx tid -> deleteWhere [CborTxId ==. tid]
+        }

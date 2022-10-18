@@ -5,31 +5,36 @@
 -- License: Apache-2.0
 --
 -- Computing minimum UTxO values.
---
 module Cardano.Wallet.Shelley.MinimumUTxO
     ( computeMinimumCoinForUTxO
     , isBelowMinimumCoinForUTxO
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
 import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( MinimumUTxO (..) )
+    ( MinimumUTxO (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenBundle
-    ( TokenBundle (..) )
+    ( TokenBundle (..)
+    )
+import Cardano.Wallet.Primitive.Types.TokenBundle qualified as TokenBundle
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( TokenMap )
+    ( TokenMap
+    )
 import Cardano.Wallet.Primitive.Types.Tx
-    ( TxOut (..) )
+    ( TxOut (..)
+    )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
-    ( txOutMaxCoin )
-
-import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
-import qualified Cardano.Wallet.Shelley.MinimumUTxO.Internal as Internal
+    ( txOutMaxCoin
+    )
+import Cardano.Wallet.Shelley.MinimumUTxO.Internal qualified as Internal
+import Prelude
 
 -- | Computes a minimum 'Coin' value for a 'TokenMap' that is destined for
 --   inclusion in a transaction output.
@@ -38,7 +43,6 @@ import qualified Cardano.Wallet.Shelley.MinimumUTxO.Internal as Internal
 -- the minimum should also satisfy the minimum UTxO rule. Consequently, when
 -- assigning ada quantities to outputs, it should be safe to assign any value
 -- that is greater than or equal to the value returned by this function.
---
 computeMinimumCoinForUTxO
     :: MinimumUTxO
     -> Address
@@ -90,7 +94,6 @@ computeMinimumCoinForUTxO minimumUTxO addr tokenMap =
 --
 -- If you need to generate a value that can always safely be increased, use
 -- the 'computeMinimumCoinForUTxO' function instead.
---
 isBelowMinimumCoinForUTxO
     :: MinimumUTxO
     -> Address
@@ -103,7 +106,7 @@ isBelowMinimumCoinForUTxO minimumUTxO addr tokenBundle =
         MinimumUTxOConstant c ->
             TokenBundle.getCoin tokenBundle < c
         MinimumUTxOForShelleyBasedEraOf minimumUTxOShelley ->
-            TokenBundle.getCoin tokenBundle <
-                Internal.computeMinimumCoinForUTxO_CardanoLedger
+            TokenBundle.getCoin tokenBundle
+                < Internal.computeMinimumCoinForUTxO_CardanoLedger
                     minimumUTxOShelley
                     (TxOut addr tokenBundle)

@@ -4,8 +4,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Cardano.Wallet.Primitive.Types.TokenQuantity
-    (
-      -- * Type
+    ( -- * Type
       TokenQuantity (..)
 
       -- * Values
@@ -30,38 +29,56 @@ module Cardano.Wallet.Primitive.Types.TokenQuantity
 
       -- * Unsafe operations
     , unsafeSubtract
-
-    ) where
-
-import Prelude hiding
-    ( pred, subtract, succ )
+    )
+where
 
 import Cardano.Numeric.Util
-    ( equipartitionNatural, partitionNatural )
+    ( equipartitionNatural
+    , partitionNatural
+    )
 import Control.DeepSeq
-    ( NFData (..) )
+    ( NFData (..)
+    )
 import Control.Monad
-    ( guard )
+    ( guard
+    )
 import Data.Aeson
-    ( FromJSON (..), ToJSON (..) )
+    ( FromJSON (..)
+    , ToJSON (..)
+    )
 import Data.Functor
-    ( ($>) )
+    ( ($>)
+    )
 import Data.Hashable
-    ( Hashable )
+    ( Hashable
+    )
 import Data.List.NonEmpty
-    ( NonEmpty (..) )
+    ( NonEmpty (..)
+    )
 import Data.Maybe
-    ( fromMaybe )
+    ( fromMaybe
+    )
 import Data.Text.Class
-    ( FromText (..), ToText (..) )
+    ( FromText (..)
+    , ToText (..)
+    )
 import Fmt
-    ( Buildable (..) )
+    ( Buildable (..)
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import Numeric.Natural
-    ( Natural )
+    ( Natural
+    )
 import Quiet
-    ( Quiet (..) )
+    ( Quiet (..)
+    )
+import Prelude hiding
+    ( pred
+    , subtract
+    , succ
+    )
 
 --------------------------------------------------------------------------------
 -- Type
@@ -75,9 +92,8 @@ import Quiet
 --
 -- When we build support for minting and burning of tokens, we may wish to
 -- parameterize this type and allow it to be instantiated with 'Integer'.
---
 newtype TokenQuantity = TokenQuantity
-    { unTokenQuantity :: Natural }
+    {unTokenQuantity :: Natural}
     deriving stock (Eq, Ord, Generic)
     deriving (Read, Show) via (Quiet TokenQuantity)
     deriving anyclass (NFData, Hashable)
@@ -103,6 +119,7 @@ instance FromText TokenQuantity where
 
 instance FromJSON TokenQuantity where
     parseJSON = fmap TokenQuantity . parseJSON
+
 instance ToJSON TokenQuantity where
     toJSON = toJSON . unTokenQuantity
 
@@ -123,14 +140,12 @@ add (TokenQuantity x) (TokenQuantity y) = TokenQuantity $ x + y
 -- | Subtracts the second token quantity from the first.
 --
 -- Returns 'Nothing' if the first quantity is less than the second quantity.
---
 subtract :: TokenQuantity -> TokenQuantity -> Maybe TokenQuantity
 subtract x y = guard (x >= y) $> unsafeSubtract x y
 
 -- | Finds the predecessor of a given token quantity.
 --
 -- Returns 'Nothing' if the given quantity is zero.
---
 pred :: TokenQuantity -> Maybe TokenQuantity
 pred = (`subtract` TokenQuantity 1)
 
@@ -141,19 +156,16 @@ pred = (`subtract` TokenQuantity 1)
 -- Satisfies the following property:
 --
 -- >>> predZero x == x `difference` 1
---
 predZero :: TokenQuantity -> TokenQuantity
 predZero = fromMaybe zero . pred
 
 -- | Finds the successor of a given token quantity.
---
 succ :: TokenQuantity -> TokenQuantity
 succ = (`add` TokenQuantity 1)
 
 -- | Subtracts the second token quantity from the first.
 --
 -- Returns 'zero' if the first quantity is less than the second quantity.
---
 difference :: TokenQuantity -> TokenQuantity -> TokenQuantity
 difference x y = fromMaybe zero $ subtract x y
 
@@ -167,7 +179,6 @@ difference x y = fromMaybe zero $ subtract x y
 -- into 'n' smaller quantities whose values differ by no more than 1.
 --
 -- The resultant list is sorted in ascending order.
---
 equipartition
     :: TokenQuantity
     -- ^ The token quantity to be partitioned.
@@ -184,7 +195,6 @@ equipartition q =
 --   the number of weights.
 --
 -- Returns 'Nothing' if the sum of weights is equal to zero.
---
 partition
     :: TokenQuantity
     -- ^ The token quantity to be partitioned.
@@ -192,10 +202,10 @@ partition
     -- ^ The list of weights.
     -> Maybe (NonEmpty TokenQuantity)
     -- ^ The partitioned token quantities.
-partition c
-    = fmap (fmap TokenQuantity)
-    . partitionNatural (unTokenQuantity c)
-    . fmap unTokenQuantity
+partition c =
+    fmap (fmap TokenQuantity)
+        . partitionNatural (unTokenQuantity c)
+        . fmap unTokenQuantity
 
 -- | Partitions a token quantity into a number of parts, where the size of each
 --   part is proportional (modulo rounding) to the size of its corresponding
@@ -211,7 +221,6 @@ partition c
 -- 'equipartition' satisfying the following property:
 --
 -- prop> partitionDefault q ws == equipartition q ws
---
 partitionDefault
     :: TokenQuantity
     -- ^ The token quantity to be partitioned.
@@ -240,6 +249,5 @@ isZero = (== zero)
 -- Pre-condition: the first quantity is not less than the second quantity.
 --
 -- Throws a run-time exception if the pre-condition is violated.
---
 unsafeSubtract :: TokenQuantity -> TokenQuantity -> TokenQuantity
 unsafeSubtract (TokenQuantity x) (TokenQuantity y) = TokenQuantity $ x - y

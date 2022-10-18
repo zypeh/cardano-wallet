@@ -13,14 +13,13 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Cardano.Wallet.Network
-    (
-    -- * Interface
+    ( -- * Interface
       NetworkLayer (..)
 
-    -- * Errors
+      -- * Errors
     , ErrPostTx (..)
 
-    -- * Chain following
+      -- * Chain following
     , ChainFollower (..)
     , mapChainFollower
     , ChainFollowLog (..)
@@ -28,29 +27,37 @@ module Cardano.Wallet.Network
     , mapChainSyncLog
     , withFollowStatsMonitoring
 
-    -- * Logging (for testing)
+      -- * Logging (for testing)
     , FollowStats (..)
     , Rearview (..)
     , emptyStats
     , updateStats
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Api
-    ( AnyCardanoEra )
+    ( AnyCardanoEra
+    )
 import Cardano.BM.Data.Severity
-    ( Severity (..) )
+    ( Severity (..)
+    )
 import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
+    ( HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
+    )
 import Cardano.Wallet.Checkpoints.Policy
-    ( CheckpointPolicy )
+    ( CheckpointPolicy
+    )
 import Cardano.Wallet.Primitive.BlockSummary
-    ( LightSummary )
+    ( LightSummary
+    )
 import Cardano.Wallet.Primitive.Slotting
-    ( PastHorizonException, TimeInterpreter )
+    ( PastHorizonException
+    , TimeInterpreter
+    )
 import Cardano.Wallet.Primitive.SyncProgress
-    ( SyncProgress (..) )
+    ( SyncProgress (..)
+    )
 import Cardano.Wallet.Primitive.Types
     ( Block
     , BlockHeader (..)
@@ -61,130 +68,149 @@ import Cardano.Wallet.Primitive.Types
     , StakePoolsSummary
     )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin )
+    ( Coin
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount (..) )
+    ( RewardAccount (..)
+    )
 import Cardano.Wallet.Primitive.Types.Tx
-    ( SealedTx )
+    ( SealedTx
+    )
 import Control.Monad.Class.MonadSTM
-    ( atomically )
+    ( atomically
+    )
 import Control.Monad.Class.MonadSTM.Strict
-    ( StrictTMVar, newTMVarIO, putTMVar, takeTMVar )
+    ( StrictTMVar
+    , newTMVarIO
+    , putTMVar
+    , takeTMVar
+    )
 import Control.Monad.Trans.Except
-    ( ExceptT (..) )
+    ( ExceptT (..)
+    )
 import Control.Tracer
-    ( Tracer, contramapM, traceWith )
+    ( Tracer
+    , contramapM
+    , traceWith
+    )
 import Data.List.NonEmpty
-    ( NonEmpty (..) )
+    ( NonEmpty (..)
+    )
+import Data.List.NonEmpty qualified as NE
 import Data.Map
-    ( Map )
+    ( Map
+    )
 import Data.Set
-    ( Set )
+    ( Set
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Data.Text.Class
-    ( ToText (..) )
+    ( ToText (..)
+    )
 import Data.Time.Clock
-    ( UTCTime, diffUTCTime, getCurrentTime )
+    ( UTCTime
+    , diffUTCTime
+    , getCurrentTime
+    )
 import Fmt
-    ( pretty )
+    ( pretty
+    )
 import GHC.Generics
-    ( Generic )
+    ( Generic
+    )
 import NoThunks.Class
-    ( AllowThunksIn (..), NoThunks (..) )
+    ( AllowThunksIn (..)
+    , NoThunks (..)
+    )
 import Numeric.Natural
-    ( Natural )
+    ( Natural
+    )
 import Safe
-    ( headMay )
+    ( headMay
+    )
 import UnliftIO.Async
-    ( race_ )
+    ( race_
+    )
 import UnliftIO.Concurrent
-    ( threadDelay )
-
-import qualified Data.List.NonEmpty as NE
+    ( threadDelay
+    )
+import Prelude
 
 {-------------------------------------------------------------------------------
     ChainSync
 -------------------------------------------------------------------------------}
+
 -- | Interface for network capabilities.
 data NetworkLayer m block = NetworkLayer
     { chainSync
         :: Tracer IO ChainFollowLog
         -> ChainFollower m ChainPoint BlockHeader (NonEmpty block)
         -> m ()
-        -- ^ Connect to the node and run the ChainSync protocol.
-        -- The callbacks provided in the 'ChainFollower' argument
-        -- are used to handle intersection finding,
-        -- the arrival of new blocks, and rollbacks.
-
+    -- ^ Connect to the node and run the ChainSync protocol.
+    -- The callbacks provided in the 'ChainFollower' argument
+    -- are used to handle intersection finding,
+    -- the arrival of new blocks, and rollbacks.
     , lightSync
-        :: Maybe (
-            ChainFollower m ChainPoint BlockHeader (LightBlocks m Block)
-            -> m ()
-          )
-        -- ^ Connect to a data source that offers an efficient
-        -- query @Address -> Transactions@.
-
+        :: Maybe
+            ( ChainFollower m ChainPoint BlockHeader (LightBlocks m Block)
+              -> m ()
+            )
+    -- ^ Connect to a data source that offers an efficient
+    -- query @Address -> Transactions@.
     , currentNodeTip
         :: m BlockHeader
-        -- ^ Get the current tip from the chain producer
-
+    -- ^ Get the current tip from the chain producer
     , currentNodeEra
         :: m AnyCardanoEra
-        -- ^ Get the era the node is currently in.
-
+    -- ^ Get the era the node is currently in.
     , currentProtocolParameters
         :: m ProtocolParameters
-        -- ^ Get the last known protocol parameters. In principle, these can
-        -- only change once per epoch.
-
+    -- ^ Get the last known protocol parameters. In principle, these can
+    -- only change once per epoch.
     , currentSlottingParameters
         :: m SlottingParameters
-        -- ^ Get the last known slotting parameters. In principle, these can
-        -- only change once per era.
-
+    -- ^ Get the last known slotting parameters. In principle, these can
+    -- only change once per era.
     , watchNodeTip
         :: (BlockHeader -> m ())
         -> m ()
-        -- ^ Register a callback for when the node tip changes.
-        -- This function should never finish, unless the callback throws an
-        -- exception, which will be rethrown by this function.
-
+    -- ^ Register a callback for when the node tip changes.
+    -- This function should never finish, unless the callback throws an
+    -- exception, which will be rethrown by this function.
     , postTx
-        :: SealedTx -> ExceptT ErrPostTx m ()
-        -- ^ Broadcast a transaction to the chain producer
-
+        :: SealedTx
+        -> ExceptT ErrPostTx m ()
+    -- ^ Broadcast a transaction to the chain producer
     , stakeDistribution
         :: Coin -- Stake to consider for rewards
         -> m StakePoolsSummary
-
     , getCachedRewardAccountBalance
         :: RewardAccount
         -> m Coin
-        -- ^ Return the cached reward balance of an account.
-        --
-        -- If there is no cached value, it will return `Coin 0`, and add the
-        -- account to the internal set of observed account, such that it will be
-        -- fetched later.
-
+    -- ^ Return the cached reward balance of an account.
+    --
+    -- If there is no cached value, it will return `Coin 0`, and add the
+    -- account to the internal set of observed account, such that it will be
+    -- fetched later.
     , fetchRewardAccountBalances
         :: Set RewardAccount
         -> m (Map RewardAccount Coin)
-        -- ^ Fetch the reward account balance of a set of accounts without
-        -- any caching.
-
+    -- ^ Fetch the reward account balance of a set of accounts without
+    -- any caching.
     , timeInterpreter
         :: TimeInterpreter (ExceptT PastHorizonException m)
-
     , syncProgress
-        :: SlotNo -> m (SyncProgress)
-        -- ^ Compute the ratio between the provided 'SlotNo' and the slot
-        -- corresponding to the current wall-clock time.
-        --
-        -- Unlike using 'Cardano.Wallet.Primitive.SyncProgress.syncProgress'
-        -- after retrieving a 'timeInterpreter', this function will return
-        -- 'NotResponding' rather than block in the edge case when the era
-        -- history has not yet been fetched from the node on startup.
+        :: SlotNo
+        -> m (SyncProgress)
+    -- ^ Compute the ratio between the provided 'SlotNo' and the slot
+    -- corresponding to the current wall-clock time.
+    --
+    -- Unlike using 'Cardano.Wallet.Primitive.SyncProgress.syncProgress'
+    -- after retrieving a 'timeInterpreter', this function will return
+    -- 'NotResponding' rather than block in the edge case when the era
+    -- history has not yet been fetched from the node on startup.
     }
 
 -- | In light-mode, we receive either a list of blocks as usual,
@@ -192,78 +218,79 @@ data NetworkLayer m block = NetworkLayer
 type LightBlocks m block = Either (NonEmpty block) (LightSummary m)
 
 instance Functor m => Functor (NetworkLayer m) where
-    fmap f nl = nl
-        { chainSync = \tr follower ->
-            chainSync nl tr $ mapChainFollower id id id (fmap f) follower
-        }
+    fmap f nl =
+        nl
+            { chainSync = \tr follower ->
+                chainSync nl tr $ mapChainFollower id id id (fmap f) follower
+            }
 
 -- | A collection of callbacks to use with the 'chainSync' function.
 data ChainFollower m point tip blocks = ChainFollower
     { checkpointPolicy :: Integer -> CheckpointPolicy
-        -- ^ The policy for creating and pruning checkpoints that
-        -- is used by the 'ChainFollower'.
-        -- The argument of this field is the @epochStability@.
-        --
-        -- Exposing this policy here enables any chain synchronizer
-        -- which does not retrieve full blocks, such as 'lightSync',
-        -- to specifically target those block heights at which
-        -- the 'ChainFollower' intends to create checkpoints.
-
+    -- ^ The policy for creating and pruning checkpoints that
+    -- is used by the 'ChainFollower'.
+    -- The argument of this field is the @epochStability@.
+    --
+    -- Exposing this policy here enables any chain synchronizer
+    -- which does not retrieve full blocks, such as 'lightSync',
+    -- to specifically target those block heights at which
+    -- the 'ChainFollower' intends to create checkpoints.
     , readChainPoints :: m [point]
-        -- ^ Callback for reading the local tip. Used to negotiate the
-        -- intersection with the node.
-        --
-        -- A response of [] is interpreted as `Origin` -- i.e. the chain will be
-        -- served from genesis.
-
+    -- ^ Callback for reading the local tip. Used to negotiate the
+    -- intersection with the node.
+    --
+    -- A response of [] is interpreted as `Origin` -- i.e. the chain will be
+    -- served from genesis.
     , rollForward :: blocks -> tip -> m ()
-        -- ^ Callback for rolling forward.
-        --
-        -- Implementors _may_ delete old checkpoints while rolling forward.
-
+    -- ^ Callback for rolling forward.
+    --
+    -- Implementors _may_ delete old checkpoints while rolling forward.
     , rollBackward :: point -> m point
-        -- ^ Roll back to the requested slot, or further, and return the point
-        -- actually rolled back to.
-        --
-        -- __Example 1:__
-        --
-        -- If the follower stores checkpoints for all blocks, we can always roll
-        -- back to the requested point exactly.
-        --
-        -- @
-        -- -- If
-        -- knownSlots follower `shouldReturn` [0,1,2,3]
-        -- let requested = SlotNo 2
-        -- -- Then
-        -- actual <- rollBackward follower requested
-        -- knownSlots follower shouldReturn` [0,1,2]
-        -- actual `shouldBe` SlotNo 2
-        -- @
-        --
-        -- Note that the slotNos are unlikely to be consecutive in real life,
-        -- but this doesn't matter, as ouroboros-network asks us to rollback to
-        -- points, corresponding to blocks.
-        --
-        -- __Example 2:__
-        --
-        -- @
-        -- -- If
-        -- knownSlots follower `shouldReturn` [0,9,10]
-        -- let requested = SlotNo 2
-        -- -- Then
-        -- actual <- rollBackward follower requested
-        -- knownSlots follower shouldReturn` [0]
-        -- actual `shouldBe` SlotNo 0
-        -- @
-        --
+    -- ^ Roll back to the requested slot, or further, and return the point
+    -- actually rolled back to.
+    --
+    -- __Example 1:__
+    --
+    -- If the follower stores checkpoints for all blocks, we can always roll
+    -- back to the requested point exactly.
+    --
+    -- @
+    -- -- If
+    -- knownSlots follower `shouldReturn` [0,1,2,3]
+    -- let requested = SlotNo 2
+    -- -- Then
+    -- actual <- rollBackward follower requested
+    -- knownSlots follower shouldReturn` [0,1,2]
+    -- actual `shouldBe` SlotNo 2
+    -- @
+    --
+    -- Note that the slotNos are unlikely to be consecutive in real life,
+    -- but this doesn't matter, as ouroboros-network asks us to rollback to
+    -- points, corresponding to blocks.
+    --
+    -- __Example 2:__
+    --
+    -- @
+    -- -- If
+    -- knownSlots follower `shouldReturn` [0,9,10]
+    -- let requested = SlotNo 2
+    -- -- Then
+    -- actual <- rollBackward follower requested
+    -- knownSlots follower shouldReturn` [0]
+    -- actual `shouldBe` SlotNo 0
+    -- @
     }
 
 mapChainFollower
     :: Functor m
-    => (point1 -> point2) -- ^ Covariant
-    -> (point2 -> point1) -- ^ Contravariant
-    -> (tip2 -> tip1) -- ^ Contravariant
-    -> (blocks2 -> blocks1) -- ^ Contravariant
+    => (point1 -> point2)
+    -- ^ Covariant
+    -> (point2 -> point1)
+    -- ^ Contravariant
+    -> (tip2 -> tip1)
+    -- ^ Contravariant
+    -> (blocks2 -> blocks1)
+    -- ^ Contravariant
     -> ChainFollower m point1 tip1 blocks1
     -> ChainFollower m point2 tip2 blocks2
 mapChainFollower fpoint12 fpoint21 ftip fblocks cf =
@@ -318,30 +345,34 @@ mapChainSyncLog f g = \case
 
 instance ToText (ChainSyncLog BlockHeader ChainPoint) where
     toText = \case
-        MsgChainFindIntersect cps -> mconcat
-            [ "Requesting intersection using "
-            , toText (length cps)
-            , " points"
-            , maybe "" ((", the latest being " <>) . pretty) (headMay cps)
-            ]
+        MsgChainFindIntersect cps ->
+            mconcat
+                [ "Requesting intersection using "
+                , toText (length cps)
+                , " points"
+                , maybe "" ((", the latest being " <>) . pretty) (headMay cps)
+                ]
         MsgChainRollForward headers tip ->
             let buildRange (x :| []) = x
                 buildRange xs = NE.head xs <> ".." <> NE.last xs
                 slots = pretty . slotNo <$> headers
-            in mconcat
-                [ "ChainSync roll forward: "
-                , "applying blocks at slots [", buildRange slots, "]"
-                , ", tip is "
-                , pretty tip
-                ]
+             in mconcat
+                    [ "ChainSync roll forward: "
+                    , "applying blocks at slots ["
+                    , buildRange slots
+                    , "]"
+                    , ", tip is "
+                    , pretty tip
+                    ]
         MsgChainRollBackward b 0 ->
             "ChainSync roll backward: " <> pretty b
-        MsgChainRollBackward b bufferSize -> mconcat
-            [ "ChainSync roll backward: "
-            , pretty b
-            , ", handled inside pipeline buffer with remaining length "
-            , toText bufferSize
-            ]
+        MsgChainRollBackward b bufferSize ->
+            mconcat
+                [ "ChainSync roll backward: "
+                , pretty b
+                , ", handled inside pipeline buffer with remaining length "
+                , toText bufferSize
+                ]
         MsgChainTip tip ->
             "Node tip is " <> pretty tip
         MsgLocalTip point ->
@@ -352,12 +383,12 @@ instance HasPrivacyAnnotation (ChainSyncLog block point)
 
 instance HasSeverityAnnotation (ChainSyncLog block point) where
     getSeverityAnnotation = \case
-        MsgChainFindIntersect{} -> Debug
-        MsgChainRollForward{} -> Debug
-        MsgChainRollBackward{} -> Debug
-        MsgChainTip{} -> Debug
-        MsgLocalTip{} -> Debug
-        MsgTipDistance{} -> Debug
+        MsgChainFindIntersect {} -> Debug
+        MsgChainRollForward {} -> Debug
+        MsgChainRollBackward {} -> Debug
+        MsgChainTip {} -> Debug
+        MsgLocalTip {} -> Debug
+        MsgTipDistance {} -> Debug
 
 -- | Higher level log of a chain follower.
 -- Includes computed statistics about synchronization progress.
@@ -374,6 +405,7 @@ instance ToText ChainFollowLog where
         MsgStartFollowing -> "Chain following starting."
 
 instance HasPrivacyAnnotation ChainFollowLog
+
 instance HasSeverityAnnotation ChainFollowLog where
     getSeverityAnnotation = \case
         MsgChainSync msg -> getSeverityAnnotation msg
@@ -383,6 +415,7 @@ instance HasSeverityAnnotation ChainFollowLog where
 {-------------------------------------------------------------------------------
     Log aggregation
 -------------------------------------------------------------------------------}
+
 -- | Statistics of interest from the follow-function.
 --
 -- The @f@ allows us to use 'Rearview' to keep track of both current and
@@ -392,18 +425,22 @@ data FollowStats f = FollowStats
     , rollbacks :: !(f Int)
     , localTip :: !(f ChainPoint)
     , time :: !(f UTCTime)
-      -- ^ NOTE: Current time is not updated until @flush@ is called.
+    -- ^ NOTE: Current time is not updated until @flush@ is called.
     , prog :: !(f SyncProgress)
-      -- ^ NOTE: prog is not updated until @flush@ is called.
-    } deriving (Generic)
+    -- ^ NOTE: prog is not updated until @flush@ is called.
+    }
+    deriving (Generic)
 
 -- It seems UTCTime contains thunks internally. This shouldn't matter as we
 -- 1. Change it seldom - from @flush@, not from @updateStats@
 -- 2. Set to a completely new value when we do change it.
-deriving via (AllowThunksIn '["time"] (FollowStats Rearview))
-    instance (NoThunks (FollowStats Rearview))
+deriving via
+    (AllowThunksIn '["time"] (FollowStats Rearview))
+    instance
+        (NoThunks (FollowStats Rearview))
 
 deriving instance Show (FollowStats Rearview)
+
 deriving instance Eq (FollowStats Rearview)
 
 -- | Change the @f@ wrapping each record field.
@@ -422,9 +459,12 @@ hoistStats f (FollowStats a b c d e) =
 -- 2. Sometimes log the difference between the @current@ state and the most
 -- recently logged one.
 data Rearview a = Rearview
-    { past :: !a -- ^ Most previously logged state
-    , current :: !a -- ^ Not-yet logged state
-    } deriving (Eq, Show, Functor, Generic)
+    { past :: !a
+    -- ^ Most previously logged state
+    , current :: !a
+    -- ^ Not-yet logged state
+    }
+    deriving (Eq, Show, Functor, Generic)
 
 instance NoThunks a => NoThunks (Rearview a)
 
@@ -444,15 +484,16 @@ emptyStats t = FollowStats (f 0) (f 0) (f ChainPointAtGenesis) (f t) (f p)
 -- | Update the current statistics based on a new log message.
 updateStats
     :: ChainSyncLog block ChainPoint
-    -> FollowStats Rearview -> FollowStats Rearview
+    -> FollowStats Rearview
+    -> FollowStats Rearview
 updateStats msg s = case msg of
     MsgChainRollForward blocks _tip ->
-        s { blocksApplied = overCurrent (+ NE.length blocks) (blocksApplied s) }
+        s {blocksApplied = overCurrent (+ NE.length blocks) (blocksApplied s)}
     MsgChainRollBackward _ 0 ->
         -- rolled back in a way that could not be handled by the pipeline buffer
-        s { rollbacks = overCurrent (1 +) (rollbacks s) }
+        s {rollbacks = overCurrent (1 +) (rollbacks s)}
     MsgLocalTip point ->
-        s { localTip = overCurrent (const point) (localTip s) }
+        s {localTip = overCurrent (const point) (localTip s)}
     _ -> s
 
 instance ToText (FollowStats Rearview) where
@@ -474,19 +515,21 @@ instance ToText (FollowStats Rearview) where
                 "Syncing (" <> (pretty p) <> ")"
             Rearview past_ NotResponding ->
                 "Not responding. Previously " <> (pretty past_) <> "."
-        stats = mconcat
-            [ "Applied " <> pretty (using (-) b) <> " blocks, "
-            , pretty (using (-) r) <> " rollbacks "
-            , "in the last " <> pretty (using diffUTCTime t) <> ". "
-            , "Current tip is " <> pretty (current tip) <> "."
-            ]
+        stats =
+            mconcat
+                [ "Applied " <> pretty (using (-) b) <> " blocks, "
+                , pretty (using (-) r) <> " rollbacks "
+                , "in the last " <> pretty (using diffUTCTime t) <> ". "
+                , "Current tip is " <> pretty (current tip) <> "."
+                ]
           where
             using f x = f (current x) (past x)
 
-        sevExpl = maybe
-            ""
-            (\x -> " (" <> x <> ")")
-            (snd $ explainedSeverityAnnotation st)
+        sevExpl =
+            maybe
+                ""
+                (\x -> " (" <> x <> ")")
+                (snd $ explainedSeverityAnnotation st)
 
 -- NOTE: Here we check if the sync progress is going backwards, which
 -- would be a sign the wallet is overloaded (or rollbacks)
@@ -520,8 +563,10 @@ flushStats
 flushStats t calcSyncProgress var = do
     s <- atomically $ takeTMVar var
     p <- calcSyncProgress $ pseudoSlotNo $ current $ localTip s
-    let s' = s { time = overCurrent (const t) (time s) }
-               { prog = overCurrent (const p) (prog s) }
+    let s' =
+            s {time = overCurrent (const t) (time s)}
+                { prog = overCurrent (const p) (prog s)
+                }
     atomically $ putTMVar var $ hoistStats forgetPast s'
     return s'
   where
@@ -544,7 +589,7 @@ withFollowStatsMonitoring
     -> (Tracer IO (ChainSyncLog BlockHeader ChainPoint) -> IO ())
     -> IO ()
 withFollowStatsMonitoring tr calcSyncProgress act = do
-    t0  <- getCurrentTime
+    t0 <- getCurrentTime
     var <- newTMVarIO $ emptyStats t0
     let trChainSyncLog = flip contramapM tr $ \msg -> do
             atomically $ do
@@ -563,16 +608,16 @@ withFollowStatsMonitoring tr calcSyncProgress act = do
         traceWith tr $ MsgFollowStats s
         let delay' =
                 if (current (prog s)) == Ready
-                then restoredDelay
-                else syncingDelay
+                    then restoredDelay
+                    else syncingDelay
         loop var delay'
 
-    -- | Delay from launch to the first status update
+    -- \| Delay from launch to the first status update
     startupDelay = 5 * second
-    -- | Delay between status updates when restored
+    -- \| Delay between status updates when restored
     restoredDelay = 5 * minute
-    -- | Delay between status updates when not restored
+    -- \| Delay between status updates when not restored
     syncingDelay = 30 * second
 
-    second = 1000*1000
+    second = 1000 * 1000
     minute = 60 * second

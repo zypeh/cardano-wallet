@@ -7,8 +7,6 @@
 -- License: Apache-2.0
 --
 -- Hashing of wallet passwords.
---
-
 module Cardano.Wallet.Primitive.Passphrase
     ( -- * Passphrases from the user
       Passphrase (..)
@@ -30,18 +28,20 @@ module Cardano.Wallet.Primitive.Passphrase
     , changePassphraseXPrv
     , checkAndChangePassphraseXPrv
     , ErrWrongPassphrase (..)
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Crypto.Wallet
-    ( XPrv, xPrvChangePass )
+    ( XPrv
+    , xPrvChangePass
+    )
+import Cardano.Wallet.Primitive.Passphrase.Current qualified as PBKDF2
+import Cardano.Wallet.Primitive.Passphrase.Legacy qualified as Scrypt
 import Cardano.Wallet.Primitive.Passphrase.Types
 import Crypto.Random.Types
-    ( MonadRandom )
-
-import qualified Cardano.Wallet.Primitive.Passphrase.Current as PBKDF2
-import qualified Cardano.Wallet.Primitive.Passphrase.Legacy as Scrypt
+    ( MonadRandom
+    )
+import Prelude
 
 currentPassphraseScheme :: PassphraseScheme
 currentPassphraseScheme = EncryptWithPBKDF2
@@ -52,8 +52,9 @@ encryptPassphrase
     :: MonadRandom m
     => Passphrase "user"
     -> m (PassphraseScheme, PassphraseHash)
-encryptPassphrase = fmap (currentPassphraseScheme,)
-    . encryptPassphrase' currentPassphraseScheme
+encryptPassphrase =
+    fmap (currentPassphraseScheme,)
+        . encryptPassphrase' currentPassphraseScheme
 
 encryptPassphrase'
     :: MonadRandom m
@@ -98,11 +99,11 @@ checkPassphrase scheme received stored = case scheme of
 -- will lead to very bad thing.
 changePassphraseXPrv
     :: (PassphraseScheme, Passphrase "user")
-       -- ^ Old passphrase
+    -- ^ Old passphrase
     -> (PassphraseScheme, Passphrase "user")
-       -- ^ New passphrase
+    -- ^ New passphrase
     -> XPrv
-       -- ^ Key to re-encrypt
+    -- ^ Key to re-encrypt
     -> XPrv
 changePassphraseXPrv (oldS, old) (newS, new) = xPrvChangePass oldP newP
   where
@@ -113,11 +114,11 @@ changePassphraseXPrv (oldS, old) (newS, new) = xPrvChangePass oldP newP
 checkAndChangePassphraseXPrv
     :: MonadRandom m
     => ((PassphraseScheme, PassphraseHash), Passphrase "user")
-       -- ^ Old passphrase
+    -- ^ Old passphrase
     -> Passphrase "user"
-       -- ^ New passphrase
+    -- ^ New passphrase
     -> XPrv
-       -- ^ Key to re-encrypt
+    -- ^ Key to re-encrypt
     -> m (Either ErrWrongPassphrase ((PassphraseScheme, PassphraseHash), XPrv))
 checkAndChangePassphraseXPrv ((oldS, oldH), old) new key =
     case checkPassphrase oldS old oldH of

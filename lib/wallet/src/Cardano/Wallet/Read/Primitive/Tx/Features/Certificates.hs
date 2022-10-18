@@ -6,65 +6,79 @@
 -- |
 -- Copyright: © 2020 IOHK
 -- License: Apache-2.0
---
-
 module Cardano.Wallet.Read.Primitive.Tx.Features.Certificates
     ( certificates
     , anyEraCerts
     , fromStakeCredential
     )
- where
-
-import Prelude
+where
 
 import Cardano.Crypto.Hash.Class
-    ( hashToBytes )
+    ( hashToBytes
+    )
 import Cardano.Ledger.BaseTypes
-    ( strictMaybeToMaybe, urlToText )
+    ( strictMaybeToMaybe
+    , urlToText
+    )
+import Cardano.Ledger.BaseTypes qualified as SL
+import Cardano.Ledger.Credential qualified as SL
+import Cardano.Ledger.Shelley.API qualified as SL
 import Cardano.Ledger.Shelley.TxBody
-    ( DCert )
+    ( DCert
+    )
 import Cardano.Slotting.Slot
-    ( EpochNo (..) )
+    ( EpochNo (..)
+    )
 import Cardano.Wallet.Primitive.Types
     ( PoolCertificate (..)
     , PoolRegistrationCertificate (..)
     , PoolRetirementCertificate (..)
     )
+import Cardano.Wallet.Primitive.Types qualified as W
+import Cardano.Wallet.Primitive.Types.Coin qualified as Coin
+import Cardano.Wallet.Primitive.Types.Coin qualified as W
+import Cardano.Wallet.Primitive.Types.RewardAccount qualified as W
 import Cardano.Wallet.Read.Eras
-    ( EraFun (..), K (..) )
+    ( EraFun (..)
+    , K (..)
+    )
 import Cardano.Wallet.Read.Tx.Certificates
-    ( Certificates (..), CertificatesType )
+    ( Certificates (..)
+    , CertificatesType
+    )
 import Cardano.Wallet.Util
-    ( internalError )
+    ( internalError
+    )
 import Data.Foldable
-    ( toList )
+    ( toList
+    )
 import Data.Quantity
-    ( Percentage, mkPercentage )
+    ( Percentage
+    , mkPercentage
+    )
+import Data.Set qualified as Set
 import Fmt
-    ( (+||), (||+) )
+    ( (+||)
+    , (||+)
+    )
 import GHC.Stack
-    ( HasCallStack )
-
-import qualified Cardano.Ledger.BaseTypes as SL
-import qualified Cardano.Ledger.Credential as SL
-import qualified Cardano.Ledger.Shelley.API as SL
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
-import qualified Cardano.Wallet.Primitive.Types.Coin as W
-import qualified Cardano.Wallet.Primitive.Types.RewardAccount as W
-import qualified Data.Set as Set
+    ( HasCallStack
+    )
+import Prelude
 
 certificates :: EraFun Certificates (K [W.Certificate])
-certificates = EraFun
-    { byronFun = const $ K []
-    , shelleyFun = mkCertsK
-    , allegraFun = mkCertsK
-    , maryFun = mkCertsK
-    , alonzoFun = mkCertsK
-    , babbageFun = mkCertsK
-    }
+certificates =
+    EraFun
+        { byronFun = const $ K []
+        , shelleyFun = mkCertsK
+        , allegraFun = mkCertsK
+        , maryFun = mkCertsK
+        , alonzoFun = mkCertsK
+        , babbageFun = mkCertsK
+        }
 
-mkCertsK :: (Foldable t, CertificatesType era ~ t (DCert crypto))
+mkCertsK
+    :: (Foldable t, CertificatesType era ~ t (DCert crypto))
     => Certificates era
     -> K [W.Certificate] b
 mkCertsK (Certificates cs) = K . anyEraCerts $ cs
@@ -76,37 +90,40 @@ fromShelleyCert
     :: SL.DCert crypto
     -> W.Certificate
 fromShelleyCert = \case
-    SL.DCertDeleg (SL.Delegate delegation)  ->
-        W.CertificateOfDelegation $ W.CertDelegateFull
-            (fromStakeCredential (SL._delegator delegation))
-            (fromPoolKeyHash (SL._delegatee delegation))
-
+    SL.DCertDeleg (SL.Delegate delegation) ->
+        W.CertificateOfDelegation $
+            W.CertDelegateFull
+                (fromStakeCredential (SL._delegator delegation))
+                (fromPoolKeyHash (SL._delegatee delegation))
     SL.DCertDeleg (SL.DeRegKey credentials) ->
-        W.CertificateOfDelegation $ W.CertDelegateNone
-            (fromStakeCredential credentials)
-
+        W.CertificateOfDelegation $
+            W.CertDelegateNone
+                (fromStakeCredential credentials)
     SL.DCertDeleg (SL.RegKey cred) ->
         W.CertificateOfDelegation $ W.CertRegisterKey $ fromStakeCredential cred
-
-    SL.DCertPool (SL.RegPool pp) -> W.CertificateOfPool $ Registration
-        ( W.PoolRegistrationCertificate
-            { poolId = fromPoolKeyHash $ SL._poolId pp
-            , poolOwners = fromOwnerKeyHash <$> Set.toList (SL._poolOwners pp)
-            , poolMargin = fromUnitInterval (SL._poolMargin pp)
-            , poolCost = toWalletCoin (SL._poolCost pp)
-            , poolPledge = toWalletCoin (SL._poolPledge pp)
-            , poolMetadata = fromPoolMetadata <$> strictMaybeToMaybe
-                (SL._poolMD pp)
-            }
-        )
-
+    SL.DCertPool (SL.RegPool pp) ->
+        W.CertificateOfPool $
+            Registration
+                ( W.PoolRegistrationCertificate
+                    { poolId = fromPoolKeyHash $ SL._poolId pp
+                    , poolOwners = fromOwnerKeyHash <$> Set.toList (SL._poolOwners pp)
+                    , poolMargin = fromUnitInterval (SL._poolMargin pp)
+                    , poolCost = toWalletCoin (SL._poolCost pp)
+                    , poolPledge = toWalletCoin (SL._poolPledge pp)
+                    , poolMetadata =
+                        fromPoolMetadata
+                            <$> strictMaybeToMaybe
+                                (SL._poolMD pp)
+                    }
+                )
     SL.DCertPool (SL.RetirePool pid (EpochNo e)) ->
-        W.CertificateOfPool $ Retirement $ PoolRetirementCertificate (fromPoolKeyHash pid)
-        (W.EpochNo $ fromIntegral e)
-
-    SL.DCertGenesis{} -> W.CertificateOther W.GenesisCertificate
-
-    SL.DCertMir{}     -> W.CertificateOther W.MIRCertificate
+        W.CertificateOfPool $
+            Retirement $
+                PoolRetirementCertificate
+                    (fromPoolKeyHash pid)
+                    (W.EpochNo $ fromIntegral e)
+    SL.DCertGenesis {} -> W.CertificateOther W.GenesisCertificate
+    SL.DCertMir {} -> W.CertificateOther W.MIRCertificate
 
 fromPoolMetadata :: SL.PoolMetadata -> (W.StakePoolMetadataUrl, W.StakePoolMetadataHash)
 fromPoolMetadata meta =
@@ -118,7 +135,6 @@ fromPoolMetadata meta =
 --
 -- Unlike with Jörmungandr, the reward account payload doesn't represent a
 -- public key but a HASH of a public key.
---
 fromStakeCredential :: SL.Credential 'SL.Staking crypto -> W.RewardAccount
 fromStakeCredential = \case
     SL.ScriptHashObj (SL.ScriptHash h) ->
@@ -138,8 +154,9 @@ fromUnitInterval :: HasCallStack => SL.UnitInterval -> Percentage
 fromUnitInterval x =
     either bomb id . mkPercentage . toRational . SL.unboundRational $ x
   where
-    bomb = internalError $
-        "fromUnitInterval: encountered invalid parameter value: "+||x||+""
+    bomb =
+        internalError $
+            "fromUnitInterval: encountered invalid parameter value: " +|| x ||+ ""
 
 toWalletCoin :: HasCallStack => SL.Coin -> W.Coin
 toWalletCoin (SL.Coin c) = Coin.unsafeFromIntegral c

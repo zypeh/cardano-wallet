@@ -10,36 +10,45 @@
 -- License: Apache-2.0
 --
 -- Raw certificate data extraction from 'Tx'
---
-
 module Cardano.Wallet.Read.Tx.Certificates
     ( CertificatesType
     , Certificates (..)
     , getEraCertificates
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Api
-    ( AllegraEra, AlonzoEra, BabbageEra, ByronEra, MaryEra, ShelleyEra )
+    ( AllegraEra
+    , AlonzoEra
+    , BabbageEra
+    , ByronEra
+    , MaryEra
+    , ShelleyEra
+    )
+import Cardano.Ledger.Alonzo.Tx qualified as AL
 import Cardano.Ledger.Crypto
-    ( StandardCrypto )
+    ( StandardCrypto
+    )
+import Cardano.Ledger.Shelley.API qualified as SH
 import Cardano.Ledger.Shelley.TxBody
-    ( DCert )
+    ( DCert
+    )
 import Cardano.Wallet.Read.Eras
-    ( EraFun (..) )
+    ( EraFun (..)
+    )
 import Cardano.Wallet.Read.Tx
-    ( Tx (..) )
+    ( Tx (..)
+    )
 import Cardano.Wallet.Read.Tx.Eras
-    ( onTx )
+    ( onTx
+    )
 import Data.Sequence.Strict
-    ( StrictSeq )
+    ( StrictSeq
+    )
 import GHC.Records
-    ( HasField (..) )
-
-import qualified Cardano.Ledger.Alonzo.Tx as AL
-import qualified Cardano.Ledger.Shelley.API as SH
+    ( HasField (..)
+    )
+import Prelude
 
 type family CertificatesType era where
     CertificatesType ByronEra = ()
@@ -52,12 +61,13 @@ type family CertificatesType era where
 newtype Certificates era = Certificates (CertificatesType era)
 
 deriving instance Show (CertificatesType era) => Show (Certificates era)
+
 deriving instance Eq (CertificatesType era) => Eq (Certificates era)
 
 getEraCertificates :: EraFun Tx Certificates
-getEraCertificates
-    = EraFun
-        { byronFun =  \_ -> Certificates ()
+getEraCertificates =
+    EraFun
+        { byronFun = \_ -> Certificates ()
         , shelleyFun = onTx $ \((SH.Tx b _ _)) -> getCertificates b
         , allegraFun = onTx $ \((SH.Tx b _ _)) -> getCertificates b
         , maryFun = onTx $ \(SH.Tx b _ _) -> getCertificates b
@@ -67,5 +77,6 @@ getEraCertificates
 
 getCertificates
     :: HasField "certs" a (CertificatesType b)
-    => a -> Certificates b
-getCertificates =  Certificates . getField @"certs"
+    => a
+    -> Certificates b
+getCertificates = Certificates . getField @"certs"

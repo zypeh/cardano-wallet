@@ -8,34 +8,46 @@
 --
 -- Provides functions for setting up and capturing logging so that expectations
 -- about logging can be asserted in test scenarios.
-
 module Test.Utils.Trace
-     ( withLogging
-     , withLogging'
-     , captureLogging
-     , captureLogging'
-     , traceSpec
-     ) where
-
-import Prelude
-
+    ( withLogging
+    , withLogging'
+    , captureLogging
+    , captureLogging'
+    , traceSpec
+    )
+where
 
 import Cardano.BM.Trace
-    ( traceInTVarIO )
+    ( traceInTVarIO
+    )
 import Control.Monad.IO.Unlift
-    ( MonadIO (..), MonadUnliftIO (..) )
+    ( MonadIO (..)
+    , MonadUnliftIO (..)
+    )
 import Control.Tracer
-    ( Tracer, natTracer )
+    ( Tracer
+    , natTracer
+    )
 import Data.Text.Class
-    ( ToText (..) )
+    ( ToText (..)
+    )
 import Say
-    ( say )
+    ( say
+    )
 import Test.Hspec
-    ( HasCallStack, Spec, SpecWith, around )
+    ( HasCallStack
+    , Spec
+    , SpecWith
+    , around
+    )
 import UnliftIO.Exception
-    ( onException )
+    ( onException
+    )
 import UnliftIO.STM
-    ( newTVarIO, readTVarIO )
+    ( newTVarIO
+    , readTVarIO
+    )
+import Prelude
 
 -- | Run an action with a logging 'Trace' object, and a function to get all
 -- messages that have been traced.

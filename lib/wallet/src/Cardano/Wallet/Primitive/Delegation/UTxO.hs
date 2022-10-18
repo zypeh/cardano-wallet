@@ -1,24 +1,29 @@
 module Cardano.Wallet.Primitive.Delegation.UTxO
     ( stakeKeyCoinDistr
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin )
+    ( Coin
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount (..) )
+    ( RewardAccount (..)
+    )
+import Cardano.Wallet.Primitive.Types.TokenBundle qualified as TokenBundle
 import Cardano.Wallet.Primitive.Types.Tx
-    ( TxOut (..) )
+    ( TxOut (..)
+    )
 import Cardano.Wallet.Primitive.Types.UTxO
-    ( UTxO (..) )
+    ( UTxO (..)
+    )
 import Data.Map
-    ( Map )
-
-import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
-import qualified Data.Map as Map
+    ( Map
+    )
+import Data.Map qualified as Map
+import Prelude
 
 -- | Calculate how much `Coin` exists on each `Maybe RewardAccount` in the
 -- `UTxO` given a way to extract `Maybe RewardAccount` from an `Address`.

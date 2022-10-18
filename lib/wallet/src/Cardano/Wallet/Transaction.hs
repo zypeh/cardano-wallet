@@ -18,10 +18,8 @@
 -- An extra interface for operation on transactions (e.g. creating witnesses,
 -- estimating size...). This makes it possible to decouple those operations from
 -- our wallet layer, keeping the implementation flexible to various backends.
---
 module Cardano.Wallet.Transaction
-    (
-    -- * Interface
+    ( -- * Interface
       TransactionLayer (..)
     , DelegationAction (..)
     , TransactionCtx (..)
@@ -29,7 +27,7 @@ module Cardano.Wallet.Transaction
     , Withdrawal (..)
     , withdrawalToCoin
     , TxUpdate (..)
-    , TxFeeUpdate(..)
+    , TxFeeUpdate (..)
     , TokenMapWithScripts (..)
     , emptyTokenMapWithScripts
     , AnyScript (..)
@@ -39,30 +37,40 @@ module Cardano.Wallet.Transaction
     , mapTxFeeAndChange
     , ValidityIntervalExplicit (..)
 
-    -- * Errors
+      -- * Errors
     , ErrSignTx (..)
     , ErrMkTransaction (..)
     , ErrCannotJoin (..)
     , ErrCannotQuit (..)
     , ErrUpdateSealedTx (..)
-    , ErrAssignRedeemers(..)
+    , ErrAssignRedeemers (..)
     , ErrMoreSurplusNeeded (..)
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Address.Derivation
-    ( XPrv, XPub )
+    ( XPrv
+    , XPub
+    )
 import Cardano.Address.Script
-    ( KeyHash, Script, ScriptTemplate )
+    ( KeyHash
+    , Script
+    , ScriptTemplate
+    )
 import Cardano.Api
-    ( AnyCardanoEra )
+    ( AnyCardanoEra
+    )
+import Cardano.Api qualified as Cardano
 import Cardano.Api.Extra
-    ()
+    (
+    )
+import Cardano.Api.Shelley qualified as Cardano
 import Cardano.Ledger.Alonzo.TxInfo
-    ( TranslationError (..) )
+    ( TranslationError (..)
+    )
 import Cardano.Ledger.Crypto
-    ( StandardCrypto )
+    ( StandardCrypto
+    )
 import Cardano.Wallet.CoinSelection
     ( SelectionCollateralRequirement (..)
     , SelectionLimit
@@ -70,11 +78,16 @@ import Cardano.Wallet.CoinSelection
     , SelectionSkeleton
     )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( Depth (..), DerivationIndex )
+    ( Depth (..)
+    , DerivationIndex
+    )
 import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase )
+    ( Passphrase
+    )
 import Cardano.Wallet.Primitive.Slotting
-    ( PastHorizonException, TimeInterpreter )
+    ( PastHorizonException
+    , TimeInterpreter
+    )
 import Cardano.Wallet.Primitive.Types
     ( Certificate
     , FeePolicy
@@ -85,31 +98,51 @@ import Cardano.Wallet.Primitive.Types
     , WalletId
     )
 import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
+    ( Address (..)
+    )
 import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
+    ( Coin (..)
+    )
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash )
+    ( Hash
+    )
 import Cardano.Wallet.Primitive.Types.Redeemer
-    ( Redeemer )
+    ( Redeemer
+    )
 import Cardano.Wallet.Primitive.Types.RewardAccount
-    ( RewardAccount )
+    ( RewardAccount
+    )
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId, TokenMap )
+    ( AssetId
+    , TokenMap
+    )
+import Cardano.Wallet.Primitive.Types.TokenMap qualified as TokenMap
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenPolicyId )
+    ( TokenPolicyId
+    )
 import Cardano.Wallet.Primitive.Types.Tx
-    ( Tx (..), TxIn, TxMetadata, TxOut )
+    ( Tx (..)
+    , TxIn
+    , TxMetadata
+    , TxOut
+    )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
-    ( TokenBundleSizeAssessor, TxConstraints, TxSize )
+    ( TokenBundleSizeAssessor
+    , TxConstraints
+    , TxSize
+    )
 import Cardano.Wallet.Primitive.Types.UTxO
-    ( UTxO )
+    ( UTxO
+    )
 import Cardano.Wallet.Util
-    ( ShowFmt (..) )
+    ( ShowFmt (..)
+    )
 import Control.DeepSeq
-    ( NFData (..) )
+    ( NFData (..)
+    )
 import Control.Monad
-    ( (>=>) )
+    ( (>=>)
+    )
 import Data.Aeson.Types
     ( FromJSON (..)
     , Parser
@@ -118,153 +151,157 @@ import Data.Aeson.Types
     , genericParseJSON
     , genericToJSON
     )
+import Data.Aeson.Types qualified as Aeson
 import Data.Bifunctor
-    ( bimap )
+    ( bimap
+    )
 import Data.List.NonEmpty
-    ( NonEmpty )
+    ( NonEmpty
+    )
 import Data.Map.Strict
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
 import Data.Quantity
-    ( Quantity (..) )
+    ( Quantity (..)
+    )
 import Data.Text
-    ( Text )
+    ( Text
+    )
 import Data.Text.Class
-    ( FromText (..), TextDecodingError (..), ToText (..) )
+    ( FromText (..)
+    , TextDecodingError (..)
+    , ToText (..)
+    )
 import Data.Word
-    ( Word64 )
+    ( Word64
+    )
 import Fmt
-    ( Buildable (..), genericF )
+    ( Buildable (..)
+    , genericF
+    )
 import GHC.Generics
-    ( Generic )
-
-import qualified Cardano.Api as Cardano
-import qualified Cardano.Api.Shelley as Cardano
-import qualified Cardano.Wallet.Primitive.Types.TokenMap as TokenMap
-import qualified Data.Aeson.Types as Aeson
-import qualified Data.Map.Strict as Map
+    ( Generic
+    )
+import Prelude
 
 data TransactionLayer k ktype tx = TransactionLayer
     { mkTransaction
         :: AnyCardanoEra
-            -- Era for which the transaction should be created.
+        -- Era for which the transaction should be created.
         -> (XPrv, Passphrase "encryption")
-            -- Reward account
+        -- Reward account
         -> (Address -> Maybe (k 'CredFromKeyK XPrv, Passphrase "encryption"))
-            -- Key store
+        -- Key store
         -> ProtocolParameters
-            -- Current protocol parameters
+        -- Current protocol parameters
         -> TransactionCtx
-            -- An additional context about the transaction
+        -- An additional context about the transaction
         -> SelectionOf TxOut
-            -- A balanced coin selection where all change addresses have been
-            -- assigned.
+        -- A balanced coin selection where all change addresses have been
+        -- assigned.
         -> Either ErrMkTransaction (Tx, tx)
-        -- ^ Construct a standard transaction
-        --
-        -- " Standard " here refers to the fact that we do not deal with redemption,
-        -- multisignature transactions, etc.
-        --
-        -- This expects as a first argument a mean to compute or lookup private
-        -- key corresponding to a particular address.
-
+    -- ^ Construct a standard transaction
+    --
+    -- " Standard " here refers to the fact that we do not deal with redemption,
+    -- multisignature transactions, etc.
+    --
+    -- This expects as a first argument a mean to compute or lookup private
+    -- key corresponding to a particular address.
     , addVkWitnesses
         :: AnyCardanoEra
-            -- Preferred latest era
+        -- Preferred latest era
         -> (XPrv, Passphrase "encryption")
-            -- Reward account
+        -- Reward account
         -> (KeyHash, XPrv, Passphrase "encryption")
-            -- policy public and private key
+        -- policy public and private key
         -> (Address -> Maybe (k ktype XPrv, Passphrase "encryption"))
-            -- Key store / address resolution
+        -- Key store / address resolution
         -> (TxIn -> Maybe Address)
-            -- Input resolution
+        -- Input resolution
         -> tx
-            -- The transaction to sign
+        -- The transaction to sign
         -> tx
-        -- ^ Add Vk witnesses to a transaction for known inputs.
-        --
-        -- If inputs can't be resolved, they are simply skipped, hence why this
-        -- function cannot fail.
-
+    -- ^ Add Vk witnesses to a transaction for known inputs.
+    --
+    -- If inputs can't be resolved, they are simply skipped, hence why this
+    -- function cannot fail.
     , mkUnsignedTransaction
         :: AnyCardanoEra
-            -- Era for which the transaction should be created.
+        -- Era for which the transaction should be created.
         -> XPub
-            -- Reward account public key
+        -- Reward account public key
         -> ProtocolParameters
-            -- Current protocol parameters
+        -- Current protocol parameters
         -> TransactionCtx
-            -- An additional context about the transaction
+        -- An additional context about the transaction
         -> SelectionOf TxOut
-            -- A balanced coin selection where all change addresses have been
-            -- assigned.
+        -- A balanced coin selection where all change addresses have been
+        -- assigned.
         -> Either ErrMkTransaction tx
-        -- ^ Construct a standard unsigned transaction
-        --
-        -- " Standard " here refers to the fact that we do not deal with redemption,
-        -- multisignature transactions, etc.
-        --
-        -- The function returns CBOR-ed transaction body to be signed in another step.
-
+    -- ^ Construct a standard unsigned transaction
+    --
+    -- " Standard " here refers to the fact that we do not deal with redemption,
+    -- multisignature transactions, etc.
+    --
+    -- The function returns CBOR-ed transaction body to be signed in another step.
     , calcMinimumCost
         :: AnyCardanoEra
-            -- Era for which the transaction should be created.
+        -- Era for which the transaction should be created.
         -> ProtocolParameters
-            -- Current protocol parameters
+        -- Current protocol parameters
         -> TransactionCtx
-            -- Additional information about the transaction
+        -- Additional information about the transaction
         -> SelectionSkeleton
-            -- An intermediate representation of an ongoing selection
+        -- An intermediate representation of an ongoing selection
         -> Coin
-        -- ^ Compute a minimal fee amount necessary to pay for a given selection
-        -- This also includes necessary deposits.
-
+    -- ^ Compute a minimal fee amount necessary to pay for a given selection
+    -- This also includes necessary deposits.
     , maxScriptExecutionCost
         :: ProtocolParameters
-            -- Current protocol parameters
+        -- Current protocol parameters
         -> [Redeemer]
-            -- Redeemers for this transaction
+        -- Redeemers for this transaction
         -> Coin
-        -- ^ Compute the maximum execution cost of scripts in a given transaction.
-
+    -- ^ Compute the maximum execution cost of scripts in a given transaction.
     , evaluateMinimumFee
-        :: forall era. Cardano.IsShelleyBasedEra era
+        :: forall era
+         . Cardano.IsShelleyBasedEra era
         => Cardano.ProtocolParameters
-            -- Current protocol parameters
+        -- Current protocol parameters
         -> Cardano.Tx era
-            -- The sealed transaction
+        -- The sealed transaction
         -> Coin
-        -- ^ Evaluate a minimal fee amount necessary to pay for a given tx
-        -- using ledger's functionality
-        --
-        -- Will estimate how many witnesses there /should be/, so it works even
-        -- for unsigned transactions.
-
+    -- ^ Evaluate a minimal fee amount necessary to pay for a given tx
+    -- using ledger's functionality
+    --
+    -- Will estimate how many witnesses there /should be/, so it works even
+    -- for unsigned transactions.
     , estimateSignedTxSize
-        :: forall era. Cardano.IsShelleyBasedEra era
+        :: forall era
+         . Cardano.IsShelleyBasedEra era
         => Cardano.ProtocolParameters
         -> Cardano.Tx era
         -> TxSize
-        -- ^ Estimate the size of the transaction when fully signed.
-
+    -- ^ Estimate the size of the transaction when fully signed.
     , evaluateTransactionBalance
-        :: forall era. Cardano.IsShelleyBasedEra era
+        :: forall era
+         . Cardano.IsShelleyBasedEra era
         => Cardano.Tx era
         -> Cardano.ProtocolParameters
         -> Cardano.UTxO era
         -> Cardano.Value
-        -- ^ Evaluate the balance of a transaction using the ledger. The balance
-        -- is defined as @(value consumed by transaction) - (value produced by
-        -- transaction)@. For a transaction to be valid, it must have a balance
-        -- of zero.
-        --
-        -- Note that the fee-field of the transaction affects the balance, and
-        -- is not automatically the minimum fee.
-        --
-        -- The function takes two UTxOs of different types and merges them. The
-        -- reason is to workaround that wallet 'UTxO' type doesn't support
-        -- Datum hashes
-
+    -- ^ Evaluate the balance of a transaction using the ledger. The balance
+    -- is defined as @(value consumed by transaction) - (value produced by
+    -- transaction)@. For a transaction to be valid, it must have a balance
+    -- of zero.
+    --
+    -- Note that the fee-field of the transaction affects the balance, and
+    -- is not automatically the minimum fee.
+    --
+    -- The function takes two UTxOs of different types and merges them. The
+    -- reason is to workaround that wallet 'UTxO' type doesn't support
+    -- Datum hashes
     , distributeSurplus
         :: FeePolicy
         -> Coin
@@ -272,121 +309,121 @@ data TransactionLayer k ktype tx = TransactionLayer
         -> TxFeeAndChange [TxOut]
         -- Original fee and change outputs.
         -> Either ErrMoreSurplusNeeded (TxFeeAndChange [TxOut])
-        --
-        -- ^ Distributes a surplus transaction balance between the given change
-        -- outputs and the given fee. This function is aware of the fact that
-        -- any increase in a 'Coin' value could increase the size and fee
-        -- requirement of a transaction.
-        --
-        -- When comparing the original fee and change outputs to the adjusted
-        -- fee and change outputs, this function guarantees that:
-        --
-        --    - The number of the change outputs remains constant;
-        --
-        --    - The fee quantity either remains the same or increases.
-        --
-        --    - For each change output:
-        --        - the ada quantity either remains constant or increases.
-        --        - non-ada quantities remain the same.
-        --
-        --    - The surplus is conserved:
-        --        The total increase in the fee and change ada quantities is
-        --        exactly equal to the surplus.
-        --
-        --    - Any increase in cost is covered:
-        --        If the total cost has increased by 𝛿c, then the fee value
-        --        will have increased by at least 𝛿c.
-        --
-        -- If the cost of distributing the provided surplus is greater than the
-        -- surplus itself, the function will return 'ErrMoreSurplusNeeded'. If
-        -- the provided surplus is greater or equal to
-        -- @maximumCostOfIncreasingCoin feePolicy@, the function will always
-        -- return 'Right'.
+    -- ^ Distributes a surplus transaction balance between the given change
+    -- outputs and the given fee. This function is aware of the fact that
+    -- any increase in a 'Coin' value could increase the size and fee
+    -- requirement of a transaction.
+    --
+    -- When comparing the original fee and change outputs to the adjusted
+    -- fee and change outputs, this function guarantees that:
+    --
+    --    - The number of the change outputs remains constant;
+    --
+    --    - The fee quantity either remains the same or increases.
+    --
+    --    - For each change output:
+    --        - the ada quantity either remains constant or increases.
+    --        - non-ada quantities remain the same.
+    --
+    --    - The surplus is conserved:
+    --        The total increase in the fee and change ada quantities is
+    --        exactly equal to the surplus.
+    --
+    --    - Any increase in cost is covered:
+    --        If the total cost has increased by 𝛿c, then the fee value
+    --        will have increased by at least 𝛿c.
+    --
+    -- If the cost of distributing the provided surplus is greater than the
+    -- surplus itself, the function will return 'ErrMoreSurplusNeeded'. If
+    -- the provided surplus is greater or equal to
+    -- @maximumCostOfIncreasingCoin feePolicy@, the function will always
+    -- return 'Right'.
+    , --
 
-    , computeSelectionLimit
+      computeSelectionLimit
         :: AnyCardanoEra
         -> ProtocolParameters
         -> TransactionCtx
         -> [TxOut]
         -> SelectionLimit
-
     , tokenBundleSizeAssessor
-        :: TokenBundleMaxSize -> TokenBundleSizeAssessor
-        -- ^ A function to assess the size of a token bundle.
-
+        :: TokenBundleMaxSize
+        -> TokenBundleSizeAssessor
+    -- ^ A function to assess the size of a token bundle.
     , constraints
         :: AnyCardanoEra
         -- Era for which the transaction should be created.
         -> ProtocolParameters
         -- Current protocol parameters.
         -> TxConstraints
-        -- The set of constraints that apply to all transactions.
+    , -- The set of constraints that apply to all transactions.
 
-    , decodeTx
+      decodeTx
         :: AnyCardanoEra
-        -> tx ->
-            ( Tx
-            , TokenMapWithScripts
-            , TokenMapWithScripts
-            , [Certificate]
-            , Maybe ValidityIntervalExplicit
-            )
+        -> tx
+        -> ( Tx
+           , TokenMapWithScripts
+           , TokenMapWithScripts
+           , [Certificate]
+           , Maybe ValidityIntervalExplicit
+           )
     -- ^ Decode an externally-created transaction.
-
     , updateTx
-        :: forall era. Cardano.IsShelleyBasedEra era
+        :: forall era
+         . Cardano.IsShelleyBasedEra era
         => Cardano.Tx era
         -> TxUpdate
         -> Either ErrUpdateSealedTx (Cardano.Tx era)
-        -- ^ Update tx by adding additional inputs and outputs
-
+    -- ^ Update tx by adding additional inputs and outputs
     , assignScriptRedeemers
-        :: forall era. Cardano.IsShelleyBasedEra era
+        :: forall era
+         . Cardano.IsShelleyBasedEra era
         => Cardano.ProtocolParameters
-            -- Current protocol parameters
+        -- Current protocol parameters
         -> TimeInterpreter (Either PastHorizonException)
         -> Cardano.UTxO era
         -> [Redeemer]
-            -- A list of redeemers to set on the transaction.
+        -- A list of redeemers to set on the transaction.
         -> (Cardano.Tx era)
-            -- Transaction containing scripts
+        -- Transaction containing scripts
         -> (Either ErrAssignRedeemers (Cardano.Tx era))
-
     , toCardanoUTxO
-        :: forall era. Cardano.IsShelleyBasedEra era
+        :: forall era
+         . Cardano.IsShelleyBasedEra era
         => UTxO
         -> [(TxIn, TxOut, Maybe (Hash "Datum"))]
         -> Cardano.UTxO era
-        -- ^ Temporary hack to allow access to conversion in balanceTransaction
-
+    -- ^ Temporary hack to allow access to conversion in balanceTransaction
     , fromCardanoTxIn
-        :: Cardano.TxIn -> TxIn
-        -- ^ Temporary hack to allow access to conversion in balanceTransaction
-
+        :: Cardano.TxIn
+        -> TxIn
+    -- ^ Temporary hack to allow access to conversion in balanceTransaction
     , fromCardanoTxOut
-        :: forall era ctx. Cardano.IsCardanoEra era
+        :: forall era ctx
+         . Cardano.IsCardanoEra era
         => Cardano.TxOut ctx era
         -> TxOut
-        -- ^ Temporary hack to allow access to conversion in balanceTransaction
+    -- ^ Temporary hack to allow access to conversion in balanceTransaction
     }
 
 -- | Method to use when updating the fee of a transaction.
-data TxFeeUpdate = UseOldTxFee
-                 -- ^ Instead of updating the fee, just use the old fee of the
-                 -- Tx (no-op for fee update).
-                 | UseNewTxFee Coin
-                 -- ^ Specify a new fee to use instead.
+data TxFeeUpdate
+    = -- | Instead of updating the fee, just use the old fee of the
+      -- Tx (no-op for fee update).
+      UseOldTxFee
+    | -- | Specify a new fee to use instead.
+      UseNewTxFee Coin
     deriving (Eq, Show)
 
 -- | Describes modifications that can be made to a `Tx` using `updateTx`.
 data TxUpdate = TxUpdate
     { extraInputs :: [(TxIn, TxOut)]
     , extraCollateral :: [TxIn]
-       -- ^ Only used in the Alonzo era and later. Will be silently ignored in
-       -- previous eras.
+    -- ^ Only used in the Alonzo era and later. Will be silently ignored in
+    -- previous eras.
     , extraOutputs :: [TxOut]
     , feeUpdate :: TxFeeUpdate
-        -- ^ Set a new fee or use the old one.
+    -- ^ Set a new fee or use the old one.
     }
 
 -- | Some additional context about a transaction. This typically contains
@@ -419,7 +456,8 @@ data TransactionCtx = TransactionCtx
     -- ^ Extra fees. Some parts of a transaction are not representable using
     -- cardano-wallet types, which makes it useful to account for them like
     -- this. For instance: datums.
-    } deriving (Show, Generic, Eq)
+    }
+    deriving (Show, Generic, Eq)
 
 data Withdrawal
     = WithdrawalSelf RewardAccount (NonEmpty DerivationIndex) Coin
@@ -436,19 +474,20 @@ withdrawalToCoin = \case
 -- | A default context with sensible placeholder. Can be used to reduce
 -- repetition for changing only sub-part of the default context.
 defaultTransactionCtx :: TransactionCtx
-defaultTransactionCtx = TransactionCtx
-    { txWithdrawal = NoWithdrawal
-    , txMetadata = Nothing
-    , txValidityInterval = (Nothing, maxBound)
-    , txDelegationAction = Nothing
-    , txPlutusScriptExecutionCost = Coin 0
-    , txAssetsToMint = (TokenMap.empty, Map.empty)
-    , txAssetsToBurn = (TokenMap.empty, Map.empty)
-    , txPaymentCredentialScriptTemplate = Nothing
-    , txNativeScriptInputs = Map.empty
-    , txCollateralRequirement = SelectionCollateralNotRequired
-    , txFeePadding = Coin 0
-    }
+defaultTransactionCtx =
+    TransactionCtx
+        { txWithdrawal = NoWithdrawal
+        , txMetadata = Nothing
+        , txValidityInterval = (Nothing, maxBound)
+        , txDelegationAction = Nothing
+        , txPlutusScriptExecutionCost = Coin 0
+        , txAssetsToMint = (TokenMap.empty, Map.empty)
+        , txAssetsToBurn = (TokenMap.empty, Map.empty)
+        , txPaymentCredentialScriptTemplate = Nothing
+        , txNativeScriptInputs = Map.empty
+        , txCollateralRequirement = SelectionCollateralNotRequired
+        , txFeePadding = Coin 0
+        }
 
 -- | Whether the user is attempting any particular delegation action.
 data DelegationAction = RegisterKeyAndJoin PoolId | Join PoolId | Quit
@@ -457,10 +496,11 @@ data DelegationAction = RegisterKeyAndJoin PoolId | Join PoolId | Quit
 instance Buildable DelegationAction where
     build = genericF
 
-data PlutusVersion =
-    PlutusVersionV1 | PlutusVersionV2
+data PlutusVersion
+    = PlutusVersionV1
+    | PlutusVersionV2
     deriving (Eq, Generic, Show)
-    deriving anyclass NFData
+    deriving anyclass (NFData)
 
 instance ToText PlutusVersion where
     toText PlutusVersionV1 = "v1"
@@ -470,50 +510,58 @@ instance FromText PlutusVersion where
     fromText txt = case txt of
         "v1" -> Right PlutusVersionV1
         "v2" -> Right PlutusVersionV2
-        _ -> Left $ TextDecodingError $ unwords
-            [ "I couldn't parse the given plutus version."
-            , "I am expecting one of the words 'v1' or"
-            , "'v2'."]
+        _ ->
+            Left $
+                TextDecodingError $
+                    unwords
+                        [ "I couldn't parse the given plutus version."
+                        , "I am expecting one of the words 'v1' or"
+                        , "'v2'."
+                        ]
 
 newtype PlutusScriptInfo = PlutusScriptInfo
     { languageVersion :: PlutusVersion
     }
     deriving (Eq, Generic, Show)
-    deriving anyclass NFData
+    deriving anyclass (NFData)
 
 instance FromJSON PlutusScriptInfo where
-    parseJSON = parseJSON >=>
-        eitherToParser . bimap ShowFmt PlutusScriptInfo . fromText
+    parseJSON =
+        parseJSON
+            >=> eitherToParser . bimap ShowFmt PlutusScriptInfo . fromText
       where
-          eitherToParser :: Show s => Either s a -> Parser a
-          eitherToParser = either (fail . show) pure
+        eitherToParser :: Show s => Either s a -> Parser a
+        eitherToParser = either (fail . show) pure
+
 instance ToJSON PlutusScriptInfo where
     toJSON (PlutusScriptInfo v) = toJSON $ toText v
 
-data AnyScript =
-      NativeScript !(Script KeyHash)
+data AnyScript
+    = NativeScript !(Script KeyHash)
     | PlutusScript !PlutusScriptInfo
     deriving (Eq, Generic, Show)
-    deriving anyclass NFData
+    deriving anyclass (NFData)
 
 data TokenMapWithScripts = TokenMapWithScripts
     { txTokenMap :: !TokenMap
     , txScripts :: !(Map TokenPolicyId AnyScript)
-    } deriving (Show, Generic, Eq)
+    }
+    deriving (Show, Generic, Eq)
 
 emptyTokenMapWithScripts :: TokenMapWithScripts
-emptyTokenMapWithScripts = TokenMapWithScripts
-    { txTokenMap = mempty
-    , txScripts = Map.empty
-    }
+emptyTokenMapWithScripts =
+    TokenMapWithScripts
+        { txTokenMap = mempty
+        , txScripts = Map.empty
+        }
 
 data ErrMkTransaction
     = ErrMkTransactionNoSuchWallet WalletId
-    | ErrMkTransactionTxBodyError Text
-    -- ^ We failed to construct a transaction for some reasons.
-    | ErrMkTransactionInvalidEra AnyCardanoEra
-    -- ^ Should never happen, means that that we have programmatically provided
-    -- an invalid era.
+    | -- | We failed to construct a transaction for some reasons.
+      ErrMkTransactionTxBodyError Text
+    | -- | Should never happen, means that that we have programmatically provided
+      -- an invalid era.
+      ErrMkTransactionInvalidEra AnyCardanoEra
     | ErrMkTransactionJoinStakePool ErrCannotJoin
     | ErrMkTransactionQuitStakePool ErrCannotQuit
     | ErrMkTransactionIncorrectTTL PastHorizonException
@@ -521,19 +569,19 @@ data ErrMkTransaction
 
 data ErrAssignRedeemers
     = ErrAssignRedeemersScriptFailure Redeemer String
-    | ErrAssignRedeemersTargetNotFound Redeemer
-    -- ^ The given redeemer target couldn't be located in the transaction.
-    | ErrAssignRedeemersInvalidData Redeemer String
-    -- ^ Redeemer's data isn't a valid Plutus' data.
+    | -- | The given redeemer target couldn't be located in the transaction.
+      ErrAssignRedeemersTargetNotFound Redeemer
+    | -- | Redeemer's data isn't a valid Plutus' data.
+      ErrAssignRedeemersInvalidData Redeemer String
     | ErrAssignRedeemersTranslationError (TranslationError StandardCrypto)
     deriving (Generic, Eq, Show)
 
 -- | Possible signing error
 data ErrSignTx
-    = ErrSignTxAddressUnknown TxIn
-    -- ^ We tried to sign a transaction with inputs that are unknown to us?
-    | ErrSignTxUnimplemented
-    -- ^ TODO: [ADP-919] Remove ErrSignTxUnimplemented
+    = -- | We tried to sign a transaction with inputs that are unknown to us?
+      ErrSignTxAddressUnknown TxIn
+    | -- | TODO: [ADP-919] Remove ErrSignTxUnimplemented
+      ErrSignTxUnimplemented
     deriving (Generic, Eq, Show)
 
 data ErrCannotJoin
@@ -547,9 +595,9 @@ data ErrCannotQuit
     deriving (Eq, Show)
 
 newtype ErrUpdateSealedTx
-    = ErrExistingKeyWitnesses Int
-    -- ^ The `SealedTx` couldn't not be updated because the *n* existing
-    -- key-witnesses would have been rendered invalid.
+    = -- | The `SealedTx` couldn't not be updated because the *n* existing
+      -- key-witnesses would have been rendered invalid.
+      ErrExistingKeyWitnesses Int
     deriving (Generic, Eq, Show)
 
 -- | Error for when its impossible for 'distributeSurplus' to distribute the
@@ -567,7 +615,6 @@ data TxFeeAndChange change = TxFeeAndChange
     deriving (Eq, Show)
 
 -- | Manipulates a 'TxFeeAndChange' value.
---
 mapTxFeeAndChange
     :: (Coin -> Coin)
     -- ^ A function to transform the fee
@@ -585,15 +632,17 @@ data ValidityIntervalExplicit = ValidityIntervalExplicit
     , invalidHereafter :: !(Quantity "slot" Word64)
     }
     deriving (Generic, Eq, Show)
-    deriving anyclass NFData
+    deriving anyclass (NFData)
 
 instance ToJSON ValidityIntervalExplicit where
     toJSON = genericToJSON defaultRecordTypeOptions
+
 instance FromJSON ValidityIntervalExplicit where
     parseJSON = genericParseJSON defaultRecordTypeOptions
 
 defaultRecordTypeOptions :: Aeson.Options
-defaultRecordTypeOptions = Aeson.defaultOptions
-    { Aeson.fieldLabelModifier = camelTo2 '_' . dropWhile (== '_')
-    , Aeson.omitNothingFields = True
-    }
+defaultRecordTypeOptions =
+    Aeson.defaultOptions
+        { Aeson.fieldLabelModifier = camelTo2 '_' . dropWhile (== '_')
+        , Aeson.omitNothingFields = True
+        }

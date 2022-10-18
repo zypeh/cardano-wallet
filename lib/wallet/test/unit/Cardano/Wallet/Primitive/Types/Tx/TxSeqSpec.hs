@@ -6,36 +6,60 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 {- HLINT ignore "Hoist not" -}
 
 module Cardano.Wallet.Primitive.Types.Tx.TxSeqSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Primitive.Types.Address.Gen
-    ( genAddress )
+    ( genAddress
+    )
 import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
+    ( Hash (..)
+    )
 import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId )
+    ( AssetId
+    )
 import Cardano.Wallet.Primitive.Types.TokenMap.Gen
-    ( genAssetId, shrinkAssetId )
+    ( genAssetId
+    , shrinkAssetId
+    )
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName (..), TokenPolicyId (..) )
+    ( TokenName (..)
+    , TokenPolicyId (..)
+    )
+import Cardano.Wallet.Primitive.Types.Tx.TxSeq qualified as TxSeq
 import Cardano.Wallet.Primitive.Types.Tx.TxSeq.Gen
-    ( ShrinkableTxSeq, genTxSeq, getShrinkPhase, getTxSeq, shrinkTxSeq )
+    ( ShrinkableTxSeq
+    , genTxSeq
+    , getShrinkPhase
+    , getTxSeq
+    , shrinkTxSeq
+    )
 import Cardano.Wallet.Primitive.Types.UTxO.Gen
-    ( genUTxO )
+    ( genUTxO
+    )
+import Data.Foldable qualified as F
 import Data.Function
-    ( (&) )
+    ( (&)
+    )
 import Data.Function.Utils
-    ( isInjectiveOver )
+    ( isInjectiveOver
+    )
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe
-    ( fromMaybe, mapMaybe )
+    ( fromMaybe
+    , mapMaybe
+    )
+import Data.Set qualified as Set
 import Test.Hspec
-    ( Spec, describe, it )
+    ( Spec
+    , describe
+    , it
+    )
 import Test.QuickCheck
     ( Arbitrary (..)
     , CoArbitrary (..)
@@ -54,20 +78,19 @@ import Test.QuickCheck
     , (==>)
     )
 import Test.QuickCheck.Extra
-    ( ScaleDiv (..), genShrinkSequence, labelInterval, shrinkWhile )
+    ( ScaleDiv (..)
+    , genShrinkSequence
+    , labelInterval
+    , shrinkWhile
+    )
 import Test.QuickCheck.Instances.ByteString
-    ()
-
-import qualified Cardano.Wallet.Primitive.Types.Tx.TxSeq as TxSeq
-import qualified Data.Foldable as F
-import qualified Data.List.NonEmpty as NE
-import qualified Data.Set as Set
+    (
+    )
+import Prelude
 
 spec :: Spec
 spec = do
-
     describe "Generation" $ do
-
         describe "genTxSeq" $ do
             it "prop_genTxSeq_isValid" $
                 prop_genTxSeq_isValid
@@ -86,7 +109,6 @@ spec = do
                     & property
 
     describe "Shrinking" $ do
-
         describe "dropGroupBoundary" $ do
             it "prop_dropGroupBoundary_isValid" $
                 prop_dropGroupBoundary_isValid
@@ -151,7 +173,6 @@ spec = do
                     & property
 
     describe "Mapping" $ do
-
         describe "mapAssetIds" $ do
             it "prop_mapAssetIds_assetIds" $
                 prop_mapAssetIds_assetIds
@@ -189,7 +210,6 @@ spec = do
                     & property
 
     describe "Conversion" $ do
-
         describe "toTxs" $ do
             it "prop_toTxList_txCount" $
                 prop_toTxList_txCount
@@ -219,45 +239,67 @@ prop_genTxSeq_isValid =
 prop_genTxSeq_toTxGroupList_length :: Property
 prop_genTxSeq_toTxGroupList_length =
     forAll (genTxSeq genUTxO genAddress) $ \(getTxSeq -> txSeq) ->
-        let txGroups = TxSeq.toTxGroupList txSeq in
-        checkCoverage
-            $ cover 1 (length txGroups == 1)
-                "number of groups = 1"
-            $ cover 10 (length txGroups > 1)
-                "number of groups > 1"
-            $ property True
+        let txGroups = TxSeq.toTxGroupList txSeq
+         in checkCoverage
+                $ cover
+                    1
+                    (length txGroups == 1)
+                    "number of groups = 1"
+                $ cover
+                    10
+                    (length txGroups > 1)
+                    "number of groups > 1"
+                $ property True
 
 prop_genTxSeq_toTxGroupList_lengths :: Property
 prop_genTxSeq_toTxGroupList_lengths =
     forAll (genTxSeq genUTxO genAddress) $ \(getTxSeq -> txSeq) ->
-        let txGroups = TxSeq.toTxGroupList txSeq in
-        checkCoverage
-            $ cover 5 (null (NE.head txGroups))
-                "number of elements in head group = 0"
-            $ cover 5 (length (NE.head txGroups) == 1)
-                "number of elements in head group = 1"
-            $ cover 5 (length (NE.head txGroups) > 1)
-                "number of elements in head group > 1"
-            $ cover 5 (null (NE.last txGroups))
-                "number of elements in last group = 0"
-            $ cover 5 (length (NE.last txGroups) == 1)
-                "number of elements in last group = 1"
-            $ cover 5 (length (NE.last txGroups) > 1)
-                "number of elements in last group > 1"
-            $ property True
+        let txGroups = TxSeq.toTxGroupList txSeq
+         in checkCoverage
+                $ cover
+                    5
+                    (null (NE.head txGroups))
+                    "number of elements in head group = 0"
+                $ cover
+                    5
+                    (length (NE.head txGroups) == 1)
+                    "number of elements in head group = 1"
+                $ cover
+                    5
+                    (length (NE.head txGroups) > 1)
+                    "number of elements in head group > 1"
+                $ cover
+                    5
+                    (null (NE.last txGroups))
+                    "number of elements in last group = 0"
+                $ cover
+                    5
+                    (length (NE.last txGroups) == 1)
+                    "number of elements in last group = 1"
+                $ cover
+                    5
+                    (length (NE.last txGroups) > 1)
+                    "number of elements in last group > 1"
+                $ property True
 
 prop_genTxSeq_assetIds_size :: Property
 prop_genTxSeq_assetIds_size =
     forAll (genTxSeq genUTxO genAddress) $ \(getTxSeq -> txSeq) ->
-        let assetIdCount = Set.size (TxSeq.assetIds txSeq) in
-        labelInterval 10 "number of unique asset ids" assetIdCount
-        True
+        let assetIdCount = Set.size (TxSeq.assetIds txSeq)
+         in labelInterval
+                10
+                "number of unique asset ids"
+                assetIdCount
+                True
 
 prop_genTxSeq_txCount :: Property
 prop_genTxSeq_txCount =
     forAll (genTxSeq genUTxO genAddress) $ \(getTxSeq -> txSeq) ->
-        labelInterval 10 "number of transactions" (TxSeq.txCount txSeq)
-        True
+        labelInterval
+            10
+            "number of transactions"
+            (TxSeq.txCount txSeq)
+            True
 
 --------------------------------------------------------------------------------
 -- Shrinking
@@ -276,14 +318,13 @@ prop_dropGroupBoundary_toTxs (getTxSeq -> txSeq) =
     all
         (== TxSeq.toTxList txSeq)
         (TxSeq.toTxList <$> TxSeq.dropGroupBoundary txSeq)
-    === True
+        === True
 
 prop_dropGroupBoundary_txGroupCount_length
     :: ShrinkableTxSeq -> Property
 prop_dropGroupBoundary_txGroupCount_length (getTxSeq -> txSeq) =
     length (TxSeq.dropGroupBoundary txSeq)
-    ===
-    pred (TxSeq.txGroupCount txSeq)
+        === pred (TxSeq.txGroupCount txSeq)
 
 prop_dropGroupBoundary_txGroupCount_pred
     :: ShrinkableTxSeq -> Property
@@ -291,9 +332,10 @@ prop_dropGroupBoundary_txGroupCount_pred (getTxSeq -> txSeq)
     | txGroupCount == 0 =
         TxSeq.dropGroupBoundary txSeq === []
     | otherwise =
-        all (== pred txGroupCount)
+        all
+            (== pred txGroupCount)
             (TxSeq.txGroupCount <$> TxSeq.dropGroupBoundary txSeq)
-        === True
+            === True
   where
     txGroupCount = TxSeq.txGroupCount txSeq
 
@@ -346,8 +388,7 @@ prop_shrinkTxIds_idempotent (getTxSeq -> txSeq) =
 prop_shrinkTxIds_length :: ShrinkableTxSeq -> Property
 prop_shrinkTxIds_length (getTxSeq -> txSeq) =
     length (TxSeq.txIds (TxSeq.shrinkTxIds txSeq))
-    ===
-    length (TxSeq.txIds txSeq)
+        === length (TxSeq.txIds txSeq)
 
 prop_shrinkTxIds_isValid :: ShrinkableTxSeq -> Property
 prop_shrinkTxIds_isValid (getTxSeq -> txSeq) =
@@ -370,8 +411,8 @@ prop_shrinkTxSeq_canShrinkToEmptySequence =
 prop_shrinkTxSeq_canShrinkToTargetLength :: Property
 prop_shrinkTxSeq_canShrinkToTargetLength =
     forAll (genTxSeq genUTxO genAddress) $ \txSeq ->
-    forAll (chooseInt (0, TxSeq.length (getTxSeq txSeq))) $ \targetLength ->
-    prop_inner txSeq targetLength
+        forAll (chooseInt (0, TxSeq.length (getTxSeq txSeq))) $ \targetLength ->
+            prop_inner txSeq targetLength
   where
     prop_inner :: ShrinkableTxSeq -> Int -> Property
     prop_inner txSeq targetLength =
@@ -379,18 +420,19 @@ prop_shrinkTxSeq_canShrinkToTargetLength =
             === targetLength
 
     shrinkTxSeqToLength :: Int -> ShrinkableTxSeq -> ShrinkableTxSeq
-    shrinkTxSeqToLength targetLength txSeq = fromMaybe txSeq $
-        shrinkWhile
-            ((>= targetLength) . TxSeq.length . getTxSeq)
-            shrinkTxSeq
-            txSeq
+    shrinkTxSeqToLength targetLength txSeq =
+        fromMaybe txSeq $
+            shrinkWhile
+                ((>= targetLength) . TxSeq.length . getTxSeq)
+                shrinkTxSeq
+                txSeq
 
 prop_shrinkTxSeq_genShrinkSequence_allShrinkPhasesCovered :: Property
 prop_shrinkTxSeq_genShrinkSequence_allShrinkPhasesCovered =
     forAll (genShrinkSequence shrinkTxSeq =<< genTxSeq genUTxO genAddress) $
         \txSeqShrinks ->
-            Set.fromList (mapMaybe getShrinkPhase txSeqShrinks) ===
-            Set.fromList [minBound .. maxBound]
+            Set.fromList (mapMaybe getShrinkPhase txSeqShrinks)
+                === Set.fromList [minBound .. maxBound]
 
 prop_shrinkTxSeq_genShrinkSequence_isValid :: Property
 prop_shrinkTxSeq_genShrinkSequence_isValid =
@@ -402,9 +444,12 @@ prop_shrinkTxSeq_genShrinkSequence_length :: Property
 prop_shrinkTxSeq_genShrinkSequence_length =
     forAll (genShrinkSequence shrinkTxSeq =<< genTxSeq genUTxO genAddress) $
         \txSeqShrinks ->
-            let shrinkCount = length txSeqShrinks in
-            labelInterval 10 "shrink count" shrinkCount
-            True
+            let shrinkCount = length txSeqShrinks
+             in labelInterval
+                    10
+                    "shrink count"
+                    shrinkCount
+                    True
 
 --------------------------------------------------------------------------------
 -- Mapping
@@ -417,8 +462,7 @@ prop_shrinkTxSeq_genShrinkSequence_length =
 prop_mapAssetIds_assetIds :: ShrinkableTxSeq -> Fun AssetId AssetId -> Property
 prop_mapAssetIds_assetIds (getTxSeq -> txSeq) (applyFun -> f) =
     TxSeq.assetIds (TxSeq.mapAssetIds f txSeq)
-    ===
-    Set.map f (TxSeq.assetIds txSeq)
+        === Set.map f (TxSeq.assetIds txSeq)
 
 prop_mapAssetIds_composition
     :: ShrinkableTxSeq
@@ -426,9 +470,11 @@ prop_mapAssetIds_composition
     -> Fun AssetId AssetId
     -> Property
 prop_mapAssetIds_composition
-    (getTxSeq -> txSeq) (applyFun -> f) (applyFun -> g) =
-        TxSeq.mapAssetIds f (TxSeq.mapAssetIds g txSeq) ===
-        TxSeq.mapAssetIds (f . g) txSeq
+    (getTxSeq -> txSeq)
+    (applyFun -> f)
+    (applyFun -> g) =
+        TxSeq.mapAssetIds f (TxSeq.mapAssetIds g txSeq)
+            === TxSeq.mapAssetIds (f . g) txSeq
 
 prop_mapAssetIds_identity :: ShrinkableTxSeq -> Property
 prop_mapAssetIds_identity (getTxSeq -> txSeq) =
@@ -443,9 +489,9 @@ prop_mapAssetIds_isValid (getTxSeq . unScaleDiv -> txSeq) (applyFun -> f) =
     -- function is injective w.r.t. the set of asset identifiers in the
     -- given sequence.
     checkCoverage $
-    cover 10 injective "injective" $
-    cover 10 (not injective) "not injective" $
-    TxSeq.isValid (TxSeq.mapAssetIds f txSeq) === True
+        cover 10 injective "injective" $
+            cover 10 (not injective) "not injective" $
+                TxSeq.isValid (TxSeq.mapAssetIds f txSeq) === True
   where
     injective = f `isInjectiveOver` TxSeq.assetIds txSeq
 
@@ -464,8 +510,8 @@ prop_mapTxIds_composition
     -> Fun (Hash "Tx") (Hash "Tx")
     -> Property
 prop_mapTxIds_composition (getTxSeq -> txSeq) (applyFun -> f) (applyFun -> g) =
-    TxSeq.mapTxIds f (TxSeq.mapTxIds g txSeq) ===
-    TxSeq.mapTxIds (f . g) txSeq
+    TxSeq.mapTxIds f (TxSeq.mapTxIds g txSeq)
+        === TxSeq.mapTxIds (f . g) txSeq
 
 prop_mapTxIds_identity :: ShrinkableTxSeq -> Property
 prop_mapTxIds_identity (getTxSeq -> txSeq) =
@@ -520,13 +566,21 @@ instance Arbitrary ShrinkableTxSeq where
     shrink = shrinkTxSeq
 
 deriving anyclass instance CoArbitrary (Hash "TokenPolicy")
+
 deriving anyclass instance CoArbitrary (Hash "Tx")
+
 deriving anyclass instance CoArbitrary AssetId
+
 deriving anyclass instance CoArbitrary TokenName
+
 deriving anyclass instance CoArbitrary TokenPolicyId
 
 deriving anyclass instance Function (Hash "TokenPolicy")
+
 deriving anyclass instance Function (Hash "Tx")
+
 deriving anyclass instance Function AssetId
+
 deriving anyclass instance Function TokenName
+
 deriving anyclass instance Function TokenPolicyId

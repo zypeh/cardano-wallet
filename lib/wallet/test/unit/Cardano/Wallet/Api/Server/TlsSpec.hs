@@ -4,12 +4,15 @@
 
 module Cardano.Wallet.Api.Server.TlsSpec
     ( spec
-    ) where
-
-import Prelude
+    )
+where
 
 import Cardano.Wallet.Api.Server
-    ( Listen (..), TlsConfiguration (..), withListeningSocket )
+    ( Listen (..)
+    , TlsConfiguration (..)
+    , withListeningSocket
+    )
+import Cardano.Wallet.Api.Server qualified as Server
 import Cardano.X509.Configuration
     ( CertDescription (..)
     , ConfigurationKey (..)
@@ -19,25 +22,38 @@ import Cardano.X509.Configuration
     , genCertificate
     )
 import Control.Monad
-    ( unless )
+    ( unless
+    )
 import Control.Tracer
-    ( nullTracer )
+    ( nullTracer
+    )
+import Data.ByteString qualified as BS
 import Data.ByteString.Lazy
-    ( ByteString )
+    ( ByteString
+    )
 import Data.Default
-    ( def )
+    ( def
+    )
 import Data.Function
-    ( (&) )
+    ( (&)
+    )
 import Data.X509
-    ( CertificateChain (..) )
+    ( CertificateChain (..)
+    )
 import Data.X509.CertificateStore
-    ( makeCertificateStore )
+    ( makeCertificateStore
+    )
 import Data.X509.Extra
-    ( encodePEM, genRSA256KeyPair )
+    ( encodePEM
+    , genRSA256KeyPair
+    )
 import Data.X509.File
-    ( readKeyFile, readSignedObject )
+    ( readKeyFile
+    , readSignedObject
+    )
 import Network.Connection
-    ( TLSSettings (..) )
+    ( TLSSettings (..)
+    )
 import Network.HTTP.Client
     ( HttpException (..)
     , HttpExceptionContent (..)
@@ -50,9 +66,12 @@ import Network.HTTP.Client
     , responseStatus
     )
 import Network.HTTP.Client.TLS
-    ( mkManagerSettings )
+    ( mkManagerSettings
+    )
 import Network.HTTP.Types.Status
-    ( Status (..) )
+    ( Status (..)
+    )
+import Network.HTTP.Types.Status qualified as Http
 import Network.TLS
     ( AlertDescription (..)
     , ClientHooks (..)
@@ -65,31 +84,47 @@ import Network.TLS
     , noSessionManager
     )
 import Network.TLS.Extra.Cipher
-    ( ciphersuite_default )
+    ( ciphersuite_default
+    )
 import Network.Wai
-    ( responseLBS )
+    ( responseLBS
+    )
+import Network.Wai qualified as Wai
+import Network.Wai.Handler.Warp qualified as Warp
 import System.Directory
-    ( createDirectoryIfMissing, doesDirectoryExist )
+    ( createDirectoryIfMissing
+    , doesDirectoryExist
+    )
 import System.FilePath
-    ( takeFileName, (<.>), (</>) )
+    ( takeFileName
+    , (<.>)
+    , (</>)
+    )
 import System.IO
-    ( hPutStrLn, stderr )
+    ( hPutStrLn
+    , stderr
+    )
 import Test.Hspec
-    ( Spec, describe, it, shouldBe, shouldThrow )
+    ( Spec
+    , describe
+    , it
+    , shouldBe
+    , shouldThrow
+    )
 import Test.Utils.Paths
-    ( getTestData )
+    ( getTestData
+    )
 import Test.Utils.Platform
-    ( pendingOnWine )
+    ( pendingOnWine
+    )
 import UnliftIO.Async
-    ( async, link )
+    ( async
+    , link
+    )
 import UnliftIO.Exception
-    ( fromException )
-
-import qualified Cardano.Wallet.Api.Server as Server
-import qualified Data.ByteString as BS
-import qualified Network.HTTP.Types.Status as Http
-import qualified Network.Wai as Wai
-import qualified Network.Wai.Handler.Warp as Warp
+    ( fromException
+    )
+import Prelude
 
 spec :: Spec
 spec = describe "TLS Client Authentication" $ do
@@ -98,27 +133,30 @@ spec = describe "TLS Client Authentication" $ do
         withListeningSocket "*" ListenOnRandomPort $ \(Right (port, socket)) -> do
             tlsSv <- rootPKI 1 "server"
             tlsCl <- rootPKI 1 "client"
-            link =<< async
-                (Server.start warpSettings nullTracer (Just tlsSv) socket app)
+            link
+                =<< async
+                    (Server.start warpSettings nullTracer (Just tlsSv) socket app)
 
             response <- pingHttps tlsCl port
-            responseStatus response `shouldBe` Http.Status
-                { statusCode = 200
-                , statusMessage = "Ok"
-                }
+            responseStatus response
+                `shouldBe` Http.Status
+                    { statusCode = 200
+                    , statusMessage = "Ok"
+                    }
 
     it "Deny client with wrong certificate if TLS is enabled" $ do
         pendingOnWine "CertOpenSystemStoreW is failing under Wine"
         withListeningSocket "*" ListenOnRandomPort $ \(Right (port, socket)) -> do
             tlsSv <- rootPKI 1 "server"
             tlsCl <- rootPKI 2 "client"
-            link =<< async
-                (Server.start warpSettings nullTracer (Just tlsSv) socket app)
+            link
+                =<< async
+                    (Server.start warpSettings nullTracer (Just tlsSv) socket app)
 
             pingHttps tlsCl port `shouldThrow` \case
                 HttpExceptionRequest _ (InternalException e) ->
                     case fromException e of
-                        Just (Terminated _ _ (Error_Protocol (_,_,alert))) ->
+                        Just (Terminated _ _ (Error_Protocol (_, _, alert))) ->
                             alert == CertificateUnknown
                         _ -> False
                 _ -> False
@@ -126,14 +164,16 @@ spec = describe "TLS Client Authentication" $ do
     it "Properly deny HTTP connection if TLS is enabled" $ do
         withListeningSocket "*" ListenOnRandomPort $ \(Right (port, socket)) -> do
             tlsSv <- rootPKI 1 "server"
-            link =<< async
-                (Server.start warpSettings nullTracer (Just tlsSv) socket app)
+            link
+                =<< async
+                    (Server.start warpSettings nullTracer (Just tlsSv) socket app)
 
             response <- pingHttp port
-            responseStatus response `shouldBe` Http.Status
-                { statusCode = 426
-                , statusMessage = "Upgrade Required"
-                }
+            responseStatus response
+                `shouldBe` Http.Status
+                    { statusCode = 426
+                    , statusMessage = "Upgrade Required"
+                    }
 
 --
 -- Test data
@@ -147,26 +187,28 @@ rootPKI i subdir = do
         hPutStrLn stderr $ "rootPKI: There's no PKI for index #" <> show i
         genPKI dir
         hPutStrLn stderr $ "rootPKI: Created " <> dir
-    pure TlsConfiguration
-        { tlsCaCert = dir </> "ca.crt"
-        , tlsSvCert = dir </> subdir </> subdir <.> "crt"
-        , tlsSvKey  = dir </> subdir </> subdir <.> "key"
-        }
+    pure
+        TlsConfiguration
+            { tlsCaCert = dir </> "ca.crt"
+            , tlsSvCert = dir </> subdir </> subdir <.> "crt"
+            , tlsSvKey = dir </> subdir </> subdir <.> "key"
+            }
 
 genPKI :: FilePath -> IO ()
 genPKI dir = do
     cfg <- decodeConfigFile (ConfigurationKey "dev") confFile
     (caDesc, certDescs) <-
-            fromConfiguration cfg dirConf genRSA256KeyPair <$> genRSA256KeyPair
+        fromConfiguration cfg dirConf genRSA256KeyPair <$> genRSA256KeyPair
     genCertificate (findCert "client" certDescs) >>= writePEM "client"
     genCertificate (findCert "server" certDescs) >>= writePEM "server"
     genCertificate caDesc >>= writeCert "ca"
   where
-    dirConf = DirConfiguration
-        { outDirServer = dir </> "server"
-        , outDirClients = dir </> "client"
-        , outDirCA = Just dir
-        }
+    dirConf =
+        DirConfiguration
+            { outDirServer = dir </> "server"
+            , outDirClients = dir </> "client"
+            , outDirCA = Just dir
+            }
     confFile = $(getTestData) </> "PKIs" </> "cardano-sl-x509.yaml"
     writePEM f (key, cert) = do
         createDirectoryIfMissing True (dir </> f)
@@ -185,10 +227,11 @@ genPKI dir = do
 --
 
 warpSettings :: Warp.Settings
-warpSettings = Warp.defaultSettings
-    -- NOTE By default, Warp prints any exception on stdout, which is kinda
-    -- annoying...
-    & Warp.setOnException (\_ _ -> pure ())
+warpSettings =
+    Warp.defaultSettings
+        -- NOTE By default, Warp prints any exception on stdout, which is kinda
+        -- annoying...
+        & Warp.setOnException (\_ _ -> pure ())
 
 app :: Wai.Application
 app _request respond =
@@ -212,42 +255,48 @@ pingHttps tls port = do
 mkHttpsManagerSettings
     :: TlsConfiguration
     -> IO ManagerSettings
-mkHttpsManagerSettings TlsConfiguration{tlsCaCert,tlsSvCert,tlsSvKey} = do
-    params <- clientParams
-        <$> readSignedObject tlsCaCert
-        <*> readCredentials tlsSvCert tlsSvKey
+mkHttpsManagerSettings TlsConfiguration {tlsCaCert, tlsSvCert, tlsSvKey} = do
+    params <-
+        clientParams
+            <$> readSignedObject tlsCaCert
+            <*> readCredentials tlsSvCert tlsSvKey
     pure $ mkManagerSettings (TLSSettings params) sockSettings
   where
     sockSettings = Nothing
-    clientParams caChain credentials = ClientParams
-        { clientUseMaxFragmentLength = Nothing
-        , clientServerIdentification = ("127.0.0.1", "")
-        , clientUseServerNameIndication = True
-        , clientWantSessionResume = Nothing
-        , clientShared = clientShared caChain credentials
-        , clientHooks = clientHooks credentials
-        , clientSupported = clientSupported
-        , clientDebug = def
-        , clientEarlyData = def
-        }
+    clientParams caChain credentials =
+        ClientParams
+            { clientUseMaxFragmentLength = Nothing
+            , clientServerIdentification = ("127.0.0.1", "")
+            , clientUseServerNameIndication = True
+            , clientWantSessionResume = Nothing
+            , clientShared = clientShared caChain credentials
+            , clientHooks = clientHooks credentials
+            , clientSupported = clientSupported
+            , clientDebug = def
+            , clientEarlyData = def
+            }
 
-    clientShared caChain credentials = Shared
-        { sharedCredentials = Credentials [credentials]
-        , sharedCAStore = makeCertificateStore caChain
-        , sharedSessionManager = noSessionManager
-        , sharedValidationCache = def
-        , sharedHelloExtensions = def
-        }
+    clientShared caChain credentials =
+        Shared
+            { sharedCredentials = Credentials [credentials]
+            , sharedCAStore = makeCertificateStore caChain
+            , sharedSessionManager = noSessionManager
+            , sharedValidationCache = def
+            , sharedHelloExtensions = def
+            }
 
-    clientHooks credentials = def
-        { onCertificateRequest = const . return . Just $ credentials
-        , onServerCertificate = \_ _ _ _ -> pure []
-        }
+    clientHooks credentials =
+        def
+            { onCertificateRequest = const . return . Just $ credentials
+            , onServerCertificate = \_ _ _ _ -> pure []
+            }
 
-    clientSupported = def
-        { supportedCiphers = ciphersuite_default
-        }
+    clientSupported =
+        def
+            { supportedCiphers = ciphersuite_default
+            }
 
-    readCredentials certFile keyFile = (,)
-        <$> (CertificateChain <$> readSignedObject certFile)
-        <*> (head <$> readKeyFile keyFile)
+    readCredentials certFile keyFile =
+        (,)
+            <$> (CertificateChain <$> readSignedObject certFile)
+            <*> (head <$> readKeyFile keyFile)

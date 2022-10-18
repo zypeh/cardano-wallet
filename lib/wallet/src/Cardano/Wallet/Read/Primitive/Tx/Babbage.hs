@@ -6,35 +6,59 @@
 -- |
 -- Copyright: © 2020 IOHK
 -- License: Apache-2.0
---
-
 module Cardano.Wallet.Read.Primitive.Tx.Babbage
     ( fromBabbageTx
     )
-    where
-
-import Prelude
+where
 
 import Cardano.Address.Script
-    ( KeyRole (..) )
+    ( KeyRole (..)
+    )
 import Cardano.Api
-    ( BabbageEra )
+    ( BabbageEra
+    )
+import Cardano.Api.Shelley qualified as Cardano
+import Cardano.Ledger.Alonzo.Data qualified as Alonzo
+import Cardano.Ledger.Alonzo.Language qualified as Alonzo
+import Cardano.Ledger.Alonzo.Scripts qualified as Alonzo
+import Cardano.Ledger.Alonzo.Tx qualified as Alonzo
+import Cardano.Ledger.Babbage qualified as Babbage
+import Cardano.Ledger.Babbage.TxBody qualified as Babbage
+import Cardano.Ledger.BaseTypes qualified as SL
+import Cardano.Ledger.Core qualified as SL.Core
 import Cardano.Ledger.Era
-    ( Era (..) )
+    ( Era (..)
+    )
+import Cardano.Ledger.Mary.Value qualified as SL
 import Cardano.Ledger.Serialization
-    ( sizedValue )
+    ( sizedValue
+    )
 import Cardano.Ledger.Shelley.API
-    ( StrictMaybe (SJust, SNothing) )
+    ( StrictMaybe (SJust, SNothing)
+    )
+import Cardano.Ledger.Shelley.API qualified as SL
+import Cardano.Wallet.Primitive.Types qualified as W
+import Cardano.Wallet.Primitive.Types.Coin qualified as W
+import Cardano.Wallet.Primitive.Types.Hash qualified as W
 import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenPolicyId )
+    ( TokenPolicyId
+    )
+import Cardano.Wallet.Primitive.Types.Tx qualified as W
 import Cardano.Wallet.Read.Eras
-    ( babbage, inject )
+    ( babbage
+    , inject
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Allegra
-    ( fromLedgerTxValidity )
+    ( fromLedgerTxValidity
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Features.Certificates
-    ( anyEraCerts )
+    ( anyEraCerts
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Mary
-    ( fromCardanoValue, fromLedgerMintValue, getScriptMap )
+    ( fromCardanoValue
+    , fromLedgerMintValue
+    , getScriptMap
+    )
 import Cardano.Wallet.Read.Primitive.Tx.Shelley
     ( fromShelleyAddress
     , fromShelleyCoin
@@ -43,13 +67,18 @@ import Cardano.Wallet.Read.Primitive.Tx.Shelley
     , fromShelleyWdrl
     )
 import Cardano.Wallet.Read.Tx
-    ( Tx (..) )
+    ( Tx (..)
+    )
 import Cardano.Wallet.Read.Tx.CBOR
-    ( renderTxToCBOR )
+    ( renderTxToCBOR
+    )
 import Cardano.Wallet.Read.Tx.Hash
-    ( alonzoTxHash )
+    ( alonzoTxHash
+    )
 import Cardano.Wallet.Shelley.Compatibility.Ledger
-    ( toWalletScript, toWalletTokenPolicyId )
+    ( toWalletScript
+    , toWalletTokenPolicyId
+    )
 import Cardano.Wallet.Transaction
     ( AnyScript (..)
     , PlutusScriptInfo (..)
@@ -58,28 +87,16 @@ import Cardano.Wallet.Transaction
     , ValidityIntervalExplicit (..)
     )
 import Data.Foldable
-    ( toList )
+    ( toList
+    )
 import Data.Map.Strict
-    ( Map )
+    ( Map
+    )
+import Data.Map.Strict qualified as Map
 import Ouroboros.Consensus.Cardano.Block
-    ( StandardBabbage )
-
-import qualified Cardano.Api.Shelley as Cardano
-import qualified Cardano.Ledger.Alonzo.Data as Alonzo
-import qualified Cardano.Ledger.Alonzo.Language as Alonzo
-import qualified Cardano.Ledger.Alonzo.Scripts as Alonzo
-import qualified Cardano.Ledger.Alonzo.Tx as Alonzo
-import qualified Cardano.Ledger.Babbage as Babbage
-import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import qualified Cardano.Ledger.BaseTypes as SL
-import qualified Cardano.Ledger.Core as SL.Core
-import qualified Cardano.Ledger.Mary.Value as SL
-import qualified Cardano.Ledger.Shelley.API as SL
-import qualified Cardano.Wallet.Primitive.Types as W
-import qualified Cardano.Wallet.Primitive.Types.Coin as W
-import qualified Cardano.Wallet.Primitive.Types.Hash as W
-import qualified Cardano.Wallet.Primitive.Types.Tx as W
-import qualified Data.Map.Strict as Map
+    ( StandardBabbage
+    )
+import Prelude
 
 fromBabbageTx
     :: Alonzo.ValidatedTx (Cardano.ShelleyLedgerEra BabbageEra)
@@ -136,8 +153,8 @@ fromBabbageTx tx@(Alonzo.ValidatedTx bod wits (Alonzo.IsValid isValid) aux) =
         mint
         _wwpHash
         _adHash
-        _network
-        = bod
+        _network =
+            bod
     (assetsToMint, assetsToBurn) = fromLedgerMintValue mint
     scriptMap = fromBabbageScriptMap $ Alonzo.txscripts' wits
     mintScriptMap = getScriptMap scriptMap assetsToMint
@@ -149,8 +166,8 @@ fromBabbageTx tx@(Alonzo.ValidatedTx bod wits (Alonzo.IsValid isValid) aux) =
             (SL.Core.Script StandardBabbage)
         -> Map TokenPolicyId AnyScript
     fromBabbageScriptMap =
-        Map.map toAnyScript .
-        Map.mapKeys (toWalletTokenPolicyId . SL.PolicyID)
+        Map.map toAnyScript
+            . Map.mapKeys (toWalletTokenPolicyId . SL.PolicyID)
       where
         toAnyScript (Alonzo.TimelockScript script) =
             NativeScript $ toWalletScript Policy script
@@ -165,11 +182,12 @@ fromBabbageTx tx@(Alonzo.ValidatedTx bod wits (Alonzo.IsValid isValid) aux) =
         -> W.TxOut
     fromBabbageTxOut (Babbage.TxOut addr value _datum _refScript) =
         W.TxOut (fromShelleyAddress addr) $
-        fromCardanoValue $ Cardano.fromMaryValue value
+            fromCardanoValue $
+                Cardano.fromMaryValue value
 
     toSLMetadata (Alonzo.AuxiliaryData blob _scripts) = SL.Metadata blob
 
     validity =
         if isValid
-        then Just W.TxScriptValid
-        else Just W.TxScriptInvalid
+            then Just W.TxScriptValid
+            else Just W.TxScriptInvalid
