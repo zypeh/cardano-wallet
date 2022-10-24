@@ -288,6 +288,7 @@ import Cardano.Wallet.Api.Lib.ApiT
 import Cardano.Wallet.Api.Lib.Options
     ( DefaultRecord (..)
     , DefaultSum (..)
+    , DefaultText (..)
     , TaggedObjectOptions (..)
     , defaultRecordTypeOptions
     , defaultSumTypeOptions
@@ -2142,10 +2143,10 @@ instance FromJSON (ApiT XPrv) where
 instance ToJSON (ApiT XPrv) where
     toJSON = toJSON . toText
 
-instance FromJSON (ApiT (Hash "VerificationKey")) where
-    parseJSON = fromTextApiT "VerificationKey Hash"
-instance ToJSON (ApiT (Hash "VerificationKey")) where
-    toJSON = toTextApiT
+deriving via DefaultText "VerificationKey Hash" (Hash "VerificationKey")
+    instance FromJSON (ApiT (Hash "VerificationKey"))
+deriving via DefaultText "VerificationKey Hash" (Hash "VerificationKey")
+    instance ToJSON (ApiT (Hash "VerificationKey"))
 
 instance FromJSON (ApiT (Hash "TokenPolicy")) where
     parseJSON = fromTextApiT "TokenPolicy Hash"

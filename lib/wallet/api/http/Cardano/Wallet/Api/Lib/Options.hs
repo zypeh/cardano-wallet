@@ -1,4 +1,7 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- |
@@ -16,11 +19,14 @@ module Cardano.Wallet.Api.Lib.Options
     -- * Support for deriving default JSON encodings
     , DefaultRecord (..)
     , DefaultSum (..)
+    , DefaultText (..)
     )
     where
 
 import Prelude
 
+import Cardano.Wallet.Api.Aeson
+    ( fromTextJSON, toTextJSON )
 import Data.Aeson
     ( FromJSON (..)
     , GFromJSON
@@ -34,8 +40,14 @@ import Data.Aeson
     , genericParseJSON
     , genericToJSON
     )
+import Data.Proxy
+    ( Proxy (..) )
+import Data.Text.Class
+    ( FromText, ToText )
 import GHC.Generics
     ( Generic, Rep )
+import GHC.TypeLits
+    ( KnownSymbol, Symbol, symbolVal )
 
 import qualified Data.Aeson as Aeson
 
@@ -115,3 +127,15 @@ instance (Generic a, GFromJSON Zero (Rep a)) => FromJSON (DefaultSum a)
 instance (Generic a, GToJSON' Value Zero (Rep a)) => ToJSON (DefaultSum a)
   where
     toJSON = genericToJSON defaultSumTypeOptions . unDefaultSum
+
+-- | Enables deriving of the default API JSON encoding for textual types.
+--
+newtype DefaultText (s :: Symbol) a = DefaultText {unDefaultText :: a}
+
+instance forall s a. (KnownSymbol s, FromText a) => FromJSON (DefaultText s a)
+  where
+    parseJSON = fmap DefaultText . fromTextJSON (symbolVal (Proxy :: Proxy s))
+
+instance ToText a => ToJSON (DefaultText s a)
+  where
+    toJSON = toTextJSON . unDefaultText
