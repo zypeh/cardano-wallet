@@ -8,6 +8,7 @@
 --
 module Cardano.Wallet.Shelley.MinimumUTxO
     ( computeMinimumCoinForUTxO
+    , computeMinimumCoinForUTxO'
     , isBelowMinimumCoinForUTxO
     ) where
 
@@ -27,7 +28,10 @@ import Cardano.Wallet.Primitive.Types.Tx
     ( TxOut (..) )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
     ( txOutMaxCoin )
+import Ouroboros.Consensus.Cardano.Block
+    ( StandardBabbage )
 
+import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
 import qualified Cardano.Wallet.Shelley.MinimumUTxO.Internal as Internal
 
@@ -72,6 +76,21 @@ computeMinimumCoinForUTxO minimumUTxO addr tokenMap =
             Internal.computeMinimumCoinForUTxO_CardanoLedger
                 minimumUTxOShelley
                 (TxOut addr $ TokenBundle txOutMaxCoin tokenMap)
+
+computeMinimumCoinForUTxO'
+    :: MinimumUTxO
+    -> Babbage.TxOut StandardBabbage
+    -> Coin
+computeMinimumCoinForUTxO' minimumUTxO out =
+    case minimumUTxO of
+        MinimumUTxONone ->
+            Coin 0
+        MinimumUTxOConstant c ->
+            c
+        MinimumUTxOForShelleyBasedEraOf minimumUTxOShelley ->
+            Internal.computeMinimumCoinForUTxO_CardanoLedger'
+                minimumUTxOShelley
+                out
 
 -- | Returns 'True' if and only if the given 'TokenBundle' has a 'Coin' value
 --   that is below the minimum acceptable 'Coin' value.

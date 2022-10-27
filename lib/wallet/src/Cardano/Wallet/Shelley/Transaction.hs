@@ -292,6 +292,10 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Data.Text as T
 
+import qualified Cardano.Ledger.Babbage.TxBody as Babbage
+import Ouroboros.Consensus.Shelley.Eras
+    ( StandardBabbage )
+
 -- | Type encapsulating what we need to know to add things -- payloads,
 -- certificates -- to a transaction.
 --
@@ -1093,6 +1097,42 @@ _estimateSignedTxSize pparams body =
     feePerByte :: Coin
     feePerByte = Coin.fromNatural $
         view #protocolParamTxFeePerByte pparams
+
+increaseZeroAdaOutputs
+    :: forall era. Cardano.Tx era
+    -> Cardano.Tx era
+increaseZeroAdaOutputs (Cardano.Tx cardanoBody keyWits) =
+    let
+        Cardano.ShelleyTxBody
+            era
+            body
+            scripts
+            scriptData
+            aux
+            val = cardanoBody
+        cardanoBody' =
+            Cardano.ShelleyTxBody
+                era
+                (modifyLedgerBody era body)
+                scripts
+                scriptData
+                aux
+                val
+    in
+        Cardano.Tx cardanoBody' keyWits
+
+  where
+    modifyLedgerBody
+        :: Cardano.ShelleyBasedEra era
+        -> Ledger.TxBody (Cardano.ShelleyLedgerEra era)
+        -> Ledger.TxBody (Cardano.ShelleyLedgerEra era)
+    modifyLedgerBody ShelleyBasedEraBabbage body =
+        body { Babbage.outputs = fmap (mapSized modifyTxOut) $ Babbage.outputs body  }
+
+    mapSized f = Ledger.mkSized . f . Ledger.sizedValue
+
+    modifyTxOut :: Babbage.TxOut StandardBabbage -> Babbage.TxOut StandardBabbage
+    modifyTxOut out@(Babbage.TxOut a b c d ) = Babbage.TxOut a b c d
 
 -- | Estimates the required number of Shelley-era witnesses.
 --
@@ -2526,17 +2566,13 @@ mkUnsignedTx era ttl cs md wdrls certs fees mintData burnData mintingScripts inp
             [( toCardanoTxIn dummyInput
              , Cardano.BuildTxWith (Cardano.KeyWitness Cardano.KeyWitnessForSpending))]
 
-
-
-
 -- cardano-node does not allow to construct tx without inputs at this moment.
 -- this should change and this hack should be removed
 dummyInput :: TxIn
 dummyInput = TxIn (Hash $ BS.replicate 32 0) 999
 
 removeDummyInput
-    :: Cardano.IsCardanoEra era
-    => Cardano.TxBody era
+    :: Cardano.TxBody era
     -> Cardano.TxBody era
 removeDummyInput (Cardano.ShelleyTxBody era bod scripts scriptData aux val) =
     (Cardano.ShelleyTxBody era (removeDummyIn bod) scripts scriptData aux val)
