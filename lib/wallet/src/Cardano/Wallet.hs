@@ -628,24 +628,6 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
-import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import qualified Cardano.Ledger.Core as Ledger
-import Cardano.Ledger.Serialization
-    ( Sized (..), mkSized )
-import Cardano.Ledger.Val
-    ( Val (modifyCoin) )
-import qualified Cardano.Ledger.Val as Ledger
-import Cardano.Wallet.Primitive.Types.MinimumUTxO
-    ( MinimumUTxO )
-import Cardano.Wallet.Shelley.Compatibility.Ledger
-    ( toLedger )
-import Cardano.Wallet.Shelley.MinimumUTxO
-    ( computeMinimumCoinForUTxO' )
-import Debug.Trace
-    ( trace )
-import Ouroboros.Consensus.Cardano.Block
-    ( StandardBabbage )
-
 -- $Development
 -- __Naming Conventions__
 --
@@ -1604,8 +1586,6 @@ instance Buildable (PartialTx era) where
         cardanoTxF :: Cardano.Tx era -> Builder
         cardanoTxF tx' = pretty $ pShow tx'
 
-
-
 balanceTransaction
     :: forall era m s k ktype ctx.
         ( HasTransactionLayer k ktype ctx
@@ -1652,61 +1632,6 @@ balanceTransaction ctx change pp ti wallet ptx = do
             otherErr
                 -> throwE otherErr
 
-increaseZeroAdaOutputs
-    :: forall era. MinimumUTxO
-    -> Cardano.Tx era
-    -> Cardano.Tx era
-increaseZeroAdaOutputs minUTxO (Cardano.Tx cardanoBody keyWits) =
-    let
-        Cardano.ShelleyTxBody
-            era
-            body
-            scripts
-            scriptData
-            aux
-            val = cardanoBody
-
-        cardanoBody' =
-            Cardano.ShelleyTxBody
-                era
-                (modifyLedgerBody era body)
-                scripts
-                scriptData
-                aux
-                val
-    in
-        Cardano.Tx cardanoBody' keyWits
-  where
-    modifyLedgerBody
-        :: forall era. Cardano.ShelleyBasedEra era
-        -> Ledger.TxBody (Cardano.ShelleyLedgerEra era)
-        -> Ledger.TxBody (Cardano.ShelleyLedgerEra era)
-    modifyLedgerBody Cardano.ShelleyBasedEraBabbage body =
-        body { Babbage.outputs = fmap (mapSized modifyTxOut) $ Babbage.outputs body  }
-
-    mapSized f = mkSized . f . sizedValue
-
-    modifyTxOut :: Babbage.TxOut StandardBabbage -> Babbage.TxOut StandardBabbage
-    modifyTxOut out@(Babbage.TxOut addr val dat script) =
-        Babbage.TxOut addr (modifyVal val) dat script
-      where
-        modifyVal v =
-            if Ledger.coin v == mempty
-            then flip modifyCoin val $ \c ->
-                let
-                    c' = toLedger $ computeMinimumCoinForUTxO' minUTxO out
-                    msg = mconcat
-                        [ "### "
-                        , show c
-                        , " -> "
-                        , show c'
-                        , "\n"
-                        , show out
-                        ]
-                in
-                    trace msg c'
-            else v
-
 balanceTransactionWithSelectionStrategy
     :: forall era m s k ktype ctx.
         ( HasTransactionLayer k ktype ctx
@@ -1731,11 +1656,12 @@ balanceTransactionWithSelectionStrategy
     ti
     (internalUtxoAvailable, wallet, _pendingTxs)
     selectionStrategy
-    ptx'
+    ptx@(PartialTx partialTx inputUTxO redeemers)
     = do
     guardExistingCollateral partialTx
     guardExistingTotalCollateral partialTx
     guardExistingReturnCollateral partialTx
+    guardZeroAdaOutputs (extractOutputsFromTx $ toSealed partialTx)
     guardConflictingWithdrawalNetworks partialTx
     guardWalletUTxOConsistencyWith inputUTxO
 
@@ -1976,13 +1902,6 @@ balanceTransactionWithSelectionStrategy
          ]
       where
          unUTxO (Cardano.UTxO u) = u
-
-    ptx@(PartialTx partialTx inputUTxO redeemers) =
-        let
-            PartialTx tx u rs =  ptx'
-            minUTxO = view #minimumUTxO pp
-        in
-            PartialTx (increaseZeroAdaOutputs minUTxO tx) u rs
 
     assembleTransaction
         :: TxUpdate

@@ -324,11 +324,7 @@ import Cardano.Wallet.Api.Types.Key
 import Cardano.Wallet.Api.Types.SchemaMetadata
     ( TxMetadataSchema (..), TxMetadataWithSchema (TxMetadataWithSchema) )
 import Cardano.Wallet.CoinSelection
-    ( PreSelection (..)
-    , SelectionOf (..)
-    , SelectionStrategy (..)
-    , selectionDelta
-    )
+    ( PreSelection (..), SelectionOf (..), SelectionStrategy (..), selectionDelta )
 import Cardano.Wallet.Compat
     ( (^?) )
 import Cardano.Wallet.DB
@@ -2479,12 +2475,18 @@ constructTransaction ctx genChange knownPools getPoolStatus apiw@(ApiT wid) body
     toUnsignedTxChange _initialOuts (ExternalOutput _) =
               Nothing
 
-    toUnsignedTxOut (WalletOutput (ApiWalletOutput (ApiT addr, _) (Quantity c) (ApiT tmap) _)) =
+    toUnsignedTxOut initialOuts (WalletOutput (ApiWalletOutput (ApiT addr, _) (Quantity c) (ApiT tmap) _)) =
         let txout = TxOut addr (TokenBundle (Coin $ fromIntegral c) tmap)
-        in txout
-    toUnsignedTxOut (ExternalOutput (AddressAmount (ApiT addr, _) (Quantity c) (ApiT tmap))) =
+        in if txout `L.elem` initialOuts then
+              Just txout
+           else
+              Nothing
+    toUnsignedTxOut initialOuts (ExternalOutput (AddressAmount (ApiT addr, _) (Quantity c) (ApiT tmap))) =
         let txout = TxOut addr (TokenBundle (Coin $ fromIntegral c) tmap)
-        in txout
+        in if txout `L.elem` initialOuts then
+              Just txout
+           else
+              Nothing
 
     toUsignedTxWdrl p (ApiWithdrawalGeneral (ApiT rewardAcc,_) (Quantity amt) Our) =
         Just (rewardAcc, Coin $ fromIntegral amt, p)
@@ -2504,13 +2506,7 @@ constructTransaction ctx genChange knownPools getPoolStatus apiw@(ApiT wid) body
         , unsignedInputs =
                 mapMaybe toUnsignedTxInp (decodedTx ^. #inputs)
         , unsignedOutputs =
-                -- FIXME: Hack leveraging the fact that change outputs are added
-                -- in the beginning.
-                -- (This is horrible and needs rethinking)
-                reverse
-                    $ take (length initialOuts)
-                    $ reverse
-                    $ map toUnsignedTxOut (decodedTx ^. #outputs)
+                mapMaybe (toUnsignedTxOut initialOuts) (decodedTx ^. #outputs)
         , unsignedChange =
                 mapMaybe (toUnsignedTxChange initialOuts) (decodedTx ^. #outputs)
         , unsignedWithdrawals =

@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TypeApplications #-}
 {- HLINT ignore "Use camelCase" -}
 
 -- |
@@ -12,7 +11,6 @@
 module Cardano.Wallet.Shelley.MinimumUTxO.Internal
     ( computeMinimumCoinForUTxO_CardanoApi
     , computeMinimumCoinForUTxO_CardanoLedger
-    , computeMinimumCoinForUTxO_CardanoLedger'
     ) where
 
 import Prelude
@@ -41,16 +39,6 @@ import GHC.Stack
     ( HasCallStack )
 
 import qualified Cardano.Api.Shelley as Cardano
-import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import qualified Cardano.Ledger.Coin as Ledger
-import Cardano.Ledger.Val
-    ( modifyCoin )
-import Data.IntCast
-    ( intCast )
-import Data.Word
-    ( Word32 )
-import Ouroboros.Consensus.Cardano.Block
-    ( StandardBabbage )
 
 -- | Computes a minimum UTxO value with the Cardano API.
 --
@@ -130,25 +118,3 @@ computeMinimumCoinForUTxO_CardanoLedger
             Cardano.ShelleyBasedEraBabbage ->
                 evaluateMinLovelaceOutput pp
                     $ toBabbageTxOut txOut Nothing
-
-computeMinimumCoinForUTxO_CardanoLedger'
-    :: MinimumUTxOForShelleyBasedEra
-    -> Babbage.TxOut StandardBabbage
-    -> Coin
-computeMinimumCoinForUTxO_CardanoLedger'
-    (MinimumUTxOForShelleyBasedEra era pp) txOut =
-        toWalletCoin $ case era of
-            Cardano.ShelleyBasedEraBabbage ->
-                evaluateMinLovelaceOutput pp (withMaxLengthSerializedCoin txOut)
-            _ -> error "todo: computeMinimumCoinForUTxO_CardanoLedger'"
-  where
-    withMaxLengthSerializedCoin (Babbage.TxOut addr val dat script) =
-        Babbage.TxOut
-            addr
-            (modifyCoin (const largestSerializedCoin) val)
-            dat
-            script
-      where
-        -- FIXME: The smallest coin with the largest serialized length is
-        -- smaller. Define constant elsewhere instead.
-        largestSerializedCoin = Ledger.Coin $ succ $ intCast $ maxBound @Word32
