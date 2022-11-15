@@ -1,0 +1,19 @@
+{
+  "eval": 1299750,
+  "builds": {
+    "required": {
+      "id": 21645731,
+      "finished": 0,
+      "buildstatus": null,
+      "buildmetrics": {}
+    }
+  },
+  "rev": null,
+  "timings": {
+    "actionStarted": "2022-11-15T12:43:45.469Z",
+    "ciStatusCreated": "2022-11-15T12:57:49.169Z",
+    "evaluated": "2022-11-15T12:57:49.733Z",
+    "foundBuilds": "2022-11-15T12:57:54.654Z",
+    "built": "2022-11-15T13:44:59.613Z"
+  }
+}
