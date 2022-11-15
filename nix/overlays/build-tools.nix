@@ -31,7 +31,7 @@ pkgs: super: let
   tools = {
     cabal-cache.version             = "1.0.2.1";
     cabal-install.exe               = "cabal";
-    cabal-install.version           = "3.4.0.0";
+    cabal-install.version           = "3.8.0.0";
     haskell-language-server = {
       version = "1.7.0.0";
       modules = [{ reinstallableLibGhc = false; }];
@@ -39,16 +39,18 @@ pkgs: super: let
     hie-bios = {
       modules = [{ reinstallableLibGhc = false; }];
     };
-    hoogle.version                  = "5.0.18.1";
+    hoogle.version                  = "5.0.18.3";
     hlint.version                   = "3.3.1";
     lentil.version                  = "1.5.2.0";
     stylish-haskell.version         = "0.11.0.3";
     weeder.version                  = "2.1.3";
   };
 
+  index-state = "2022-09-27T00:00:00Z";
+  compiler-nix-name = "ghc925";
+
   # Use cabal.project as the source of GHC version and Hackage index-state.
-  inherit (pkgs.cardanoWalletLib.cabalProjectIndexState ../../cabal.project)
-    index-state compiler-nix-name;
+  # FIXME
 
   hsPkgs = pkgs.lib.mapAttrs mkTool tools;
 

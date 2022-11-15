@@ -1,7 +1,7 @@
 ############################################################################
 # Builds Haskell packages with Haskell.nix
 ############################################################################
-haskell-nix: haskell-nix.cabalProject' [
+CHaP: haskell-nix: haskell-nix.cabalProject' [
   ({ lib, pkgs, buildProject, ... }: {
     options = {
       gitrev = lib.mkOption {
@@ -127,7 +127,7 @@ haskell-nix: haskell-nix.cabalProject' [
           materialized = ./materialized + "/hoogle";
         };
         nativeBuildInputs = with buildProject.hsPkgs; [
-          cardano-node.components.exes.cardano-node
+#          cardano-node.components.exes.cardano-node
           cardano-cli.components.exes.cardano-cli
           cardano-addresses-cli.components.exes.cardano-address
           bech32.components.exes.bech32
@@ -148,6 +148,8 @@ haskell-nix: haskell-nix.cabalProject' [
           (drv: lib.isDerivation drv && drv.name != "regenerate-materialized-nix")
           (lib.attrValues haskell-build-tools));
       };
+
+      inputMap = { "https://input-output-hk.github.io/cardano-haskell-packages" = CHaP; };
 
       modules =
         let inherit (config) src coverage profiling doIntegrationCheck buildBenchmarks;
@@ -183,8 +185,6 @@ haskell-nix: haskell-nix.cabalProject' [
             let
               cardanoNodeExes = with config.hsPkgs;
                 [
-                  cardano-node.components.exes.cardano-node
-                  cardano-cli.components.exes.cardano-cli
                 ];
             in
             {
@@ -243,8 +243,8 @@ haskell-nix: haskell-nix.cabalProject' [
                 '';
 
                 # provide cardano-node & cardano-cli to tests
-                unit.build-tools = cardanoNodeExes;
-                integration.build-tools = cardanoNodeExes;
+                # unit.build-tools = cardanoNodeExes;
+                # integration.build-tools = cardanoNodeExes;
               };
 
               # Add node backend to the PATH of the latency benchmarks, and
