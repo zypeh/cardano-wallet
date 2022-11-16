@@ -127,7 +127,7 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
           materialized = ./materialized + "/hoogle";
         };
         nativeBuildInputs = with buildProject.hsPkgs; [
-#          cardano-node.components.exes.cardano-node
+          cardano-node.components.exes.cardano-node
           cardano-cli.components.exes.cardano-cli
           cardano-addresses-cli.components.exes.cardano-address
           bech32.components.exes.bech32
@@ -183,9 +183,7 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
           # Provide configuration and dependencies to cardano-wallet components
           ({ config, pkgs, ... }:
             let
-              cardanoNodeExes = with config.hsPkgs;
-                [
-                ];
+              cardanoNodeExes = builtins.trace config.packages.cardano-node "no";
             in
             {
               reinstallableLibGhc = true;
@@ -243,8 +241,8 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
                 '';
 
                 # provide cardano-node & cardano-cli to tests
-                # unit.build-tools = cardanoNodeExes;
-                # integration.build-tools = cardanoNodeExes;
+                unit.build-tools = cardanoNodeExes;
+                integration.build-tools = cardanoNodeExes;
               };
 
               # Add node backend to the PATH of the latency benchmarks, and

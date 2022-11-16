@@ -29,24 +29,24 @@
 
 pkgs: super: let
   tools = {
-    cabal-cache.version             = "1.0.2.1";
     cabal-install.exe               = "cabal";
-    cabal-install.version           = "3.8.0.0";
+    cabal-install.version           = "3.8.1.0";
+    cabal-install.configureArgs = "--disable-benchmarks --disable-tests";
     haskell-language-server = {
-      version = "1.7.0.0";
+      version = "1.8.0.0";
       modules = [{ reinstallableLibGhc = false; }];
     };
     hie-bios = {
       modules = [{ reinstallableLibGhc = false; }];
     };
     hoogle.version                  = "5.0.18.3";
-    hlint.version                   = "3.3.1";
+    hlint.version                   = "3.5";
     lentil.version                  = "1.5.2.0";
-    stylish-haskell.version         = "0.11.0.3";
-    weeder.version                  = "2.1.3";
+    stylish-haskell.version         = "0.14.3.0";
+    weeder.version                  = "2.4.0";
   };
 
-  index-state = "2022-09-27T00:00:00Z";
+  index-state = "2022-11-10T00:00:00Z";
   compiler-nix-name = "ghc925";
 
   # Use cabal.project as the source of GHC version and Hackage index-state.
@@ -56,10 +56,8 @@ pkgs: super: let
 
   mkTool = name: args: pkgs.haskell-nix.hackage-package ({
     inherit name index-state compiler-nix-name;
-  } // pkgs.lib.optionalAttrs enableMaterialization {
-    checkMaterialization = false;
-    materialized = ../materialized + "/${name}";
-  } // builtins.removeAttrs args ["exe"]);
+  }
+  // builtins.removeAttrs args ["exe"]);
 
   # A script for updating materialized files
   regenerateMaterialized = pkgs.writeShellScriptBin "regenerate-materialized-nix"
