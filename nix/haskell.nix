@@ -102,7 +102,7 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
 
     in {
       name = "cardano-wallet";
-      compiler-nix-name = "ghc8107";
+      compiler-nix-name = "ghc925";
 
       src = haskellLib.cleanSourceWith {
         name = "cardano-wallet-src";
@@ -183,7 +183,11 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
           # Provide configuration and dependencies to cardano-wallet components
           ({ config, pkgs, ... }:
             let
-              cardanoNodeExes = builtins.trace config.packages.cardano-node "no";
+              cardanoNodeExes = with config.hsPkgs;
+                 [
+                   cardano-node.components.exes.cardano-node
+                   cardano-cli.components.exes.cardano-cli
+                 ];
             in
             {
               reinstallableLibGhc = true;
