@@ -35,7 +35,6 @@ library
     , text
     , time
     , hspec
-    , OddWord
     , QuickCheck
   hs-source-dirs:
       src

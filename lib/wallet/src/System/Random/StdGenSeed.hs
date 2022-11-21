@@ -28,8 +28,6 @@ import Data.Bits
     ( (.|.) )
 import Data.Word
     ( Word64 )
-import Data.Word.Odd
-    ( Lit, OddWord )
 import GHC.Generics
     ( Generic )
 import Quiet
@@ -61,7 +59,7 @@ newtype StdGenSeed = StdGenSeed
     deriving (Eq, Bounded, Generic, Ord)
     deriving Show via (Quiet StdGenSeed)
 
-type Word127 = OddWord Integer (Lit 127)
+type Word127 = Word64 -- FIXME
 
 -- | Creates a new 'StdGenSeed' from within a random monadic context.
 --
