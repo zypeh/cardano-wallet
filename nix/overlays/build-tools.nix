@@ -155,8 +155,9 @@ pkgs: super: let
         ${mkMaterialize hsPkg} nix/materialized/${name}
       '') hsPkgs)));
   mkMaterialize = hsPkg: hsPkg.project.plan-nix.passthru.generateMaterialized;
+
   # https://github.com/input-output-hk/nix-tools/issues/97
-  enableMaterialization = pkgs.stdenv.isLinux;
+  enableMaterialization = true;
 
   # Get the actual tool executables from the haskell packages.
   mapExes = pkgs.lib.mapAttrs (name: hsPkg: hsPkg.components.exes.${tools.${name}.exe or name});
