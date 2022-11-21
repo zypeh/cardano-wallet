@@ -618,11 +618,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1663072120,
-        "narHash": "sha256-npRp5ULHI8/dvDAkBvudLybz0/vVBHg0p7ps7myxKgk=",
+        "lastModified": 1667394105,
+        "narHash": "sha256-YhS7zGd6jK/QM/+wWyj0zUBZmE3HOXAL/kpJptGYIWg=",
         "owner": "input-output-hk",
         "repo": "iohk-nix",
-        "rev": "e936cc0972fceb544dd7847e39fbcace1c9c00de",
+        "rev": "7fc7625a9ab2ba137bc70ddbc89a13d3fdb78c8b",
         "type": "github"
       },
       "original": {
