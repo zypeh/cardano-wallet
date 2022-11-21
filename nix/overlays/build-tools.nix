@@ -130,7 +130,7 @@ pkgs: super: let
     # hoogle.version                  = "5.0.18.3";
     hlint.version                   = "3.5";
     lentil.version                  = "1.5.2.0";
-    stylish-haskell.version         = "0.14.3.0";
+    # stylish-haskell.version         = "0.14.3.0";
     weeder.version                  = "2.4.0";
   };
 

@@ -165,7 +165,9 @@ allow-newer:
 allow-newer:
   async-timer:unliftio-core,
   ouroboros-consensus-byron:cryptonite,
-  *:base
+  ouroboros-consensus-byron:formatting,
+  *:base,
+  snap-server:attoparsec
 
 
 constraints:
@@ -186,6 +188,8 @@ constraints:
 
   , exceptions == 0.10.4
   , cryptonite >= 0.30
+  , attoparsec >= 0.14
+  , formatting >= 7.1.3
 
   -- Copied from cardano-node's cabal.project:
   , bimap >= 0.4.0
