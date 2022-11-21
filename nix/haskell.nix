@@ -63,11 +63,10 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
       # version info. It uses the "gitrev" option.
       setGitRevPostInstall = setGitRevPostInstall' config.gitrev;
       setGitRevPostInstall' = gitrev: ''
-        ${pkgs.buildPackages.iohk-nix-utils}/bin/set-git-rev "${gitrev}" $out/bin/*
       '';
 
       rewriteLibsPostInstall = lib.optionalString (pkgs.stdenv.hostPlatform.isDarwin) ''
-        export PATH=$PATH:${lib.makeBinPath (with pkgs.buildPackages; [ iohk-nix-utils binutils nix ])}
+        export PATH=$PATH:${lib.makeBinPath (with pkgs.buildPackages; [ binutils nix ])}
         rewrite-libs $out/bin $out/bin/*
       '';
 

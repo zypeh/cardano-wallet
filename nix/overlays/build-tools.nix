@@ -178,28 +178,4 @@ in {
   # These overrides are picked up by cabalWrapped in iohk-nix
   cabal = pkgs.haskell-build-tools.cabal-install;
   cabal-install = pkgs.haskell-build-tools.cabal-install;
-
-  # Override this package set from iohk-nix with local materializations.
-  # This is a little bit messy, unfortunately.
-  iohk-nix-utils = let
-    name = "iohk-nix-utils";
-    project = super.haskellBuildUtils.mkProject ({
-      inherit compiler-nix-name index-state;
-    } // pkgs.lib.optionalAttrs enableMaterialization {
-      checkMaterialization = false;
-      materialized = ../materialized + "/${name}";
-    });
-  in pkgs.symlinkJoin {
-    inherit name;
-    paths = pkgs.lib.attrValues project.iohk-nix-utils.components.exes;
-    passthru = {
-      inherit project;
-      inherit (project) roots;
-      regenerateMaterialized = pkgs.writeShellScriptBin "regenerate-materialized-nix"
-        (pkgs.lib.optionalString enableMaterialization ''
-          echo 'Updating materialized nix for ${name}'
-          ${mkMaterialize project.iohk-nix-utils} nix/materialized/${name}
-        '');
-    };
-  };
 }
