@@ -102,7 +102,7 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
 
     in {
       name = "cardano-wallet";
-      compiler-nix-name = "ghc925";
+      compiler-nix-name = "ghc924";
 
       src = haskellLib.cleanSourceWith {
         name = "cardano-wallet-src";
@@ -119,13 +119,14 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
         # but: https://github.com/input-output-hk/haskell.nix/issues/231
         # exactDeps = true;
 
-        # fixme: this is needed to prevent Haskell.nix double-evaluating hoogle
-        tools.hoogle = {
-          inherit (pkgs.haskell-build-tools.hoogle) version;
-          inherit (pkgs.haskell-build-tools.hoogle.project) index-state;
-          checkMaterialization = false;
-          materialized = ./materialized + "/hoogle";
-        };
+        # FIXME
+        # # fixme: this is needed to prevent Haskell.nix double-evaluating hoogle
+        # tools.hoogle = {
+        #   inherit (pkgs.haskell-build-tools.hoogle) version;
+        #   inherit (pkgs.haskell-build-tools.hoogle.project) index-state;
+        #   checkMaterialization = false;
+        #   materialized = ./materialized + "/hoogle";
+        # };
         nativeBuildInputs = with buildProject.hsPkgs; [
           cardano-node.components.exes.cardano-node
           cardano-cli.components.exes.cardano-cli

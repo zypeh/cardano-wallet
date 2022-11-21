@@ -34,20 +34,108 @@ pkgs: super: let
     cabal-install.configureArgs = "--disable-benchmarks --disable-tests";
     haskell-language-server = {
       version = "1.8.0.0";
-      modules = [{ reinstallableLibGhc = false; }];
+      modules = [
+        { reinstallableLibGhc = false; }
+        { nonReinstallablePkgs = [
+            "rts"
+            "ghc-heap"
+            "ghc-prim"
+            "integer-gmp"
+            "integer-simple"
+            "base"
+            "deepseq"
+            "array"
+            "ghc-boot-th"
+            "pretty"
+            "template-haskell"
+            "ghcjs-prim"
+            "ghcjs-th"
+            "ghc-bignum"
+            "exceptions"
+            "stm"
+            "ghc-boot"
+            "ghc"
+            "Cabal"
+            "Win32"
+            "array"
+            "binary"
+            "bytestring"
+            "containers"
+            "directory"
+            "filepath"
+            "ghc-boot"
+            "ghc-compact"
+            "ghc-prim"
+            "hpc"
+            "mtl"
+            "parsec"
+            "process"
+            "text"
+            "time"
+            "transformers"
+            "unix"
+            "xhtml"
+            "terminfo"
+          ];
+        }
+      ];
     };
     hie-bios = {
-      modules = [{ reinstallableLibGhc = false; }];
+      modules = [
+        { reinstallableLibGhc = false; }
+        { nonReinstallablePkgs = [
+            "rts"
+            "ghc-heap"
+            "ghc-prim"
+            "integer-gmp"
+            "integer-simple"
+            "base"
+            "deepseq"
+            "array"
+            "ghc-boot-th"
+            "pretty"
+            "template-haskell"
+            "ghcjs-prim"
+            "ghcjs-th"
+            "ghc-bignum"
+            "exceptions"
+            "stm"
+            "ghc-boot"
+            "ghc"
+            "Cabal"
+            "Win32"
+            "array"
+            "binary"
+            "bytestring"
+            "containers"
+            "directory"
+            "filepath"
+            "ghc-boot"
+            "ghc-compact"
+            "ghc-prim"
+            "hpc"
+            "mtl"
+            "parsec"
+            "process"
+            "text"
+            "time"
+            "transformers"
+            "unix"
+            "xhtml"
+            "terminfo"
+          ];
+        }
+      ];
     };
-    hoogle.version                  = "5.0.18.3";
+    # hoogle.version                  = "5.0.18.3";
     hlint.version                   = "3.5";
     lentil.version                  = "1.5.2.0";
     stylish-haskell.version         = "0.14.3.0";
     weeder.version                  = "2.4.0";
   };
 
-  index-state = "2022-11-10T00:00:00Z";
-  compiler-nix-name = "ghc925";
+  index-state = "2022-10-13T00:00:00Z";
+  compiler-nix-name = "ghc924";
 
   # Use cabal.project as the source of GHC version and Hackage index-state.
   # FIXME
