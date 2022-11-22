@@ -138,6 +138,7 @@ library
     , network-uri
     , nothunks
     , ntp-client
+    , OddWord
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-byron
@@ -415,6 +416,7 @@ library cardano-wallet-api-http
     , network
     , network-uri
     , ntp-client
+    , OddWord
     , optparse-applicative
     , ouroboros-network
     , quiet
@@ -744,6 +746,7 @@ test-suite unit
     , network
     , network-uri
     , nothunks
+    , OddWord
     , openapi3                     ==3.2.2
     , optparse-applicative
     , ouroboros-consensus
