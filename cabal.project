@@ -195,6 +195,7 @@ constraints:
   , unliftio-core >= 0.2.0.1
   , cardano-api == 1.35.4
   , cardano-node == 1.35.4
+  , generic-arbitrary == 0.2.2
 
   , exceptions == 0.10.4
 --  , cryptonite >= 0.30
