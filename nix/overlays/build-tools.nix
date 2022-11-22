@@ -50,7 +50,7 @@ pkgs: super: let
     weeder.version                  = "2.1.3";
   };
 
-  index-state = "2022-10-13T00:00:00Z";
+  index-state = "2022-09-27T00:00:00Z";
   compiler-nix-name = "ghc8107";
 
   # Use cabal.project as the source of GHC version and Hackage index-state.
