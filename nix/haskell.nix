@@ -101,7 +101,7 @@ CHaP: haskell-nix: haskell-nix.cabalProject' [
 
     in {
       name = "cardano-wallet";
-      compiler-nix-name = "ghc924";
+      compiler-nix-name = "ghc8107";
 
       src = haskellLib.cleanSourceWith {
         name = "cardano-wallet-src";
