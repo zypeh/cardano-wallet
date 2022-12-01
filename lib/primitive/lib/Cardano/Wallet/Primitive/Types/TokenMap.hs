@@ -127,7 +127,7 @@ import Data.List.NonEmpty
 import Data.Map.Strict
     ( Map )
 import Data.Maybe
-    ( mapMaybe )
+    ( fromMaybe, mapMaybe )
 import Data.Monoid.Monus
     ( Monus, OverlappingGCDMonoid, (<\>) )
 import Data.Monoid.Null
@@ -805,7 +805,6 @@ mapAssetIds f m = fromFlatList $ first f <$> toFlatList m
 -- Throws a run-time exception if the pre-condition is violated.
 --
 unsafeSubtract :: TokenMap -> TokenMap -> TokenMap
-unsafeSubtract a b = F.foldl' acc a $ toFlatList b
+unsafeSubtract a b = fromMaybe bailOut (a </> b)
   where
-    acc c (asset, quantity) =
-        adjustQuantity c asset (`TokenQuantity.unsafeSubtract` quantity)
+    bailOut = error "TokenMap.unsafeSubtract"
