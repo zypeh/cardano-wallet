@@ -92,6 +92,12 @@ source-repository-package
   --sha256: 0b0fzj5vrnfrc8qikabxhsnp4p8lrjpssblbh2rb7aji5hzzfli9
 
 source-repository-package
+  type: git
+  location: https://github.com/jonathanknowles/monoidmap
+  tag: 8f11c4b596f12089490c11768c14c80c3e5e4fed
+  --sha256: 1j8dk0iwk0sxzk2jgw9w99gajizakik54prmyq1l6jm9mdd72q0c
+
+source-repository-package
     type: git
     location: https://github.com/input-output-hk/cardano-addresses
     tag: 5094fb9d304ed69adedc99513634a00cbf850fca
