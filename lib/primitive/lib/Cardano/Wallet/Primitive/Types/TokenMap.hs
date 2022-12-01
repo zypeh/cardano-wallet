@@ -148,6 +148,7 @@ import Data.Semigroup.Cancellative
     , Reductive
     , RightCancellative
     , RightReductive
+    , isPrefixOf
     )
 import Data.Set
     ( Set )
@@ -280,9 +281,7 @@ instance TypeError ('Text "Ord not supported for token maps")
 -- In the above example, map 'x' is strictly less than map 'y'.
 --
 instance PartialOrd TokenMap where
-    m1 `leq` m2 = F.all
-        (\a -> getQuantity m1 a <= getQuantity m2 a)
-        (getAssets m1 `Set.union` getAssets m2)
+    leq = isPrefixOf
 
 -- | Defines a lexicographic ordering.
 --
