@@ -130,12 +130,25 @@ import Data.Map.Strict
     ( Map )
 import Data.Maybe
     ( mapMaybe )
+import Data.Monoid.Monus
+    ( Monus, OverlappingGCDMonoid )
+import Data.Monoid.Null
+    ( MonoidNull )
 import Data.MonoidMap
     ( MonoidMap )
 import Data.Ord
     ( comparing )
 import Data.Ratio
     ( (%) )
+import Data.Semigroup.Cancellative
+    ( Cancellative
+    , Commutative
+    , LeftCancellative
+    , LeftReductive
+    , Reductive
+    , RightCancellative
+    , RightReductive
+    )
 import Data.Set
     ( Set )
 import Data.Text.Class
@@ -187,7 +200,20 @@ newtype TokenMap = TokenMap
     }
     deriving stock (Eq, Generic)
     deriving (Read, Show) via (Quiet TokenMap)
-    deriving newtype (Semigroup, Monoid)
+    deriving newtype
+        ( Cancellative
+        , Commutative
+        , LeftCancellative
+        , LeftReductive
+        , Monoid
+        , MonoidNull
+        , Monus
+        , OverlappingGCDMonoid
+        , Reductive
+        , RightCancellative
+        , RightReductive
+        , Semigroup
+        )
 
 instance NFData TokenMap
 instance Hashable TokenMap where
