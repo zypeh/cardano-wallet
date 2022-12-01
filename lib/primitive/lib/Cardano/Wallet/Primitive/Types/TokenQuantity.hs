@@ -54,8 +54,19 @@ import Data.Maybe
     ( fromMaybe )
 import Data.Monoid
     ( Sum (..) )
+import Data.Monoid.Monus
+    ( Monus, OverlappingGCDMonoid )
 import Data.Monoid.Null
     ( MonoidNull (..) )
+import Data.Semigroup.Cancellative
+    ( Cancellative
+    , Commutative
+    , LeftCancellative
+    , LeftReductive
+    , Reductive
+    , RightCancellative
+    , RightReductive
+    )
 import Data.Text.Class
     ( FromText (..), ToText (..) )
 import Fmt
@@ -83,7 +94,20 @@ import Quiet
 newtype TokenQuantity = TokenQuantity
     { unTokenQuantity :: Natural }
     deriving stock (Eq, Ord, Generic)
-    deriving (Semigroup, Monoid, MonoidNull) via Sum Natural
+    deriving
+        ( Cancellative
+        , Commutative
+        , LeftCancellative
+        , LeftReductive
+        , Monoid
+        , MonoidNull
+        , Monus
+        , OverlappingGCDMonoid
+        , Reductive
+        , RightCancellative
+        , RightReductive
+        , Semigroup
+        ) via Sum Natural
     deriving (Read, Show) via (Quiet TokenQuantity)
     deriving anyclass (NFData, Hashable)
 
