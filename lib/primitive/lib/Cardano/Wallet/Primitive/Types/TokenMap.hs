@@ -129,7 +129,7 @@ import Data.Map.Strict
 import Data.Maybe
     ( mapMaybe )
 import Data.Monoid.Monus
-    ( Monus, OverlappingGCDMonoid )
+    ( Monus, OverlappingGCDMonoid, (<\>) )
 import Data.Monoid.Null
     ( MonoidNull )
 import Data.MonoidMap
@@ -577,10 +577,7 @@ subtract = (</>)
 -- >>> (mempty `difference` oneToken) `add` oneToken
 -- oneToken
 difference :: TokenMap -> TokenMap -> TokenMap
-difference m1 m2 = L.foldl' reduce m1 (toFlatList m2)
-  where
-    reduce :: TokenMap -> (AssetId, TokenQuantity) -> TokenMap
-    reduce m (a, q) = adjustQuantity m a (`TokenQuantity.difference` q)
+difference = (<\>)
 
 -- | Computes the intersection of two token maps.
 --
