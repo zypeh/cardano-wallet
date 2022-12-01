@@ -51,7 +51,7 @@ import Data.Maybe
 import Data.Monoid
     ( Sum (..) )
 import Data.Monoid.Monus
-    ( Monus, OverlappingGCDMonoid )
+    ( Monus, OverlappingGCDMonoid, (<\>) )
 import Data.Monoid.Null
     ( MonoidNull (..) )
 import Data.Semigroup.Cancellative
@@ -175,7 +175,7 @@ succ = (`add` TokenQuantity 1)
 -- Returns 'zero' if the first quantity is less than the second quantity.
 --
 difference :: TokenQuantity -> TokenQuantity -> TokenQuantity
-difference x y = fromMaybe zero $ subtract x y
+difference = (<\>)
 
 --------------------------------------------------------------------------------
 -- Partitioning
