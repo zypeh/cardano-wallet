@@ -175,7 +175,6 @@ library
     , stm
     , streaming-commons
     , strict-containers
-    , strict-non-empty-containers
     , strict-stm
     , string-interpolate
     , template-haskell
@@ -773,7 +772,6 @@ test-suite unit
     , should-not-typecheck
     , splitmix
     , strict-containers
-    , strict-non-empty-containers
     , string-qq
     , temporary
     , text
