@@ -72,7 +72,6 @@ import qualified Cardano.Ledger.ShelleyMA as MA
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as ShelleyMA
 import qualified Cardano.Wallet.Primitive.Types.TokenMap as TokenMap
 import qualified Data.Map.Strict as Map
-import qualified Data.Map.Strict.NonEmptyMap as NonEmptyMap
 
 mint :: EraFun
     (Mint :*: Witnesses)
@@ -142,14 +141,12 @@ fromLedgerMintValue (SL.Value _ ledgerTokens) =
         & Map.map (Map.filter (> 0))
         & Map.mapKeys toWalletTokenPolicyId
         & Map.map mapInner
-        & Map.mapMaybe NonEmptyMap.fromMap
         & TokenMap.fromNestedMap
 
     assetsToBurn = ledgerTokens
         & Map.map (Map.mapMaybe (\n -> if n > 0 then Nothing else Just (-n)))
         & Map.mapKeys toWalletTokenPolicyId
         & Map.map mapInner
-        & Map.mapMaybe NonEmptyMap.fromMap
         & TokenMap.fromNestedMap
 
     mapInner inner = inner
