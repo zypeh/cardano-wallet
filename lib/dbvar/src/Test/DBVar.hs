@@ -1,26 +1,48 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ViewPatterns #-}
+
+-- |
+-- Copyright: © 2022 IOHK
+-- License: Apache-2.0
+--
+-- Support for testing DBVar stores
+
 module Test.DBVar
     ( genUpdates
     , prop_StoreUpdates
     , GenDelta
     , Updates (..)
+    , runStoreLaw
+    , applyS
+    , checkLaw
+    , reset
+    , context
+    , observe
+    , ignore
     ) where
 
 import Prelude
 
 import Control.Exception.Safe
     ( impureThrow )
-import Control.Monad
-    ( forM_ )
+import Control.Monad.Reader
+    ( MonadReader (ask) )
+import Control.Monad.RWS
+    ( MonadWriter (tell), RWST, censor, evalRWST, listen )
+import Control.Monad.State
+    ( MonadState (get, put), MonadTrans (lift), forM_ )
 import Data.DBVar
     ( Store (loadS, updateS, writeS) )
 import Data.Delta
     ( Delta (..) )
+import Data.Either
+    ( isRight )
 import Fmt
     ( Buildable, listF, pretty )
 import Test.QuickCheck
-    ( Blind (Blind), Gen, counterexample, sized )
+    ( Blind (Blind), Gen, Property, conjoin, counterexample, sized, (===) )
 import Test.QuickCheck.Monadic
     ( PropertyM, assert, monitor, pick )
 
@@ -85,3 +107,62 @@ prop_StoreUpdates toPropertyM store gen0 more = do
             monitor $ counterexample $ "\nExpected:\n" <> show (head as)
             monitor $ counterexample $ "\nGot:\n" <> show a
             assert $ a == head as
+
+type StoreLaw m da = RWST (Store m da) [Property] (Base da, Base da, [da]) m
+
+applyS :: (Monad m, Delta da) => da -> StoreLaw m da ()
+applyS r = do
+    s <- ask
+    (q, x, ds) <- get
+    put (q, apply r x , r : ds)
+    lift $ updateS s x r
+
+checkLaw
+    :: (Monad m, Eq (Base da), Show (Base da), Show da)
+    => StoreLaw m da ()
+checkLaw = do
+    (_, x, reverse -> ds) <- get
+    x' <- ask >>= lift . loadS
+    tell
+        [ counterexample (show (ds, leftOf x')) (isRight x')
+        , counterexample (show ds) $ rightOf x' === x
+        ]
+    where
+    leftOf (Left x) = x
+    leftOf _ = undefined
+    rightOf (Right x) = x
+    rightOf _ = undefined
+
+
+reset :: Monad m => StoreLaw m da ()
+reset = do
+    s <- ask
+    (q,_,_) <- get
+    lift $ writeS s q
+    put (q, q,[])
+
+runStoreLaw
+    :: (Monad m, Eq (Base da), Show (Base da), Show da)
+    => Store m da
+    -> StoreLaw m da a
+    -> m Property
+runStoreLaw s f = do
+    mx <- loadS s
+    w <- case mx of
+        Right x -> snd <$> evalRWST (f >> checkLaw) s (x, x, [])
+        Left e -> pure [counterexample (show e) (isRight mx)]
+    pure $ conjoin w
+
+context :: Monad m => (Property -> Property) -> StoreLaw m da x -> StoreLaw m da x
+context d f = do
+    (x,w) <- listen f
+    tell $ fmap d w
+    pure x
+
+observe :: Monad m => (Base da -> Property) ->  StoreLaw m da ()
+observe f = do
+    (_,s,_) <- get
+    tell [f s]
+
+ignore :: Monad m =>   StoreLaw m da x  -> StoreLaw m da x
+ignore = censor (const [])

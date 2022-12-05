@@ -37,6 +37,7 @@ library
     , generic-lens
     , io-classes
     , monad-logger
+    , mtl
     , persistent
     , persistent-sqlite
     , QuickCheck
