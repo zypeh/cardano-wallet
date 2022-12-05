@@ -31,6 +31,7 @@ import Prelude
 import Cardano.Address.Script
     ( Cosigner, Script )
 import Cardano.Pool.Types
+    ( PoolId )
 import Cardano.Slotting.Slot
     ( SlotNo )
 import Cardano.Wallet.DB.Sqlite.Types
@@ -491,4 +492,12 @@ CBOR
     Primary cborTxId
     deriving Show Generic Eq
 
+Delegations
+    delegationWallet W.WalletId sql=wid
+    delegationSlot SlotNo sql=slot
+    delegationState Int sql=state
+    delegationPool PoolId Maybe sql=pool
+
+    Primary delegationWallet delegationSlot
+    deriving Show Generic Eq
 |]
