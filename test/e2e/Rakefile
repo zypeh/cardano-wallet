@@ -135,11 +135,10 @@ task :wait_until_node_synced do
 end
 
 ##
-# `rake start_node_and_wallet[testnet]' assumes cardano-node and cardano-wallet in $TESTS_E2E_BINDIR
+# `rake start_node_and_wallet[testnet]' assumes cardano-node and cardano-wallet available on PATH
 task :start_node_and_wallet, [:env] do |_task, args|
   log '>> Setting up cardano-node and cardano-wallet'
 
-  bin_dir = BINS == '' ? BINS : "#{BINS}/"
   config_dir = File.join(CONFIGS, args[:env])
   log_dir = File.join(LOGS, args[:env])
   wallet_db_dir = File.join(WALLET_DB, args[:env])
@@ -167,11 +166,11 @@ task :start_node_and_wallet, [:env] do |_task, args|
     File.write("#{config_dir}/topology.json", topology)
 
     # create cardano-node.bat file
-    node_cmd = "#{bin_dir}cardano-node.exe run --config #{config_dir}/config.json --topology #{config_dir}/topology.json --database-path #{node_db_dir} --socket-path \\\\.\\pipe\\cardano-node-testnet"
+    node_cmd = "cardano-node.exe run --config #{config_dir}/config.json --topology #{config_dir}/topology.json --database-path #{node_db_dir} --socket-path \\\\.\\pipe\\cardano-node-testnet"
     File.write('cardano-node.bat', node_cmd)
 
     # create cardano-wallet.bat file
-    wallet_cmd = "#{bin_dir}cardano-wallet.exe serve --port #{WALLET_PORT} --node-socket \\\\.\\pipe\\cardano-node-testnet #{network} --database #{wallet_db_dir} --token-metadata-server #{TOKEN_METADATA}"
+    wallet_cmd = "cardano-wallet.exe serve --port #{WALLET_PORT} --node-socket \\\\.\\pipe\\cardano-node-testnet #{network} --database #{wallet_db_dir} --token-metadata-server #{TOKEN_METADATA}"
     File.write('cardano-wallet.bat', wallet_cmd)
 
     install_node = "nssm install cardano-node #{cd}/cardano-node.bat"
@@ -192,8 +191,8 @@ task :start_node_and_wallet, [:env] do |_task, args|
     cmd start_node
     cmd start_wallet
   else
-    start_node = "#{bin_dir}cardano-node run --config #{config_dir}/config.json --topology #{config_dir}/topology.json --database-path #{node_db_dir} --socket-path #{node_db_dir}/node.socket"
-    start_wallet = "#{bin_dir}cardano-wallet serve --port #{WALLET_PORT} --node-socket #{node_db_dir}/node.socket #{network} --database #{wallet_db_dir} --token-metadata-server #{TOKEN_METADATA}"
+    start_node = "cardano-node run --config #{config_dir}/config.json --topology #{config_dir}/topology.json --database-path #{node_db_dir} --socket-path #{node_db_dir}/node.socket"
+    start_wallet = "cardano-wallet serve --port #{WALLET_PORT} --node-socket #{node_db_dir}/node.socket #{network} --database #{wallet_db_dir} --token-metadata-server #{TOKEN_METADATA}"
 
     cmd "screen -dmS NODE_#{args[:env]} -L -Logfile #{log_dir}/node.log #{start_node}"
     cmd "screen -dmS WALLET_#{args[:env]} -L -Logfile #{log_dir}/wallet.log #{start_wallet}"
@@ -221,18 +220,17 @@ end
 task :display_versions do
   puts "\n  >> cardano-node and cardano-wallet versions:"
 
-  bin_dir = BINS == '' ? BINS : "#{BINS}/"
   if win?
-    cmd "#{bin_dir}cardano-wallet.exe version", display_result: true
-    cmd "#{bin_dir}cardano-node.exe version", display_result: true
+    cmd "cardano-wallet.exe version", display_result: true
+    cmd "cardano-node.exe version", display_result: true
   else
-    cmd "#{bin_dir}cardano-wallet version", display_result: true
-    cmd "#{bin_dir}cardano-node version", display_result: true
+    cmd "cardano-wallet version", display_result: true
+    cmd "cardano-node version", display_result: true
   end
 end
 
 task :get_latest_bins, [:pr] do |_task, args|
-  log ">> Getting latest node and wallet binaries from Hydra into #{BINS}"
+  log ">> Getting latest node and wallet binaries into #{BINS}"
 
   pr = args[:pr] || 'master'
   if pr.empty? || pr == 'master'
@@ -336,11 +334,13 @@ task :setup, [:env, :pr, :skip_configs] do |_task, args|
   pr = args[:pr] || nil
   skip_configs = args[:skip_configs] || nil
 
-  if BINS == ''
-    log '>> Skipping getting latest binaries. Will test wallet and node from $PATH.'
-  else
-    Rake::Task[:get_latest_bins].invoke(pr)
-  end
+# Now when Hydra is decomissioned, we can't get bins from it;
+#   if BINS == ''
+#     log '>> Skipping getting latest binaries. Will test wallet and node from $PATH.'
+#   else
+#     # Rake::Task[:get_latest_bins].invoke(pr)
+#   end
+
   Rake::Task[:get_latest_configs].invoke(env) unless skip_configs
   Rake::Task[:secrets_decode].invoke
 end
