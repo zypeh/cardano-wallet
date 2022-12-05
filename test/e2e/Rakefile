@@ -232,7 +232,7 @@ task :display_versions do
 end
 
 task :get_latest_bins, [:pr] do |_task, args|
-  log ">> Getting latest node and wallet binaries from Hydra into #{BINS}"
+  log ">> Getting latest node and wallet binaries into #{BINS}"
 
   pr = args[:pr] || 'master'
   if pr.empty? || pr == 'master'
@@ -336,11 +336,13 @@ task :setup, [:env, :pr, :skip_configs] do |_task, args|
   pr = args[:pr] || nil
   skip_configs = args[:skip_configs] || nil
 
-  if BINS == ''
-    log '>> Skipping getting latest binaries. Will test wallet and node from $PATH.'
-  else
-    Rake::Task[:get_latest_bins].invoke(pr)
-  end
+# Now when Hydra is decomissioned, we can't get bins from it;
+#   if BINS == ''
+#     log '>> Skipping getting latest binaries. Will test wallet and node from $PATH.'
+#   else
+#     # Rake::Task[:get_latest_bins].invoke(pr)
+#   end
+
   Rake::Task[:get_latest_configs].invoke(env) unless skip_configs
   Rake::Task[:secrets_decode].invoke
 end
