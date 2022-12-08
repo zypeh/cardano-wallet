@@ -32,7 +32,11 @@ jobs:
       with:
         name: ${{ env.cachix_name }}
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
+        
+    - name: 🔬 Check hlint
+      shell: bash
+      run: nix shell nixpkgs#hlint --command hlint -h .hlint.yaml lib
+    
     - name: 🔬 Check stylish-haskell
       shell: bash
       run: | 
@@ -44,6 +48,4 @@ jobs:
             git diff
             exit 1
         fi
-    - name: 🔬 Check hlint
-      shell: bash
-      run: nix develop --command hlint -h .hlint.yaml lib
+
