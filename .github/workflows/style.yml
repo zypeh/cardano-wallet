@@ -35,7 +35,7 @@ jobs:
         
     - name: 🔬 Check hlint
       shell: bash
-      run: nix shell haskellNix#hlint --command hlint -h .hlint.yaml lib
+      run: nix develop packages --command hlint -h .hlint.yaml lib
     
     - name: 🔬 Check stylish-haskell
       shell: bash
