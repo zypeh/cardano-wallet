@@ -35,12 +35,12 @@ jobs:
         
     - name: 🔬 Check hlint
       shell: bash
-      run: nix shell nixpkgs#hlint --command hlint -h .hlint.yaml lib
+      run: nix shell haskellNix#hlint --command hlint -h .hlint.yaml lib
     
     - name: 🔬 Check stylish-haskell
       shell: bash
       run: | 
-        nix shell nixpkgs#stylish-haskell --command stylish-haskell -i $(git ls-files '*.hs')
+        nix shell haskellNix#stylish-haskell --command stylish-haskell -i $(git ls-files '*.hs')
         if [ -z "$(git status --porcelain)" ]; then
             echo "No style errors detected."
         else
