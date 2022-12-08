@@ -32,12 +32,11 @@ jobs:
       with:
         name: ${{ env.cachix_name }}
         authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-    
 
     - name: 🔬 Check stylish-haskell
       shell: bash
       run: | 
-        nix develop --command stylish-haskell -i $(git ls-files '*.hs')
+        nix run stylish-haskell -i $(git ls-files '*.hs')
         if [ -z "$(git status --porcelain)" ]; then
             echo "No style errors detected."
         else
