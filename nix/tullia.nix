@@ -5,7 +5,12 @@ in rec {
   tasks = let
     mkTask = top: { config, lib, pkgs, ... }: {
       preset = {
-        nix.enable = true;
+        nix = {
+          enable = true;
+          package = # 2.12-maintenance
+            (builtins.getFlake "github:NixOS/nix/dff7d605c683436c6578ed5a83e4f974a6643e1e")
+            .packages.${pkgs.system}.nix;
+        };
 
         github.ci = {
           enable = config.actionRun.facts != {};
