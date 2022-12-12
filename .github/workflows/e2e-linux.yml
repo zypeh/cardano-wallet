@@ -97,8 +97,15 @@ jobs:
         ignore_build_states: blocked,canceled,skipped,not_run
         output_path: ${{ env.TESTS_E2E_BINDIR }}
 
-    - name: ⚙️ Setup (get latest bins and configs and decode fixtures)
+    - name: ⚙️ Setup (get latest configs and decode fixtures)
       run: rake setup[$NETWORK,$PR]
+    
+    - name: Testing
+      run: |
+        pwd
+        ls -la
+        ls -la ../../
+        ls -la ../../artifacts
 
     - name: 🔍 Display versions
       run: rake display_versions
