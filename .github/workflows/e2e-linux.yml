@@ -32,7 +32,23 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      TESTS_E2E_FIXTURES: ${{ secrets.TESTS_E2E_FIXTURES }}
+      TESTS_E2E_BINDIR: artifacts
+      NETWORK: ${{ github.event.inputs.network || 'preprod' }}
+      PR: ${{ github.event.inputs.pr || '' }}
+      NODE_DB_CACHE: ${{ github.event.inputs.node_db_cache || 'GH' }}
+      TAGS: ${{ github.event.inputs.tags || 'all' }}
+
     steps:
+
+    - name: Trigger Buildkite Pipeline
+      id: build
+      uses: EnricoMi/trigger-pipeline-action@master
+      env:
+        PIPELINE: "input-output-hk/cardano-wallet-e2e-linux"
+        BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN_READ_BUILDS_ARTIFACTS }}
+
     - uses: actions/checkout@v2
 
     - name: Set up Ruby
@@ -73,6 +89,14 @@ jobs:
         restore-keys: |
           wallet-db3-${{ runner.os }}-${{ env.NETWORK }}-
 
+    - name: Download Buildkite Artifacts
+      uses: EnricoMi/download-buildkite-artifact-action@v1
+      with:
+        buildkite_token: ${{ secrets.BUILDKITE_TOKEN_READ_BUILDS_ARTIFACTS }}
+        buildkite_build_url: ${{ steps.build.outputs.url }}
+        ignore_build_states: blocked,canceled,skipped,not_run
+        output_path: ${{ env.TESTS_E2E_BINDIR }}
+
     - name: ⚙️ Setup (get latest bins and configs and decode fixtures)
       run: rake setup[$NETWORK,$PR]
 
@@ -101,9 +125,3 @@ jobs:
           test/e2e/state/configs
           test/e2e/state/wallet_db
 
-    env:
-      TESTS_E2E_FIXTURES: ${{ secrets.TESTS_E2E_FIXTURES }}
-      NETWORK: ${{ github.event.inputs.network || 'preprod' }}
-      PR: ${{ github.event.inputs.pr || '' }}
-      NODE_DB_CACHE: ${{ github.event.inputs.node_db_cache || 'GH' }}
-      TAGS: ${{ github.event.inputs.tags || 'all' }}

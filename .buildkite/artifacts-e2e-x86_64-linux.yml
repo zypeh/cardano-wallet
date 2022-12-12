@@ -1,0 +1,26 @@
+env:
+  LC_ALL: "en_US.UTF-8"
+  NIX_PATH: "channel:nixos-21.11"
+
+  # Per-container variables
+  # SCRATCH_DIR: "/scratch/cardano-wallet"
+  # BUILD_DIR: "/build/cardano-wallet"
+  # CABAL_DIR: "/build/cardano-wallet.cabal"
+  # XDG_STATE_HOME: "/build/cardano-wallet/.state"
+  # XDG_CACHE_HOME: "/build/cardano-wallet/.cache"
+  # TESTS_LOGDIR: "/build/cardano-wallet/integration-test-logs"
+
+  # Per-host variables - shared across containers on host
+  CACHE_DIR: "/cache/cardano-wallet"
+
+steps:
+  - label: 'Build cardano-node'
+    command: |
+      nix build -o result/cardano-node .#packages.x86_64-linux.cardano-node
+    artifact_paths: [ "./result/cardano-node/bin/*" ]
+    agents: [ system: x86_64-linux ]
+
+  - label: 'Build cardano-wallet'
+    command: nix build -o result/cardano-wallet .#packages.x86_64-linux.cardano-wallet
+    artifact_paths: [ "./result/cardano-wallet/bin/*" ]
+    agents: [ system: x86_64-linux ]
