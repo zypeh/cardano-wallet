@@ -15,66 +15,14 @@ env:
   CACHE_DIR: "/cache/cardano-wallet"
 
 steps:
-  - label: 'Prevent merging to wrong branch'
-    if: 'build.branch == "bors/staging"'
-    command: './.buildkite/check-bors.sh'
-    agents:
-      system: x86_64-linux
-  - wait: ~
-    if: 'build.branch == "bors/staging"'
+  - label: 'Build cardano-node'
+    command: |
+      nix build -o result/cardano-node .#packages.x86_64-linux.cardano-node
+      tree -l ./result/cardano-node
+    artifact_paths: [ "./result/cardano-node/bin/*" ]
+    agents: [ system: x86_64-linux ]
 
-  - label: 'Check auto-generated Nix'
-    key: nix
-    commands:
-      - './nix/regenerate.sh'
-    agents:
-      system: x86_64-linux
-
-  - label: 'Check Cabal Configure (Haskell.nix shellFor)'
-    depends_on: nix
-    command: 'nix develop --command scripts/buildkite/check-haskell-nix-cabal.sh'
-    agents:
-      system: x86_64-linux
-
-  - label: 'Check Stylish Haskell'
-    depends_on: nix
-    command: 'nix develop --command .buildkite/check-stylish.sh'
-    agents:
-      system: x86_64-linux
-
-  - label: 'HLint'
-    depends_on: nix
-    command: 'nix develop --command bash -c "echo +++ HLint ; hlint lib"'
-    agents:
-      system: x86_64-linux
-
-  - label: 'Validate OpenAPI Specification'
-    depends_on: nix
-    command: 'nix develop --command bash -c "echo +++ openapi-spec-validator ; openapi-spec-validator --schema 3.0.0 specifications/api/swagger.yaml"'
-    agents:
-      system: x86_64-linux
-
-  - label: 'Docker Image'
-    depends_on: nix
-    command:
-      - "mkdir -p config && echo '{  outputs = _: { dockerHubRepoName = \"inputoutput/cardano-wallet\"; }; }'  > config/flake.nix"
-      - "nix build .#pushDockerImage --override-input hostNixpkgs \"path:$(nix eval --impure -I $NIX_PATH --expr '(import <nixpkgs> {}).path')\" --override-input customConfig path:./config -o docker-build-push"
-      - "./docker-build-push"
-    agents:
-      system: x86_64-linux
-    soft_fail:
-      - exit_status: '*'
-
-  - label: 'TODO list'
-    depends_on: nix
-    command: 'nix develop --command scripts/todo-list.sh'
-    agents:
-      system: x86_64-linux
-
-  - label: 'Lint bash shell scripts'
-    depends_on: nix
-    commands:
-      - 'echo +++ Shellcheck'
-      - './scripts/shellcheck.sh'
-    agents:
-      system: x86_64-linux
+  - label: 'Build cardano-wallet'
+    command: nix build -o result/cardano-wallet .#packages.x86_64-linux.cardano-wallet
+    artifact_paths: [ "./result/cardano-wallet/bin/*" ]
+    agents: [ system: x86_64-linux ]
