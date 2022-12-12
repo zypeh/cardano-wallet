@@ -1,0 +1,18 @@
+env:
+  LC_ALL: "en_US.UTF-8"
+  NIX_PATH: "channel:nixos-21.11"
+
+  # Per-host variables - shared across containers on host
+  CACHE_DIR: "/cache/cardano-wallet"
+
+steps:
+  - label: 'Build cardano-node'
+    command: |
+      nix build -o result/cardano-node .#hydraJobs.linux.windows.cardano-node
+    artifact_paths: [ "./result/cardano-node/bin/*" ]
+    agents: [ system: x86_64-linux ]
+
+  - label: 'Build cardano-wallet'
+    command: nix build -o result/cardano-wallet .#hydraJobs.linux.windows.cardano-wallet
+    artifact_paths: [ "./result/cardano-wallet/bin/*" ]
+    agents: [ system: x86_64-linux ]
