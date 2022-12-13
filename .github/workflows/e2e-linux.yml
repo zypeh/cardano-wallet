@@ -95,7 +95,7 @@ jobs:
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN_READ_BUILDS_ARTIFACTS }}
         buildkite_build_url: ${{ steps.build.outputs.url }}
         ignore_build_states: blocked,canceled,skipped,not_run
-        output_path: ${{ env.TESTS_E2E_BINDIR }}
+        output_path: ./test/e2e/${{ env.TESTS_E2E_BINDIR }}
 
     - name: ⚙️ Setup (get latest configs and decode fixtures)
       run: rake setup[$NETWORK,$PR]
@@ -105,7 +105,6 @@ jobs:
         pwd
         ls -la
         ls -la ../../
-        ls -la ../../artifacts
 
     - name: 🔍 Display versions
       run: rake display_versions
