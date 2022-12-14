@@ -110,6 +110,7 @@ library
     Cardano.Wallet.Util
     Control.Monad.Random.NonRandom
     Data.Quantity
+    Example
 
 test-suite test
   import:             language, opts-exe
