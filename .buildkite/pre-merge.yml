@@ -45,16 +45,9 @@ steps:
     depends_on:
       - macos-nix
 
-  - label: 'Build all tests on macos'
-    depends_on: [macos-nix, trigger-macos]
-    key: macos-build-tests
-    command: 'nix build .#ci.tests.all'
-    agents:
-      system: ${macos}
-
   - label: 'Run unit tests on macos'
     key: macos-checks-runUnit
-    depends_on: macos-build-tests
+    depends_on: trigger-macos
     command: 'GC_DONT_GC=1 nix build -L .#ci.${macos}.tests.run.unit'
     agents:
       system: ${macos}
