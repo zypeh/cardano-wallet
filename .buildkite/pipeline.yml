@@ -18,19 +18,22 @@ steps:
   - wait: ~
     if: 'build.branch == "staging"'
 
-  - label: 'Check auto-generated Nix'
-    key: nix
-    commands:
-      - './nix/regenerate.sh'
-    agents:
-      system: ${linux}
 
-  - label: 'Check auto-generated Nix on macos'
-    key: macos-nix
-    commands:
-      - './nix/regenerate.sh'
-    agents:
-      system: ${macos}
+  - group: Check auto-generated Nix
+    steps:
+      - label: 'Check auto-generated Nix'
+        key: nix
+        commands:
+          - './nix/regenerate.sh'
+        agents:
+          system: ${linux}
+
+      - label: 'Check auto-generated Nix on macos'
+        key: macos-nix
+        commands:
+          - './nix/regenerate.sh'
+        agents:
+          system: ${macos}
 
   - label: 'Build all tests and run unit (Linux)'
     depends_on: nix
