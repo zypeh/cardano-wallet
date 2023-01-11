@@ -34,7 +34,8 @@ steps:
 
   - label: 'Build all tests and run unit (Linux)'
     depends_on: nix
-    command: 
+    key: linux-build
+    command:
       - 'nix build .#ci.tests.all'
       - 'nix build .#ci.benchmarks.all'
       - 'nix build -L .#ci.${linux}.tests.run.unit'
@@ -92,7 +93,7 @@ steps:
       system: ${linux}
 
   - label: 'HLS works'
-    depends_on: nix 
+    depends_on: nix
     command: |
         ln -sf hie-direnv.yaml hie.yaml
         nix develop --command bash -c "haskell-language-server lib/wallet/src/Cardano/Wallet.hs"
@@ -109,7 +110,8 @@ steps:
   - label: 'Run integration tests on linux'
     command: 'nix build -L .#ci.${linux}.tests.run.integration'
     depends_on:
-      trigger-linux
+      - trigger-linux
+      - linux-build
     agents:
       system: ${linux}
 
@@ -133,15 +135,15 @@ steps:
     prompt: "Clicking this button will proceed to build linux package"
     depends_on:
       - nix
-  
+
   - label: 'Build cardano-wallet package for Linux'
-    depends_on: [nix, trigger-build-linux-package]
+    depends_on: [nix, trigger-build-linux-package, linux-build]
     key: build-linux
     command: nix build -o result/linux .#ci.artifacts.linux64.release
     artifact_paths: [ "./result/linux/**" ]
     agents:
       system: ${linux}
- 
+
   - block: "Build windows artifacts"
     if: '(build.branch != "staging") && (build.branch != "trying")'
     key: trigger-build-windows-artifacts
@@ -164,14 +166,14 @@ steps:
     artifact_paths: [ "./result/windows-tests/**" ]
     agents:
       system: ${linux}
-  
+
   - block: "Build macos artifacts"
     if: '(build.branch != "staging") && (build.branch != "trying")'
     key: trigger-build-macos-artifacts
     prompt: "Clicking this button will proceed to build macos artifacts"
     depends_on:
       - nix
-  
+
   - label: 'Build cardano-wallet package for Macos (Intel)'
     depends_on: [nix, trigger-build-macos-artifacts]
     key: build-macos
