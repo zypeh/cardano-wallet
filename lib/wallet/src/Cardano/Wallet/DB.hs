@@ -274,7 +274,7 @@ data DBLayer m s k = forall stm. (MonadIO stm, MonadFail stm) => DBLayer
         --
         -- If the wallet doesn't exist, this operation returns an error.
 
-    , readTxHistory
+    , readTransactions
         :: WalletId
         -> Maybe Coin
         -> SortOrder
@@ -469,7 +469,7 @@ mkDBLayerFromParts ti DBLayerCollection{..} = DBLayer
         readDelegationRewardBalance_ (dbDelegation wid)
     , putTxHistory = \wid a -> wrapNoSuchWallet wid $
         putTxHistory_ dbTxHistory wid a
-    , readTxHistory = \wid minWithdrawal order range status ->
+    , readTransactions = \wid minWithdrawal order range status ->
         readCurrentTip wid >>= \case
             Just tip -> do
                 tinfos <- (readTxHistory_ dbTxHistory) wid range status tip
