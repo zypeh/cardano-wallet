@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- |
 -- Copyright: © 2018-2020 IOHK
@@ -43,6 +44,10 @@ import Prelude
 
 import Cardano.Address.Derivation
     ( XPrv )
+import Cardano.Wallet.DB.Store.Submissions.New.Operations
+    ( SubmissionMeta (..) )
+import Cardano.Wallet.DB.Store.Transactions.Decoration
+    ( TxInDecorator )
 import Cardano.Wallet.DB.WalletState
     ( DeltaMap, DeltaWalletState, ErrNoSuchWallet (..) )
 import Cardano.Wallet.Primitive.AddressDerivation
@@ -79,6 +84,10 @@ import Cardano.Wallet.Primitive.Types.Tx
     , TxMeta (..)
     , TxStatus
     )
+import Cardano.Wallet.Read.Eras
+    ( EraValue )
+import Cardano.Wallet.Submissions.Submissions
+    ( TxStatusMeta )
 import Control.Monad.IO.Class
     ( MonadIO, liftIO )
 import Control.Monad.Trans.Except
@@ -100,8 +109,8 @@ import Data.Word
 import UnliftIO.Exception
     ( Exception )
 
+import qualified Cardano.Wallet.Read.Tx as Read
 import qualified Data.Map.Strict as Map
-
 -- | Instantiate database layers at will
 data DBFactory m s k = DBFactory
     { withDatabase :: forall a. WalletId -> (DBLayer m s k -> IO a) -> IO a
@@ -665,6 +674,9 @@ data DBTxHistory stm = DBTxHistory
         -- transaction isn't found.
         --
         -- If the wallet doesn't exist, this operation returns an error.
+
+    , mkDecorator_ ::  TxInDecorator (EraValue Read.Tx) stm
+        -- ^ compute TxIn resolutions for the given Tx
     }
 
 -- | A database layer for storing pending transactions.
@@ -687,6 +699,13 @@ data DBPendingTxs stm = DBPendingTxs
         -- with the most recent submission slot.
         --
         -- Does nothing if the walletId does not exist.
+
+    , getInSubmissionTransactionInfos_
+        :: WalletId
+        -> stm [TxStatusMeta SubmissionMeta SlotNo SealedTx]
+        -- ^ Fetch the current pending transaction set for a known wallet
+        --
+        -- Returns an empty list if the wallet isn't found.
 
     , readLocalTxSubmissionPending_
         :: WalletId
