@@ -2112,23 +2112,23 @@ postTransactionOld
         , AddressBookIso s
         , BoundedAddressLength k
         , HasDelegation s
+        , IsOurs s RewardAccount
         )
     => ctx
     -> ArgGenChange s
     -> ApiT WalletId
     -> PostTransactionOldData n
     -> Handler (ApiTransaction n)
-postTransactionOld ctx@ApiLayer{..} genChange (ApiT wid) body = do
-    let pwd = coerce $ body ^. #passphrase . #getApiT
+postTransactionOld ctx@ApiLayer{..} argGenChange (ApiT wid) body = do
     let outs = addressAmountToTxOut <$> body ^. #payments
     let md = body ^? #metadata . traverse . #txMetadataWithSchema_metadata
     let mTTL = body ^? #timeToLive . traverse . #getQuantity
-    mkRwdAcct <- case body ^. #withdrawal of
-        Nothing -> pure selfRewardAccountBuilder
-        Just w -> either liftE pure $ shelleyOnlyRewardAccountBuilder @s @_ @n w
     withWorkerCtx ctx wid liftE liftE $ \wrk -> do
         let db = wrk ^. dbLayer
+        let netLayer = wrk ^. networkLayer
         era <- liftIO $ NW.currentNodeEra netLayer
+        AnyRecentEra (recentEra :: WriteTx.RecentEra era)
+            <- guardIsRecentEra era
         ttl <- liftIO $ W.transactionExpirySlot ti mTTL
         wdrl <- case body ^. #withdrawal of
             Nothing -> pure NoWithdrawal
@@ -2140,59 +2140,40 @@ postTransactionOld ctx@ApiLayer{..} genChange (ApiT wid) body = do
                 , txMetadata = md
                 , txValidityInterval = (Nothing, ttl)
                 }
-        (sel, tx, txMeta, txTime, pp) <- atomicallyWithHandler
-            (ctx ^. walletLocks) (PostTransactionOld wid) $ do
-            (utxoAvailable, wallet, pendingTxs) <-
-                liftHandler $ W.readWalletUTxOIndex @_ @s @k wrk wid
-            let selectAssetsParams = W.SelectAssetsParams
-                    { outputs = F.toList outs
-                    , pendingTxs
-                    , randomSeed = Nothing
-                    , txContext = txCtx
-                    , utxoAvailableForInputs =
-                        UTxOSelection.fromIndex utxoAvailable
-                    , utxoAvailableForCollateral =
-                        UTxOIndex.toMap utxoAvailable
-                    , wallet
-                    , selectionStrategy = SelectionStrategyOptimal
-                    }
-            pp <- liftIO $ NW.currentProtocolParameters netLayer
-            sel <- liftHandler
-                $ W.selectAssets @_ @_ @s @k @'CredFromKeyK
-                    wrk era pp selectAssetsParams
-                $ const Prelude.id
-            sel' <- liftHandler
-                $ W.assignChangeAddressesAndUpdateDb wrk wid genChange sel
-            (tx, txMeta, txTime, sealedTx) <- liftHandler
-                $ W.buildAndSignTransaction @_ @s @k
-                    wrk wid era mkRwdAcct pwd txCtx sel'
-            liftHandler $ W.submitTx (wrk ^. logger) db netLayer wid
-                BuiltTx
-                    { builtTx = tx
-                    , builtTxMeta = txMeta
-                    , builtSealedTx = sealedTx
-                    }
-            pure (sel, tx, txMeta, txTime, pp)
+        (BuiltTx{..}, txTime) <- atomicallyWithHandler
+            (ctx ^. walletLocks) (PostTransactionOld wid) $ liftIO $
+                W.buildSignSubmitTransaction @k @'CredFromKeyK @s @n
+                    ti
+                    db
+                    netLayer
+                    txLayer
+                    (coerce $ getApiT $ body ^. #passphrase)
+                    wid
+                    (W.defaultChangeAddressGen argGenChange)
+                    (AnyRecentEra recentEra)
+                    (PreSelection $ NE.toList outs)
+                    txCtx
+
+        pp <- liftIO $ NW.currentProtocolParameters netLayer
         mkApiTransaction
             (timeInterpreter netLayer)
             wrk wid
             #pendingSince
             MkApiTransactionParams
-                { txId = tx ^. #txId
-                , txFee = tx ^. #fee
-                , txInputs = NE.toList $ second Just <$> sel ^. #inputs
-                -- TODO: ADP-957:
+                { txId = builtTx ^. #txId
+                , txFee = builtTx ^. #fee
+                , txInputs = builtTx ^. #resolvedInputs
                 , txCollateralInputs = []
-                , txOutputs = tx ^. #outputs
-                , txCollateralOutput = tx ^. #collateralOutput
-                , txWithdrawals = tx ^. #withdrawals
-                , txMeta
-                , txMetadata = tx ^. #metadata
+                , txOutputs = builtTx ^. #outputs
+                , txCollateralOutput = builtTx ^. #collateralOutput
+                , txWithdrawals = builtTx ^. #withdrawals
+                , txMeta = builtTxMeta
+                , txMetadata = builtTx ^. #metadata
                 , txTime
-                , txScriptValidity = tx ^. #scriptValidity
+                , txScriptValidity = builtTx ^. #scriptValidity
                 , txDeposit = W.stakeKeyDeposit pp
                 , txMetadataSchema = TxMetadataDetailedSchema
-                , txCBOR = tx ^. #txCBOR
+                , txCBOR = builtTx ^. #txCBOR
                 }
   where
     ti :: TimeInterpreter (ExceptT PastHorizonException IO)
@@ -3422,7 +3403,7 @@ joinStakePool
                 txLayer
                 (coerce $ getApiT $ body ^. #passphrase)
                 walletId
-                genChange
+                (W.defaultChangeAddressGen argGenChange)
                 (AnyRecentEra recentEra)
                 (PreSelection [])
                 =<< WD.joinStakePool
