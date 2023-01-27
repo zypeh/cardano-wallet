@@ -1752,7 +1752,7 @@ selectCoins ctx@ApiLayer {..} argGenChange (ApiT wid) body = do
                 }
         let genChange = W.defaultChangeAddressGen argGenChange
         let transform s sel =
-                W.assignChangeAddresses genChange sel s
+                W.assignChangeAddresses (genChange argGenChange) sel s
                 & uncurry (W.selectionToUnsignedTx (txWithdrawal txCtx))
         (utxoAvailable, wallet, pendingTxs) <-
             liftHandler $ W.readWalletUTxOIndex @_ @s @k wrk wid
@@ -2299,6 +2299,9 @@ postTransactionFeeOld
        , Typeable k
        , Typeable s
        , BoundedAddressLength k
+       , WalletKey k
+       , IsOwned s k 'CredFromKeyK
+       , IsOurs s RewardAccount
        )
     => ApiLayer s k 'CredFromKeyK
     -> ApiT WalletId
@@ -2322,24 +2325,27 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
             liftHandler $ W.readWalletUTxOIndex @_ @s @k wrk wid
         let outs = addressAmountToTxOut <$> body ^. #payments
         pp <- liftIO $ NW.currentProtocolParameters netLayer
-        let getFee = const (selectionDelta TokenBundle.getCoin)
-        let selectAssetsParams = W.SelectAssetsParams
-                { outputs = F.toList outs
-                , pendingTxs
-                , randomSeed = Nothing
-                , txContext = txCtx
-                , utxoAvailableForInputs = UTxOSelection.fromIndex utxoAvailable
-                , utxoAvailableForCollateral = UTxOIndex.toMap utxoAvailable
-                , wallet
-                , selectionStrategy = SelectionStrategyOptimal
-                }
-        let runSelection =
-                W.selectAssets @_ @_ @s @k @'CredFromKeyK
-                  wrk era pp selectAssetsParams getFee
-        minCoins <- liftIO
-            $ W.calcMinimumCoinValues @_ @k @'CredFromKeyK
-                wrk era (F.toList outs)
-        liftHandler $ mkApiFee Nothing minCoins <$> W.estimateFee runSelection
+        pureTimeInterpreter <- liftIO $ snapshot $ timeInterpreter netLayer
+        withRecentEra era $ \recentEra -> do
+            let runSelection =
+                    liftIO $ W.buildUnsignedTransactionFee @k @'CredFromKeyK @s @n
+                        (MsgWallet >$< wrk ^. W.logger)
+                        pureTimeInterpreter
+                        db
+                        netLayer
+                        txLayer
+                        wid
+                        (\s -> (dummyGenChange, s))
+                        (AnyRecentEra recentEra)
+                        (PreSelection $ NE.toList outs)
+                        txCtx
+            minCoins <- liftIO
+                $ W.calcMinimumCoinValues @_ @k @'CredFromKeyK
+                    wrk era (F.toList outs)
+            liftHandler $ mkApiFee Nothing minCoins <$> W.estimateFee runSelection
+  where
+    dummyGenChange = maxLengthAddressFor $ Proxy @k
+
 
 constructTransaction
     :: forall (n :: NetworkDiscriminant)

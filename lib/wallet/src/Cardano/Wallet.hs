@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -129,6 +130,7 @@ module Cardano.Wallet
     , selectionToUnsignedTx
     , buildSignSubmitTransaction
     , buildAndSignTransactionPure
+    , buildUnsignedTransactionFee
     , buildAndSignTransaction
     , BuiltTx (..)
     , signTransaction
@@ -546,7 +548,7 @@ import Data.List.NonEmpty
 import Data.Map.Strict
     ( Map )
 import Data.Maybe
-    ( fromMaybe, isJust, mapMaybe )
+    ( fromJust, fromMaybe, isJust, mapMaybe )
 import Data.Proxy
     ( Proxy (..) )
 import Data.Set
@@ -2130,6 +2132,91 @@ buildAndSignTransactionPure
         isShelleyKey = testEquality (typeRep @k) (typeRep @(ShelleyKey))
         notShelleyWallet = error $ unwords
             [ "buildAndSignTransactionPure:"
+            , "can't delegate using non-shelley wallet"
+            ]
+
+-- Build a tx just to get its fee. This is absurd, but needed as long as we keep
+-- the old tx workflow fee endpoints.
+buildUnsignedTransactionFee
+    :: forall k ktype s (n :: NetworkDiscriminant)
+     . ( Typeable n
+       , Typeable s
+       , Typeable k
+       , WalletKey k
+       , BoundedAddressLength k
+       , IsOwned s k ktype
+       , IsOurs s RewardAccount
+       )
+    => Tracer IO WalletLog
+    -> TimeInterpreter (Either PastHorizonException)
+    -> DBLayer IO s k
+    -> NetworkLayer IO Block
+    -> TransactionLayer k ktype SealedTx
+    -> WalletId
+    -> (s -> (Address, s))
+    -> AnyRecentEra
+    -> PreSelection
+    -> TransactionCtx
+    -> IO Coin
+buildUnsignedTransactionFee
+    tr ti db netLayer txLayer walletId genChange era preSelection txCtx =
+    WriteTx.withRecentEra era $ \(recentEra :: WriteTx.RecentEra recentEra) -> do
+        utxo@(_utxoIndex, wallet, _history) <-
+            errorToException ErrConstructTxNoSuchWallet <=< runExceptT $
+                readWalletUTxOIndex @_ @_ @k db walletId
+
+        protocolParams <- currentProtocolParameters netLayer
+        unsignedTxBody <-
+            errorToException ErrConstructTxBody $
+                mkUnsignedTransaction txLayer @recentEra
+                    (unsafeShelleyOnlyGetRewardXPub wallet)
+                    protocolParams txCtx (Left preSelection)
+
+        Cardano.Tx (Cardano.TxBody bodyContent) _ <-
+            balanceTx protocolParams utxo unsignedTxBody
+
+        return $ case Cardano.txFee bodyContent of
+            Cardano.TxFeeExplicit _ c ->
+                fromCardanoLovelace c
+            Cardano.TxFeeImplicit Cardano.TxFeesImplicitInByronEra ->
+                case recentEra of {}
+  where
+    errorToException f = either (throwIO . ExceptionConstructTx . f) pure
+
+    balanceTx
+        :: WriteTx.IsRecentEra era
+        => ProtocolParameters
+        -> (UTxOIndex WalletUTxO, Wallet s, Set Tx)
+        -> Cardano.TxBody era
+        -> IO (Cardano.Tx era)
+    balanceTx protocolParams utxo unsignedTxBody = do
+        let protocolParameters =
+                ( protocolParams
+                , fromJust $ currentNodeProtocolParameters protocolParams
+                )
+            partialTx = PartialTx
+                (Cardano.Tx unsignedTxBody [])(Cardano.UTxO mempty) mempty
+        either (throwIO . ExceptionBalanceTx) pure <=< runExceptT $
+            fmap fst $ balanceTransaction @_ @_ @s @k @ktype
+                tr txLayer genChange protocolParameters ti utxo partialTx
+
+    -- HACK: 'mkUnsignedTransaction' takes a reward account 'XPub' even when the
+    -- wallet is a Byron wallet, and doesn't actually have a reward account.
+    --
+    -- 'buildAndSignTransaction' achieves this by deriving the 'XPub' regardless
+    -- of wallet type, from the root key. To avoid requiring another
+    -- 'withRootKey' call, and to make the sketchy behaviour more explicit, we
+    -- make 'buildAndSignTransactionNew' partial instead.
+    unsafeShelleyOnlyGetRewardXPub :: Wallet s -> XPub
+    unsafeShelleyOnlyGetRewardXPub wallet = fromMaybe notShelleyWallet $ do
+        Refl <- isSeqState
+        Refl <- isShelleyKey
+        pure $ getRawKey $ Seq.rewardAccountKey $ getState wallet
+      where
+        isSeqState = testEquality (typeRep @s) (typeRep @(SeqState n k))
+        isShelleyKey = testEquality (typeRep @k) (typeRep @(ShelleyKey))
+        notShelleyWallet = error $ unwords
+            [ "buildAndSignTransactionNew:"
             , "can't delegate using non-shelley wallet"
             ]
 
