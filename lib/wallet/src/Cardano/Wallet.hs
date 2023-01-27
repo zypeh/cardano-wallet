@@ -1218,11 +1218,11 @@ mkExternalWithdrawal
     -> IO (Either ErrWithdrawalNotBeneficial Withdrawal)
 mkExternalWithdrawal netLayer txLayer era mnemonic = do
     let (_, rewardAccount, derivationPath) =
-            someRewardAccount @ShelleyKey (Tr.trace ("mkExternalWithdrawal mw:" <> show mnemonic) $ mnemonic)
+            someRewardAccount @ShelleyKey mnemonic
     balance <- getCachedRewardAccountBalance netLayer rewardAccount
     pp <- currentProtocolParameters netLayer
     pure $ checkRewardIsWorthTxCost txLayer pp era balance $>
-        WithdrawalExternal (Tr.traceShowId rewardAccount) derivationPath balance
+        WithdrawalExternal rewardAccount derivationPath balance
 
 mkSelfWithdrawal
     :: forall ktype tx (n :: NetworkDiscriminant) block

@@ -395,6 +395,7 @@ import Cardano.Wallet.Primitive.AddressDiscovery
     , IsOwned
     , KnownAddresses
     , MaybeLight
+    , genChange
     , isOwned
     )
 import Cardano.Wallet.Primitive.AddressDiscovery.Random
@@ -2786,7 +2787,7 @@ constructSharedTransaction
     -> ApiConstructTransactionData n
     -> Handler (ApiConstructTransaction n)
 constructSharedTransaction
-    ctx genChange _knownPools _getPoolStatus (ApiT wid) body = do
+    ctx argGenChange _knownPools _getPoolStatus (ApiT wid) body = do
     let isNoPayload =
             isNothing (body ^. #payments) &&
             isNothing (body ^. #withdrawal) &&
@@ -4137,7 +4138,7 @@ mkWithdrawal netLayer txLayer db wallet era = \case
         (liftIO $ W.mkSelfWithdrawal netLayer txLayer era db wallet)
     ExternalWithdrawal (ApiMnemonicT mnemonic) -> do
         wdrl <- liftHandler . ExceptT
-            $ W.mkExternalWithdrawal netLayer txLayer era (Tr.trace (show $ Aeson.toEncoding $ ApiMnemonicT mnemonic) mnemonic)
+            $ W.mkExternalWithdrawal netLayer txLayer era mnemonic
         let (xprv, _acct , _path) = W.someRewardAccount @ShelleyKey mnemonic
         return $ (wdrl, Just (xprv, mempty))
 

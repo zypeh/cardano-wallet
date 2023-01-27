@@ -1005,7 +1005,7 @@ _evaluateMinimumFee
     -> Cardano.Tx era
     -> Coin
 _evaluateMinimumFee pp utxo (Cardano.Tx body _) = fromCardanoLovelace $
-    Cardano.evaluateTransactionFee pp body nWits 0
+    Cardano.evaluateTransactionFee pp body (1 * nWits) 0 -- fixme!
   where
     nWits = (estimateNumberOfWitnesses utxo body)
 
@@ -2559,7 +2559,7 @@ mkWithdrawals
     :: NetworkId
     -> Withdrawal
     -> [(Cardano.StakeAddress, Cardano.Lovelace)]
-mkWithdrawals networkId wdrl = Tr.traceShowId $ case Tr.traceShowId wdrl of
+mkWithdrawals networkId wdrl = case wdrl of
     NoWithdrawal -> []
     WithdrawalExternal acc _ amt -> [ (stakeAddress acc, toCardanoLovelace amt) ]
     WithdrawalSelf acc _ amt -> [ (stakeAddress acc, toCardanoLovelace amt) ]
@@ -2614,3 +2614,4 @@ explicitFees era = case era of
         Cardano.TxFeeExplicit Cardano.TxFeesExplicitInAlonzoEra
     ShelleyBasedEraBabbage ->
         Cardano.TxFeeExplicit Cardano.TxFeesExplicitInBabbageEra
+
