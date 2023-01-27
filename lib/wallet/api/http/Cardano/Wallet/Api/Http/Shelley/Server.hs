@@ -680,6 +680,9 @@ import qualified Network.Ntp as Ntp
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.WarpTLS as Warp
 
+import qualified Data.Aeson as Aeson
+import qualified Debug.Trace as Tr
+
 -- | How the server should listen for incoming requests.
 data Listen
     = ListenOnPort Port
@@ -1740,7 +1743,7 @@ selectCoins ctx@ApiLayer {..} argGenChange (ApiT wid) body = do
         wdrl <- case body ^. #withdrawal of
             Nothing -> pure NoWithdrawal
             Just apiWdrl ->
-                shelleyOnlyMkWithdrawal @s @k @n @'CredFromKeyK
+                fst <$> shelleyOnlyMkWithdrawal @s @k @n @'CredFromKeyK
                     netLayer txLayer db wid era apiWdrl
         let outs = addressAmountToTxOut <$> body ^. #payments
         let txCtx = defaultTransactionCtx
@@ -2087,7 +2090,7 @@ signTransaction ctx (ApiT wid) body = do
 
                 era <- liftIO $ NW.currentNodeEra nl
                 let sealedTx = body ^. #transaction . #getApiT
-                pure $ W.signTransaction tl era keyLookup (rootK, pwdP) utxo sealedTx
+                pure $ W.signTransaction tl era keyLookup Nothing (rootK, pwdP) utxo sealedTx
 
     -- TODO: The body+witnesses seem redundant with the sealedTx already. What's
     -- the use-case for having them provided separately? In the end, the client
@@ -2130,8 +2133,8 @@ postTransactionOld ctx@ApiLayer{..} argGenChange (ApiT wid) body = do
         AnyRecentEra (recentEra :: WriteTx.RecentEra era)
             <- guardIsRecentEra era
         ttl <- liftIO $ W.transactionExpirySlot ti mTTL
-        wdrl <- case body ^. #withdrawal of
-            Nothing -> pure NoWithdrawal
+        (wdrl, msignExternalWdrl) <- case body ^. #withdrawal of
+            Nothing -> pure (NoWithdrawal, Nothing)
             Just apiWdrl ->
                 shelleyOnlyMkWithdrawal @s @k @n
                     netLayer txLayer db wid era apiWdrl
@@ -2152,6 +2155,7 @@ postTransactionOld ctx@ApiLayer{..} argGenChange (ApiT wid) body = do
                     (W.defaultChangeAddressGen argGenChange)
                     (AnyRecentEra recentEra)
                     (PreSelection $ NE.toList outs)
+                    msignExternalWdrl
                     txCtx
 
         pp <- liftIO $ NW.currentProtocolParameters netLayer
@@ -2307,7 +2311,7 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
         wdrl <- case body ^. #withdrawal of
             Nothing -> pure NoWithdrawal
             Just apiWdrl ->
-                shelleyOnlyMkWithdrawal @s @k @n @'CredFromKeyK
+                fst <$> shelleyOnlyMkWithdrawal @s @k @n @'CredFromKeyK
                     netLayer txLayer db wid era apiWdrl
         let txCtx = defaultTransactionCtx
                 { txWithdrawal = wdrl
@@ -3406,6 +3410,7 @@ joinStakePool
                 (W.defaultChangeAddressGen argGenChange)
                 (AnyRecentEra recentEra)
                 (PreSelection [])
+                Nothing
                 =<< WD.joinStakePool
                     (MsgWallet >$< tr)
                     ti
@@ -3518,6 +3523,7 @@ quitStakePool ctx@ApiLayer{..} argGenChange (ApiT walletId) body = do
                 (W.defaultChangeAddressGen argGenChange)
                 (AnyRecentEra recentEra)
                 (PreSelection [])
+                Nothing
                 txCtx
 
         pp <- liftIO $ NW.currentProtocolParameters netLayer
@@ -3651,7 +3657,7 @@ createMigrationPlan ctx@ApiLayer{..} withdrawalType (ApiT wid) postData =
         era <- liftIO $ NW.currentNodeEra netLayer
         rewardWithdrawal <- case withdrawalType of
             Nothing -> pure NoWithdrawal
-            Just pd -> shelleyOnlyMkWithdrawal @s @k @n @'CredFromKeyK
+            Just pd -> fst <$> shelleyOnlyMkWithdrawal @s @k @n @'CredFromKeyK
                 netLayer txLayer db wid era pd
         (wallet, _, _) <- liftHandler
             $ withExceptT ErrCreateMigrationPlanNoSuchWallet
@@ -3754,7 +3760,7 @@ migrateWallet ctx@ApiLayer{..} withdrawalType (ApiT wid) postData = do
         era <- liftIO $ NW.currentNodeEra netLayer
         rewardWithdrawal <- case withdrawalType of
             Nothing -> pure NoWithdrawal
-            Just pd -> shelleyOnlyMkWithdrawal @s @k @n
+            Just pd -> fst <$> shelleyOnlyMkWithdrawal @s @k @n
                 netLayer txLayer db wid era pd
         plan <- liftHandler $ W.createMigrationPlan wrk era wid rewardWithdrawal
         ttl <- liftIO $ W.transactionExpirySlot ti Nothing
@@ -4119,13 +4125,15 @@ mkWithdrawal
     -> WalletId
     -> AnyCardanoEra
     -> ApiWithdrawalPostData
-    -> Handler Withdrawal
+    -> Handler (Withdrawal, Maybe (XPrv, Passphrase "encryption"))
 mkWithdrawal netLayer txLayer db wallet era = \case
-    SelfWithdrawal ->
-        liftIO $ W.mkSelfWithdrawal netLayer txLayer era db wallet
-    ExternalWithdrawal (ApiMnemonicT mnemonic) ->
-        liftHandler . ExceptT
-            $ W.mkExternalWithdrawal netLayer txLayer era mnemonic
+    SelfWithdrawal -> (,Nothing) <$>
+        (liftIO $ W.mkSelfWithdrawal netLayer txLayer era db wallet)
+    ExternalWithdrawal (ApiMnemonicT mnemonic) -> do
+        wdrl <- liftHandler . ExceptT
+            $ W.mkExternalWithdrawal netLayer txLayer era (Tr.trace (show $ Aeson.toEncoding $ ApiMnemonicT mnemonic) mnemonic)
+        let (xprv, _acct , _path) = W.someRewardAccount @ShelleyKey mnemonic
+        return $ (wdrl, Just (xprv, mempty))
 
 -- | Unsafe version of `mkWithdrawal` that throws runtime error
 -- when applied to a non-shelley or non-sequential wallet state.
@@ -4138,7 +4146,7 @@ shelleyOnlyMkWithdrawal
     -> WalletId
     -> AnyCardanoEra
     -> ApiWithdrawalPostData
-    -> Handler Withdrawal
+    -> Handler (Withdrawal, Maybe (XPrv, Passphrase "encryption"))
 shelleyOnlyMkWithdrawal netLayer txLayer db wallet era postData =
     case testEquality (typeRep @s) (typeRep @(SeqState n k)) of
         Nothing -> notShelleyWallet

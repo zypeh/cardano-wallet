@@ -205,6 +205,7 @@ import Cardano.Wallet.Transaction
     , TxFeeUpdate (..)
     , TxUpdate (..)
     , ValidityIntervalExplicit
+    , Withdrawal (..)
     , WitnessCount
     , WitnessCountCtx (..)
     , mapTxFeeAndChange
@@ -305,6 +306,8 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Data.Text as T
 
+import qualified Debug.Trace as Tr
+
 -- | Type encapsulating what we need to know to add things -- payloads,
 -- certificates -- to a transaction.
 --
@@ -367,10 +370,8 @@ constructUnsignedTx
     -> (Maybe Cardano.TxMetadata, [Cardano.Certificate])
     -> (Maybe SlotNo, SlotNo)
     -- ^ Slot at which the transaction will optionally start and expire.
-    -> RewardAccount
-    -- ^ Reward account
-    -> Coin
-    -- ^ An optional withdrawal amount, can be zero
+    -> Withdrawal
+    -- ^ Withdrawal
     -> Either PreSelection (SelectionOf TxOut)
     -- ^ Finalized asset selection
     -> Coin
@@ -384,13 +385,13 @@ constructUnsignedTx
     -> ShelleyBasedEra era
     -> Either ErrMkTransaction (Cardano.TxBody era)
 constructUnsignedTx
-    networkId (md, certs) ttl rewardAcnt wdrl
+    networkId (md, certs) ttl wdrl
     cs fee toMint toBurn inpScripts era =
         mkUnsignedTx
             era ttl cs md wdrls certs (toCardanoLovelace fee)
             (fst toMint) (fst toBurn) mintingScripts inpScripts
   where
-    wdrls = mkWithdrawals networkId rewardAcnt wdrl
+    wdrls = mkWithdrawals networkId wdrl
     mintingScripts = Map.union (snd toMint) (snd toBurn)
 
 mkTx
@@ -407,8 +408,8 @@ mkTx
     -- ^ Reward account
     -> (Address -> Maybe (k 'CredFromKeyK XPrv, Passphrase "encryption"))
     -- ^ Key store
-    -> Coin
-    -- ^ An optional withdrawal amount, can be zero
+    -> Withdrawal
+    -- ^ An optional withdrawal
     -> SelectionOf TxOut
     -- ^ Finalized asset selection
     -> Coin
@@ -419,10 +420,7 @@ mkTx networkId payload ttl (rewardAcnt, pwdAcnt) addrResolver wdrl cs fees era =
     do
 
     let TxPayload md certs mkExtraWits = payload
-    let wdrls = mkWithdrawals
-            networkId
-            (toRewardAccountRaw . toXPub $ rewardAcnt)
-            wdrl
+    let wdrls = mkWithdrawals networkId wdrl
 
     unsigned <- mkUnsignedTx era ttl (Right cs) md wdrls certs
         (toCardanoLovelace fees)
@@ -448,7 +446,6 @@ mkTx networkId payload ttl (rewardAcnt, pwdAcnt) addrResolver wdrl cs fees era =
     acctResolver acct = do
         let acct' = toRewardAccountRaw $ toXPub rewardAcnt
         guard (acct == acct') $> (rewardAcnt, pwdAcnt)
-
 
 -- Adds VK witnesses to an already constructed transactions. The function
 -- preserves any existing witnesses on the transaction, and resolve inputs
@@ -580,7 +577,7 @@ newTransactionLayer
 newTransactionLayer networkId = TransactionLayer
     { mkTransaction = \era stakeCreds keystore _pp ctx selection -> do
         let ttl   = txValidityInterval ctx
-        let wdrl  = withdrawalToCoin $ view #txWithdrawal ctx
+        let wdrl = view #txWithdrawal ctx
         let delta = selectionDelta TxOut.coin selection
         case view #txDelegationAction ctx of
             Nothing -> withShelleyBasedEra era $ do
@@ -597,11 +594,14 @@ newTransactionLayer networkId = TransactionLayer
 
     , addVkWitnesses =
         \era stakeCreds policyCreds addressResolver inputResolver sealedTx -> do
+            let acctMap :: Map RewardAccount (XPrv, Passphrase "encryption")
+                acctMap = Map.fromList $ map
+                    (\(xprv, pwd) -> (toRewardAccountRaw $ toXPub xprv,(xprv, pwd)))
+                    stakeCreds
             let acctResolver
                     :: RewardAccount -> Maybe (XPrv, Passphrase "encryption")
-                acctResolver acct = do
-                    let acct' = toRewardAccountRaw $ toXPub $ fst stakeCreds
-                    guard (acct == acct') $> stakeCreds
+                acctResolver acct = Map.lookup acct acctMap
+
             let policyResolver
                     :: KeyHash -> Maybe (XPrv, Passphrase "encryption")
                 policyResolver keyhash = do
@@ -633,7 +633,7 @@ newTransactionLayer networkId = TransactionLayer
 
     , mkUnsignedTransaction = \stakeXPub _pp ctx selection -> do
         let ttl   = txValidityInterval ctx
-        let wdrl  = withdrawalToCoin $ view #txWithdrawal ctx
+        let wdrl  = view #txWithdrawal ctx
         let delta = case selection of
                 Right selOf -> selectionDelta TxOut.coin selOf
                 Left _preSel -> Coin 0
@@ -645,13 +645,13 @@ newTransactionLayer networkId = TransactionLayer
         case view #txDelegationAction ctx of
             Nothing -> do
                 let md = view #txMetadata ctx
-                constructUnsignedTx networkId (md, []) ttl rewardAcct wdrl
+                constructUnsignedTx networkId (md, []) ttl wdrl
                     selection delta assetsToBeMinted assetsToBeBurned inpsScripts
                     (WriteTx.shelleyBasedEraFromRecentEra WriteTx.recentEra)
             Just action -> do
                 let certs = mkDelegationCertificates action stakeXPub
                 let payload = (view #txMetadata ctx, certs)
-                constructUnsignedTx networkId payload ttl rewardAcct wdrl
+                constructUnsignedTx networkId payload ttl wdrl
                     selection delta assetsToBeMinted assetsToBeBurned inpsScripts
                     (WriteTx.shelleyBasedEraFromRecentEra WriteTx.recentEra)
 
@@ -2557,15 +2557,14 @@ removeDummyInput = \case
 
 mkWithdrawals
     :: NetworkId
-    -> RewardAccount
-    -> Coin
+    -> Withdrawal
     -> [(Cardano.StakeAddress, Cardano.Lovelace)]
-mkWithdrawals networkId acc amount
-    | amount == Coin 0 = mempty
-    | otherwise = [ (stakeAddress, toCardanoLovelace amount) ]
+mkWithdrawals networkId wdrl = Tr.traceShowId $ case Tr.traceShowId wdrl of
+    NoWithdrawal -> []
+    WithdrawalExternal acc _ amt -> [ (stakeAddress acc, toCardanoLovelace amt) ]
+    WithdrawalSelf acc _ amt -> [ (stakeAddress acc, toCardanoLovelace amt) ]
   where
-    cred = toCardanoStakeCredential acc
-    stakeAddress = Cardano.makeStakeAddress networkId cred
+    stakeAddress = Cardano.makeStakeAddress networkId . toCardanoStakeCredential
 
 mkShelleyWitness
     :: IsShelleyBasedEra era

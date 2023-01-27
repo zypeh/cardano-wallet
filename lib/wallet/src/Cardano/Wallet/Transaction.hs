@@ -166,8 +166,8 @@ data TransactionLayer k ktype tx = TransactionLayer
     , addVkWitnesses
         :: AnyCardanoEra
             -- Preferred latest era
-        -> (XPrv, Passphrase "encryption")
-            -- Reward account
+        -> [(XPrv, Passphrase "encryption")]
+            -- Reward accounts
         -> (KeyHash, XPrv, Passphrase "encryption")
             -- policy public and private key
         -> (Address -> Maybe (k ktype XPrv, Passphrase "encryption"))

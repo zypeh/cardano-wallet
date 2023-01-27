@@ -623,6 +623,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Debug.Trace as Tr
 
 -- $Development
 -- __Naming Conventions__
@@ -1215,11 +1216,11 @@ mkExternalWithdrawal
     -> IO (Either ErrWithdrawalNotBeneficial Withdrawal)
 mkExternalWithdrawal netLayer txLayer era mnemonic = do
     let (_, rewardAccount, derivationPath) =
-            someRewardAccount @ShelleyKey mnemonic
+            someRewardAccount @ShelleyKey (Tr.trace ("mkExternalWithdrawal mw:" <> show mnemonic) $ mnemonic)
     balance <- getCachedRewardAccountBalance netLayer rewardAccount
     pp <- currentProtocolParameters netLayer
     pure $ checkRewardIsWorthTxCost txLayer pp era balance $>
-        WithdrawalExternal rewardAccount derivationPath balance
+        WithdrawalExternal (Tr.traceShowId rewardAccount) derivationPath balance
 
 mkSelfWithdrawal
     :: forall ktype tx (n :: NetworkDiscriminant) block
@@ -1843,6 +1844,8 @@ signTransaction
   -- ^ Preferred latest era
   -> (Address -> Maybe (k ktype XPrv, Passphrase "encryption"))
   -- ^ The wallets address-key lookup function
+  -> (Maybe (XPrv, Passphrase "encryption"))
+  -- ^ Optional external reward account
   -> (k 'RootK XPrv, Passphrase "encryption")
   -- ^ The root key of the wallet
   -> UTxO
@@ -1853,11 +1856,15 @@ signTransaction
   -> SealedTx
   -- ^ The original transaction, with additional signatures added where
   -- necessary
-signTransaction tl preferredLatestEra keyLookup (rootKey, rootPwd) utxo =
+signTransaction tl preferredLatestEra keyLookup mextraRewardAcc (rootKey, rootPwd) utxo =
     let
-        rewardAcnt :: (XPrv, Passphrase "encryption")
-        rewardAcnt =
-            (getRawKey $ deriveRewardAccount @k rootPwd rootKey, rootPwd)
+        rewardAcnts :: [(XPrv, Passphrase "encryption")]
+        rewardAcnts = case mextraRewardAcc of
+            Just extra -> [ourRewardAcc, extra]
+            Nothing -> [ourRewardAcc]
+          where
+            ourRewardAcc =
+                (getRawKey $ deriveRewardAccount @k rootPwd rootKey, rootPwd)
 
         policyKey :: (KeyHash, XPrv, Passphrase "encryption")
         policyKey =
@@ -1876,7 +1883,7 @@ signTransaction tl preferredLatestEra keyLookup (rootKey, rootPwd) utxo =
         addVkWitnesses
             tl
             preferredLatestEra
-            rewardAcnt
+            rewardAcnts
             policyKey
             keyLookup
             inputResolver
@@ -1909,10 +1916,11 @@ buildSignSubmitTransaction
     -> ChangeAddressGen s
     -> AnyRecentEra
     -> PreSelection
+    -> Maybe (XPrv, Passphrase "encryption")
     -> TransactionCtx
     -> IO (BuiltTx, UTCTime)
 buildSignSubmitTransaction ti db@DBLayer{..} netLayer txLayer pwd walletId
-    changeAddrGen era preSelection txCtx = do
+    changeAddrGen era preSelection externalRewardAccount txCtx = do
     --
     stdGen <- initStdGen
     pureTimeInterpreter <- snapshot ti
@@ -1937,6 +1945,7 @@ buildSignSubmitTransaction ti db@DBLayer{..} netLayer txLayer pwd walletId
                         changeAddrGen
                         era
                         preSelection
+                        externalRewardAccount
                         txCtx
                         & (`runStateT` WalletState.getLatest s)
                         & runExceptT . withExceptT wrapBalanceConstructError
@@ -1994,6 +2003,7 @@ buildAndSignTransactionPure
     -> ChangeAddressGen s
     -> AnyRecentEra
     -> PreSelection
+    -> Maybe (XPrv, Passphrase "encryption")
     -> TransactionCtx
     -> StateT
         (Wallet s)
@@ -2001,7 +2011,8 @@ buildAndSignTransactionPure
         BuiltTx
 buildAndSignTransactionPure
     ti pendingTxs rootKey passphraseScheme userPassphrase
-    protocolParams txLayer changeAddrGen era preSelection txCtx =
+    protocolParams txLayer changeAddrGen era preSelection externalRewardAccount
+    txCtx =
     --
     WriteTx.withRecentEra era $ \(_ :: WriteTx.RecentEra recentEra) -> do
         wallet <- get
@@ -2041,6 +2052,7 @@ buildAndSignTransactionPure
                 txLayer
                 anyCardanoEra
                 (isOwned (getState wallet) (rootKey, passphrase))
+                externalRewardAccount
                 (rootKey, passphrase)
                 (wallet ^. #utxo)
                 (sealedTxFromCardano $ inAnyCardanoEra unsignedBalancedTx)
