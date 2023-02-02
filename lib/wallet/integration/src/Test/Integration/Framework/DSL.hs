@@ -106,6 +106,7 @@ module Test.Integration.Framework.DSL
     , (</>)
     , (!!)
     , computeApiCoinSelectionFee
+    , isRelatedToFee
     , isValidDerivationPath
     , isValidRandomDerivationPath
     , genMnemonics
@@ -765,7 +766,18 @@ minimumCollateralPercentageByEra = \case
 
 --
 -- Helpers
---
+
+
+isRelatedToFee :: ApiFee -> (Natural -> Natural) -> Natural -> Expectation
+isRelatedToFee (ApiFee (Quantity feeMin) (Quantity feeMax) _ _) f val = do
+    let expectedInterval = sortInterval (f feeMin, f feeMax)
+    between expectedInterval val
+  where
+    sortInterval (x,y)
+        | x < y = (x,y)
+        | otherwise = (y, x)
+
+
 
 -- | Computes the effective fee for an `ApiCoinSelection` value.
 --

@@ -128,6 +128,7 @@ import Test.Integration.Framework.DSL
     , fixtureWalletWith
     , getFromResponse
     , getWallet
+    , isRelatedToFee
     , json
     , listAddresses
     , listAllTransactions
@@ -2076,7 +2077,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
                 }],
                 "passphrase": #{fixturePassphrase}
             }|]
-        (_, ApiFee (Quantity _) (Quantity fee) _ _) <- unsafeRequest ctx
+        (_, feeEstimation) <- unsafeRequest ctx
             (Link.getTransactionFeeOld @'Shelley wSelf) payload
 
         rTx <- request @(ApiTransaction n) ctx
@@ -2088,7 +2089,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
             , expectField (#direction . #getApiT)
                 (`shouldBe` Incoming)
             , expectField (#amount . #getQuantity)
-                (`shouldBe` (oneMillionAda - fee))
+                (isRelatedToFee feeEstimation (\f -> oneMillionAda - f))
             ]
         let tid = getFromResponse Prelude.id rTx
 
@@ -2133,7 +2134,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
                 , expectField (#direction . #getApiT)
                     (`shouldBe` Incoming)
                 , expectField (#amount . #getQuantity)
-                    (`shouldBe` (oneMillionAda - fee))
+                    (isRelatedToFee feeEstimation (\f -> oneMillionAda - f))
                 , expectField (#status . #getApiT)
                     (`shouldBe` InLedger)
                 ]

@@ -445,7 +445,7 @@ import Cardano.Wallet.Primitive.Types.UTxOStatistics
 import Cardano.Wallet.Read.Tx.CBOR
     ( TxCBOR )
 import Cardano.Wallet.Shelley.Compatibility
-    ( fromCardanoBlock )
+    ( fromCardanoBlock, fromCardanoLovelace )
 import Cardano.Wallet.Transaction
     ( DelegationAction (..)
     , ErrCannotJoin (..)
@@ -625,6 +625,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Vector as V
+
 import qualified Debug.Trace as Tr
 
 -- $Development
@@ -1238,9 +1239,9 @@ mkSelfWithdrawal netLayer txLayer era db wallet = do
             >>= either (throwIO . ExceptionReadRewardAccount) pure
     balance <- getCachedRewardAccountBalance netLayer rewardAccount
     pp <- currentProtocolParameters netLayer
-    pure $ WithdrawalSelf rewardAccount derivationPath
-        $ either (\_notWorth -> Coin 0) (\_worth -> balance)
-        $ checkRewardIsWorthTxCost txLayer pp era balance
+    return $ case checkRewardIsWorthTxCost txLayer pp era balance of
+        Left ErrWithdrawalNotBeneficial -> NoWithdrawal
+        Right () -> WithdrawalSelf rewardAccount derivationPath balance
 
 -- | Unsafe version of the `mkSelfWithdrawal` function that throws an exception
 -- when applied to a non-shelley or a non-sequential wallet.
@@ -2138,7 +2139,7 @@ buildAndSignTransactionPure
 -- Build a tx just to get its fee. This is absurd, but needed as long as we keep
 -- the old tx workflow fee endpoints.
 buildUnsignedTransactionFee
-    :: forall k ktype s (n :: NetworkDiscriminant)
+    :: forall k ktype s (n :: NetworkDiscriminant) era
      . ( Typeable n
        , Typeable s
        , Typeable k
@@ -2146,59 +2147,68 @@ buildUnsignedTransactionFee
        , BoundedAddressLength k
        , IsOwned s k ktype
        , IsOurs s RewardAccount
+       , WriteTx.IsRecentEra era
        )
     => Tracer IO WalletLog
     -> TimeInterpreter (Either PastHorizonException)
     -> DBLayer IO s k
-    -> NetworkLayer IO Block
+    -> NetworkLayer IO Read.Block
     -> TransactionLayer k ktype SealedTx
     -> WalletId
     -> (s -> (Address, s))
-    -> AnyRecentEra
+    -> WriteTx.RecentEra era
     -> PreSelection
     -> TransactionCtx
     -> IO Coin
 buildUnsignedTransactionFee
-    tr ti db netLayer txLayer walletId genChange era preSelection txCtx =
-    WriteTx.withRecentEra era $ \(recentEra :: WriteTx.RecentEra recentEra) -> do
-        utxo@(_utxoIndex, wallet, _history) <-
-            errorToException ErrConstructTxNoSuchWallet <=< runExceptT $
-                readWalletUTxOIndex @_ @_ @k db walletId
+    tr ti db netLayer txLayer walletId genChange era preSelection txCtx = do
+    (utxoIndex, wallet, _history) <-
+        errorToException ErrConstructTxNoSuchWallet <=< runExceptT $
+            readWalletUTxOIndex @_ @_ @k db walletId
+    protocolParams <- currentProtocolParameters netLayer
+    unsignedTxBody <-
+        errorToException ErrConstructTxBody $
+            mkUnsignedTransaction txLayer @era
+                (unsafeShelleyOnlyGetRewardXPub wallet)
+                protocolParams txCtx (Left preSelection)
 
-        protocolParams <- currentProtocolParameters netLayer
-        unsignedTxBody <-
-            errorToException ErrConstructTxBody $
-                mkUnsignedTransaction txLayer @recentEra
-                    (unsafeShelleyOnlyGetRewardXPub wallet)
-                    protocolParams txCtx (Left preSelection)
+    Cardano.Tx (Cardano.TxBody bodyContent) _ <-
+        balanceTx protocolParams utxoIndex unsignedTxBody
 
-        Cardano.Tx (Cardano.TxBody bodyContent) _ <-
-            balanceTx protocolParams utxo unsignedTxBody
-
-        return $ case Cardano.txFee bodyContent of
-            Cardano.TxFeeExplicit _ c ->
-                fromCardanoLovelace c
-            Cardano.TxFeeImplicit Cardano.TxFeesImplicitInByronEra ->
-                case recentEra of {}
+    return $ case Cardano.txFee bodyContent of
+        Cardano.TxFeeExplicit _ c ->
+            fromCardanoLovelace c
+        Cardano.TxFeeImplicit Cardano.TxFeesImplicitInByronEra ->
+            case era of {}
   where
     errorToException f = either (throwIO . ExceptionConstructTx . f) pure
 
     balanceTx
         :: WriteTx.IsRecentEra era
         => ProtocolParameters
-        -> (UTxOIndex WalletUTxO, Wallet s, Set Tx)
+        -> UTxOIndex WalletUTxO
         -> Cardano.TxBody era
         -> IO (Cardano.Tx era)
-    balanceTx protocolParams utxo unsignedTxBody = do
+    balanceTx protocolParams utxoIndex unsignedTxBody = do
         let protocolParameters =
                 ( protocolParams
                 , fromJust $ currentNodeProtocolParameters protocolParams
                 )
             partialTx = PartialTx
                 (Cardano.Tx unsignedTxBody [])(Cardano.UTxO mempty) mempty
+            dummyChangeAddr = maxLengthAddressFor $ Proxy @k
         either (throwIO . ExceptionBalanceTx) pure <=< runExceptT $
-            fmap fst $ balanceTransaction @_ @_ @s @k @ktype
-                tr txLayer genChange protocolParameters ti utxo partialTx
+            fmap fst $ balanceTransaction @_ @_ @_ @k @ktype
+                (MsgBalanceTx >$< tr)
+                txLayer
+                Nothing
+                Nothing
+                protocolParameters
+                ti
+                utxoIndex
+                (ChangeAddressGen $ \() -> (dummyChangeAddr, ()))
+                ()
+                partialTx
 
     -- HACK: 'mkUnsignedTransaction' takes a reward account 'XPub' even when the
     -- wallet is a Byron wallet, and doesn't actually have a reward account.
