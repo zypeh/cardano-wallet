@@ -1004,10 +1004,19 @@ _evaluateMinimumFee
     -> Cardano.UTxO era
     -> Cardano.Tx era
     -> Coin
-_evaluateMinimumFee pp utxo (Cardano.Tx body _) = fromCardanoLovelace $
-    Cardano.evaluateTransactionFee pp body (1 * nWits) 0 -- fixme!
+_evaluateMinimumFee pp utxo (Cardano.Tx body _) = byronWitnessCost <>
+    fromCardanoLovelace (Cardano.evaluateTransactionFee pp body nWits 0)
   where
-    nWits = (estimateNumberOfWitnesses utxo body)
+    KeyWitnessCount nWits nBootstrapWits = estimateNumberOfWitnesses utxo body
+    byronWitnessCost = Coin.fromNatural $
+        Cardano.protocolParamTxFeePerByte pp
+            * (fromIntegral nBootstrapWits)
+            * 180  -- FIXME re-use size def
+
+
+
+
+
 
 -- | Estimate the size of the transaction (body) when fully signed.
 _estimateSignedTxSize
@@ -1018,8 +1027,8 @@ _estimateSignedTxSize
     -> TxSize
 _estimateSignedTxSize pparams utxo body =
     let
-        nWits :: Word
-        nWits = estimateNumberOfWitnesses utxo body
+        -- FIXME byron wits
+        KeyWitnessCount nWits _ = estimateNumberOfWitnesses utxo body
 
         -- Hack which allows us to rely on the ledger to calculate the size of
         -- witnesses:
@@ -1061,6 +1070,23 @@ _estimateSignedTxSize pparams utxo body =
     feePerByte = Coin.fromNatural $
         view #protocolParamTxFeePerByte pparams
 
+-- FIXME: De-duplicate
+data KeyWitnessCount = KeyWitnessCount
+    {
+    -- "Normal" verification key witnesses introduced with the Shelley era.
+    nShelleyWits :: Word
+
+    -- | A.k.a bootstrap witnesses
+    , nByronWits :: Word
+    }
+
+numberOfShelleyWitnesses :: Word -> KeyWitnessCount
+numberOfShelleyWitnesses n = KeyWitnessCount n 0
+
+instance Semigroup KeyWitnessCount where
+    (KeyWitnessCount s1 b1) <> (KeyWitnessCount s2 b2)
+        = KeyWitnessCount (s1 + s1) (b1 + b2)
+
 -- | Estimates the required number of Shelley-era witnesses.
 --
 -- Because we don't take into account whether two pieces of tx content will need
@@ -1081,7 +1107,7 @@ estimateNumberOfWitnesses
     -- ^ Must contain all inputs from the 'TxBody' or
     -- 'estimateNumberOfWitnesses' will 'error'.
     -> Cardano.TxBody era
-    -> Word
+    -> KeyWitnessCount
 estimateNumberOfWitnesses utxo txbody@(Cardano.TxBody txbodycontent) =
     let txIns = map fst $ Cardano.txIns txbodycontent
         txInsCollateral =
@@ -1113,14 +1139,22 @@ estimateNumberOfWitnesses utxo txbody@(Cardano.TxBody txbodycontent) =
             fromIntegral
             $ sumVia estimateMaxWitnessRequiredPerInput
             $ mapMaybe toTimelockScript scripts
-    in
-    fromIntegral $
-        length vkInsUnique +
-        length txExtraKeyWits' +
-        length txWithdrawals' +
-        txUpdateProposal' +
-        txCerts +
-        scriptVkWitsUpperBound
+        nonInputWits = numberOfShelleyWitnesses $ fromIntegral $
+            length txExtraKeyWits' +
+            length txWithdrawals' +
+            txUpdateProposal' +
+            txCerts +
+            scriptVkWitsUpperBound
+        inputWits = KeyWitnessCount
+            { nShelleyWits = fromIntegral
+                . length
+                $ filter (not . hasBootstrapAddr utxo) vkInsUnique
+            , nByronWits = fromIntegral
+                . length
+                $ filter (hasBootstrapAddr utxo) vkInsUnique
+            }
+        in
+            inputWits <> nonInputWits
   where
     (Cardano.ShelleyTxBody _ _ scripts _ _ _) = txbody
 
@@ -1151,6 +1185,22 @@ estimateNumberOfWitnesses utxo txbody@(Cardano.TxBody txbodycontent) =
             Just $ toWalletScript (const dummyKeyRole) anyScript
         Cardano.ShelleyBasedEraShelley ->
             Just $ toWalletScriptFromShelley dummyKeyRole anyScript
+
+    hasBootstrapAddr
+        :: Cardano.UTxO era
+        -> Cardano.TxIn
+        -> Bool
+    hasBootstrapAddr (Cardano.UTxO u) inp = case Map.lookup inp u of
+        Just (Cardano.TxOut addrInEra _ _ _) ->
+            case addrInEra of
+                Cardano.AddressInEra Cardano.ByronAddressInAnyEra _ -> True
+                _ -> False
+        Nothing ->
+            error $ unwords
+                [ "estimateMaxWitnessRequiredPerInput: input not in utxo."
+                , "Caller is expected to ensure this does not happen."
+                ]
+
 
     hasVkPaymentCred
         :: Cardano.UTxO era
@@ -2196,11 +2246,12 @@ estimateTxSize era skeleton =
     --  , attributes : bytes
     --  ]
     sizeOf_BootstrapWitness
-        = sizeOf_SmallArray
-        + sizeOf_VKey
-        + sizeOf_Signature
-        + sizeOf_ChainCode
-        + sizeOf_Attributes
+        = sizeOf_SmallArray --1
+        + sizeOf_VKey -- 34
+        + sizeOf_Signature -- 66
+        + sizeOf_ChainCode --34
+        + sizeOf_Attributes --45
+        -- total: 180
       where
         sizeOf_ChainCode  = 34
         sizeOf_Attributes = 45 -- NOTE: could be smaller by ~34 for Icarus
