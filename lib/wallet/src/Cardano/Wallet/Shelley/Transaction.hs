@@ -308,6 +308,7 @@ import qualified Data.Text as T
 
 import qualified Debug.Trace as Tr
 
+
 -- | Type encapsulating what we need to know to add things -- payloads,
 -- certificates -- to a transaction.
 --
@@ -1009,13 +1010,9 @@ _evaluateMinimumFee pp utxo (Cardano.Tx body _) = byronWitnessCost <>
   where
     KeyWitnessCount nWits nBootstrapWits = estimateNumberOfWitnesses utxo body
     byronWitnessCost = Coin.fromNatural $
-        Cardano.protocolParamTxFeePerByte pp
-            * (fromIntegral nBootstrapWits)
-            * 180  -- FIXME re-use size def
-
-
-
-
+        Cardano.protocolParamTxFeePerByte pp * bytes
+      where
+        bytes = (if nBootstrapWits > 0 then 5 else 0) + (fromIntegral nBootstrapWits) * 180  -- FIXME re-use size def
 
 
 -- | Estimate the size of the transaction (body) when fully signed.
@@ -1078,14 +1075,14 @@ data KeyWitnessCount = KeyWitnessCount
 
     -- | A.k.a bootstrap witnesses
     , nByronWits :: Word
-    }
+    } deriving (Eq, Show)
 
 numberOfShelleyWitnesses :: Word -> KeyWitnessCount
 numberOfShelleyWitnesses n = KeyWitnessCount n 0
 
 instance Semigroup KeyWitnessCount where
     (KeyWitnessCount s1 b1) <> (KeyWitnessCount s2 b2)
-        = KeyWitnessCount (s1 + s1) (b1 + b2)
+        = KeyWitnessCount (s1 + s2) (b1 + b2)
 
 -- | Estimates the required number of Shelley-era witnesses.
 --

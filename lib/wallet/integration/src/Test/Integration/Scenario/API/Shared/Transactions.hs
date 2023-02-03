@@ -141,6 +141,7 @@ import Test.Integration.Framework.DSL
     , unsafeGetTransactionTime
     , utcIso8601ToText
     , verify
+    , waitForTxImmutability
     , walletId
     )
 import Test.Integration.Framework.Request
