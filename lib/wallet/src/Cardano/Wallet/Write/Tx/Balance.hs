@@ -307,6 +307,13 @@ data CoinSelection = forall k ktype. BoundedAddressLength k => CoinSelection
     , maxLengthAddress :: W.Address
     }
 
+instance Show CoinSelection where
+    show (CoinSelection _ _ template _) = "CoinSelection with template: " <> show template
+
+-- FIXME
+instance Eq CoinSelection where
+    a == b = False
+
 -- Coin-selection assuming wallet UTxOs are either
 vkCoinSelection
     :: BoundedAddressLength k

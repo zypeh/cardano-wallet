@@ -31,9 +31,12 @@ import Prelude
 import Cardano.Address.Derivation
     ( XPrv, XPub, toXPub, xprvFromBytes, xprvToBytes, xpubPublicKey )
 import Cardano.Address.Script
-    ( KeyHash (..)
+    ( Cosigner (..)
+    , KeyHash (..)
     , KeyRole (Delegation, Payment, Policy)
     , Script
+    , ScriptTemplate (..)
+    , foldScript
     , serializeScript
     )
 import Cardano.Api
@@ -98,7 +101,7 @@ import Cardano.Wallet
 import Cardano.Wallet.Byron.Compatibility
     ( maryTokenBundleMaxSize )
 import Cardano.Wallet.Gen
-    ( genMnemonic, genScript )
+    ( genMnemonic, genMockXPub, genScript, genScriptTemplate )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( BoundedAddressLength (maxLengthAddressFor)
     , DelegationAddress (delegationAddress)
@@ -129,7 +132,7 @@ import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
     , purposeCIP1852
     )
 import Cardano.Wallet.Primitive.AddressDiscovery.Shared
-    ( estimateMaxWitnessRequiredPerInput )
+    ( estimateMaxWitnessRequiredPerInput, retrieveAllCosigners )
 import Cardano.Wallet.Primitive.Model
     ( Wallet (..), unsafeInitWallet )
 import Cardano.Wallet.Primitive.Passphrase
@@ -297,8 +300,6 @@ import Control.Monad.Random
     )
 import Control.Monad.Random.Strict
     ( StdGen )
-import Control.Monad.Random.Strict
-    ( StdGen )
 import Control.Monad.Trans.Except
     ( except, runExceptT )
 import Control.Monad.Trans.Except
@@ -331,8 +332,6 @@ import Data.Function
     ( on, (&) )
 import Data.Function
     ( on, (&) )
-import Data.Functor.Identity
-    ( Identity, runIdentity )
 import Data.Functor.Identity
     ( Identity, runIdentity )
 import Data.Generics.Internal.VL.Lens
@@ -451,6 +450,7 @@ import Test.QuickCheck
     , forAll
     , forAllShow
     , frequency
+    , infiniteListOf
     , label
     , liftShrink2
     , listOf
@@ -459,6 +459,7 @@ import Test.QuickCheck
     , scale
     , shrinkList
     , shrinkMapBy
+    , sublistOf
     , suchThat
     , vector
     , vectorOf
@@ -501,6 +502,8 @@ import qualified Cardano.Ledger.Serialization as Ledger
 import qualified Cardano.Ledger.Shelley.API as SL
 import qualified Cardano.Ledger.Val as Value
 import qualified Cardano.Tx.Balance.Internal.CoinSelection as CS
+import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
+    ( SharedKey )
 import qualified Cardano.Wallet.Primitive.AddressDerivation.Shelley as Shelley
 import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
 import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
@@ -535,6 +538,8 @@ import qualified Ouroboros.Consensus.HardFork.History.Qry as HF
 import qualified Ouroboros.Consensus.HardFork.History.Summary as HF
 import qualified PlutusCore as Plutus
 import qualified Test.Hspec.Extra as Hspec
+import Test.QuickCheck.Modifiers
+    ( Small (..) )
 
 spec :: Spec
 spec = do
@@ -2403,6 +2408,43 @@ instance Arbitrary KeyHash where
 instance Arbitrary StdGenSeed  where
   arbitrary = StdGenSeed . fromIntegral @Int <$> arbitrary
 
+instance Arbitrary CoinSelection where
+    arbitrary = oneof [shared, shelleyVk]
+
+      where
+        shared = do
+            (Positive (Small n)) <- arbitrary
+            (accPubs :: [KeyHash])  <- vectorOf n arbitrary
+            infiniteScripts <- infiniteListOf $ genScript accPubs
+            template <- genScriptTemplate n
+            let scriptLookup ins = take (length ins) infiniteScripts
+            pure $ CoinSelection
+                testTxLayer -- TODO: Should really use 'CredFromScriptK
+                (Just scriptLookup)
+                (Just template)
+                (maxLengthAddressFor
+                    (Proxy @SharedKey))
+            where
+                genScriptCosigners :: Int -> Gen (Script Cosigner)
+                genScriptCosigners n = do
+                    genScript $ Cosigner <$> [0.. fromIntegral n]
+
+                genScriptTemplate :: Int -> Gen ScriptTemplate
+                genScriptTemplate n = do
+                    script <- genScriptCosigners n `suchThat` (not . null . retrieveAllCosigners)
+                    let scriptCosigners = retrieveAllCosigners script
+                    cosignersSubset <- sublistOf scriptCosigners `suchThat` (not . null)
+                    xpubs <- vectorOf (length cosignersSubset) genMockXPub
+                    pure $ ScriptTemplate (Map.fromList $ zip cosignersSubset xpubs) script
+
+        shelleyVk = pure $
+            (CoinSelection
+                testTxLayer
+                Nothing
+                Nothing
+                (maxLengthAddressFor
+                (Proxy @ShelleyKey)))
+
 balanceTransactionSpec :: Spec
 balanceTransactionSpec = describe "balanceTransaction" $ do
     -- TODO: Create a test to show that datums are passed through...
@@ -3344,8 +3386,8 @@ instance Monoid (Cardano.UTxO era) where
 
 shrinkTxAlonzo ::
     Cardano.Tx Cardano.AlonzoEra -> [Cardano.Tx Cardano.AlonzoEra]
-shrinkTxAlonzo (Cardano.Tx bod wits) =
-    [ Cardano.Tx bod' wits | bod' <- shrinkTxBodyAlonzo bod ]
+shrinkTxAlonzo (Cardano.Tx bod wits) = []
+--    [ Cardano.Tx bod' wits | bod' <- shrinkTxBodyAlonzo bod ]
 
 shrinkTxBabbage ::
     Cardano.Tx Cardano.BabbageEra -> [Cardano.Tx Cardano.BabbageEra]
@@ -3566,21 +3608,18 @@ dummyChangeAddrGen = ChangeAddressGen $ \(DummyChangeState i) ->
 
 balanceTransactionWithDummyChangeState
     :: WriteTx.IsRecentEra era
-    => UTxO
+    => CoinSelection
+    -> UTxO
     -> StdGenSeed
     -> PartialTx era
     -> Either
         ErrBalanceTx
         (Cardano.Tx era, DummyChangeState)
-balanceTransactionWithDummyChangeState utxo seed ptx =
+balanceTransactionWithDummyChangeState cs utxo seed ptx =
     flip evalRand (stdGenFromSeed seed) $ runExceptT $
         balanceTransaction @_ @(Rand StdGen)
             (nullTracer @(Rand StdGen))
-            (CoinSelection
-                testTxLayer
-                Nothing
-                Nothing
-                (maxLengthAddressFor (Proxy @ShelleyKey)))
+            cs
             mockProtocolParametersForBalancing
             dummyTimeInterpreter
             utxoIndex
@@ -3767,19 +3806,21 @@ balanceTransactionGoldenSpec = describe "balance goldens" $ do
 --
 -- TODO: Generate data for other eras than Alonzo
 prop_balanceTransactionValid
-    :: Wallet'
+    :: CoinSelection
+    -> UTxO
     -> ShowBuildable (PartialTx Cardano.AlonzoEra)
     -> StdGenSeed
     -> Property
-prop_balanceTransactionValid wallet (ShowBuildable partialTx) seed
+prop_balanceTransactionValid cs walletUTxO (ShowBuildable partialTx) seed
     = withMaxSuccess 1_000 $ do
         let combinedUTxO = mconcat
                 [ view #inputs partialTx
                 , Compatibility.toCardanoUTxO Cardano.ShelleyBasedEraAlonzo walletUTxO
                 ]
         let originalBalance = txBalance (view #tx partialTx) combinedUTxO
-        let res = balanceTransaction'
-                wallet
+        let res = fst <$> balanceTransactionWithDummyChangeState
+                cs
+                walletUTxO
                 seed
                 partialTx
         case res of
@@ -3976,11 +4017,6 @@ prop_balanceTransactionValid wallet (ShowBuildable partialTx) seed
                     ledgerPParams
                     out
                 ]
-
-    walletUTxO :: UTxO
-    walletUTxO =
-        let Wallet' _ w _ = wallet
-        in view #utxo w
 
     hasZeroAdaOutputs :: Cardano.Tx Cardano.AlonzoEra -> Bool
     hasZeroAdaOutputs (Cardano.Tx (Cardano.ShelleyTxBody _ body _ _ _ _) _) =
