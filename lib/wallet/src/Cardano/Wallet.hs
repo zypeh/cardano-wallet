@@ -259,6 +259,8 @@ import Cardano.Wallet.DB
     , ErrRemoveTx (..)
     , ErrWalletAlreadyExists (..)
     )
+import Cardano.Wallet.DB.Store.Submissions.Layer
+    ( mkLocalTxSubmission )
 import Cardano.Wallet.DB.WalletState
     ( DeltaWalletState1 (..)
     , ErrNoSuchWallet (..)
@@ -475,6 +477,7 @@ import Cardano.Wallet.Write.Tx.Balance
     , PartialTx (..)
     , assignChangeAddresses
     , balanceTransaction
+    , vkCoinSelection
     )
 import Control.Arrow
     ( first )
@@ -599,10 +602,9 @@ import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Slotting.Slot as Slot
 import qualified Cardano.Tx.Balance.Internal.CoinSelection as CS
 import qualified Cardano.Wallet.Checkpoints.Policy as CP
-import Cardano.Wallet.DB.Store.Submissions.Layer
-    ( mkLocalTxSubmission )
 import qualified Cardano.Wallet.DB.WalletState as WS
 import qualified Cardano.Wallet.DB.WalletState as WalletState
+import qualified Cardano.Wallet.DB.WalletState as WS
 import qualified Cardano.Wallet.Primitive.AddressDiscovery.Random as Rnd
 import qualified Cardano.Wallet.Primitive.AddressDiscovery.Sequential as Seq
 import qualified Cardano.Wallet.Primitive.AddressDiscovery.Shared as Shared
@@ -1898,7 +1900,7 @@ type MakeRewardAccountBuilder k =
 --
 -- Requires the encryption passphrase in order to decrypt the root private key.
 buildSignSubmitTransaction
-    :: forall k ktype s (n :: NetworkDiscriminant)
+    :: forall k s (n :: NetworkDiscriminant)
      . ( Typeable n
        , Typeable s
        , Typeable k
@@ -1906,14 +1908,14 @@ buildSignSubmitTransaction
        , HardDerivation k
        , BoundedAddressLength k
        , Bounded (Index (AddressIndexDerivationType k) (AddressCredential k))
-       , IsOwned s k ktype
+       , IsOwned s k 'CredFromKeyK
        , IsOurs s RewardAccount
        , AddressBookIso s
        )
     => TimeInterpreter (ExceptT PastHorizonException IO)
     -> DBLayer IO s k
     -> NetworkLayer IO Read.Block
-    -> TransactionLayer k ktype SealedTx
+    -> TransactionLayer k 'CredFromKeyK SealedTx
     -> Passphrase "user"
     -> WalletId
     -> ChangeAddressGen s
@@ -1935,9 +1937,9 @@ buildSignSubmitTransaction ti db@DBLayer{..} netLayer txLayer pwd walletId
                 readTransactions
                     walletId Nothing Descending wholeRange (Just Pending)
 
-            (btx@(BuiltTx{..}), slot) <- throwOnErr <=< modifyDBMaybe walletsDB
-                $ adjustNoSuchWallet walletId wrapNoWalletForConstruct $ \s ->
-                    buildAndSignTransactionPure @k @ktype @s @n
+            (btx@BuiltTx{..}, slot) <- throwOnErr <=< modifyDBMaybe walletsDB $ do
+                adjustNoSuchWallet walletId wrapNoWalletForConstruct $ \s ->
+                    buildAndSignTransactionPure @k @s @n
                         pureTimeInterpreter
                         (Set.fromList pendingTxs)
                         rootKey
@@ -1985,7 +1987,7 @@ buildSignSubmitTransaction ti db@DBLayer{..} netLayer txLayer pwd walletId
     wrapBalanceConstructError = either ExceptionBalanceTx ExceptionConstructTx
 
 buildAndSignTransactionPure
-    :: forall k ktype s (n :: NetworkDiscriminant)
+    :: forall k s (n :: NetworkDiscriminant)
      . ( Typeable n
        , Typeable s
        , Typeable k
@@ -1993,7 +1995,7 @@ buildAndSignTransactionPure
        , HardDerivation k
        , BoundedAddressLength k
        , Bounded (Index (AddressIndexDerivationType k) (AddressCredential k))
-       , IsOwned s k ktype
+       , IsOwned s k 'CredFromKeyK
        , IsOurs s RewardAccount
        )
     => TimeInterpreter (Either PastHorizonException)
@@ -2002,7 +2004,7 @@ buildAndSignTransactionPure
     -> PassphraseScheme
     -> Passphrase "user"
     -> ProtocolParameters
-    -> TransactionLayer k ktype SealedTx
+    -> TransactionLayer k 'CredFromKeyK SealedTx
     -> ChangeAddressGen s
     -> AnyRecentEra
     -> PreSelection
@@ -2029,11 +2031,9 @@ buildAndSignTransactionPure
                     (Left preSelection)
 
         (unsignedBalancedTx, updatedWalletState) <- lift . withExceptT Left $
-            balanceTransaction @_ @_ @s @k @ktype
+            balanceTransaction @_ @_ @s
                 nullTracer
-                txLayer
-                Nothing -- "To input scripts" resolver
-                Nothing -- Script template
+                (vkCoinSelection txLayer)
                 nodeProtocolParameters
                 ti
                 (UTxOIndex.fromMap
@@ -2051,7 +2051,7 @@ buildAndSignTransactionPure
         put wallet { getState = updatedWalletState }
 
         let passphrase = preparePassphrase passphraseScheme userPassphrase
-            signedTx = signTransaction @k @ktype
+            signedTx = signTransaction @k @'CredFromKeyK
                 txLayer
                 anyCardanoEra
                 (isOwned (getState wallet) (rootKey, passphrase))
@@ -2139,13 +2139,13 @@ buildAndSignTransactionPure
 -- Build a tx just to get its fee. This is absurd, but needed as long as we keep
 -- the old tx workflow fee endpoints.
 buildUnsignedTransactionFee
-    :: forall k ktype s (n :: NetworkDiscriminant) era
+    :: forall k s (n :: NetworkDiscriminant) era
      . ( Typeable n
        , Typeable s
        , Typeable k
        , WalletKey k
        , BoundedAddressLength k
-       , IsOwned s k ktype
+       , IsOwned s k 'CredFromKeyK
        , IsOurs s RewardAccount
        , WriteTx.IsRecentEra era
        )
@@ -2153,7 +2153,7 @@ buildUnsignedTransactionFee
     -> TimeInterpreter (Either PastHorizonException)
     -> DBLayer IO s k
     -> NetworkLayer IO Read.Block
-    -> TransactionLayer k ktype SealedTx
+    -> TransactionLayer k 'CredFromKeyK SealedTx
     -> WalletId
     -> (s -> (Address, s))
     -> WriteTx.RecentEra era
@@ -2198,11 +2198,9 @@ buildUnsignedTransactionFee
                 (Cardano.Tx unsignedTxBody [])(Cardano.UTxO mempty) mempty
             dummyChangeAddr = maxLengthAddressFor $ Proxy @k
         either (throwIO . ExceptionBalanceTx) pure <=< runExceptT $
-            fmap fst $ balanceTransaction @_ @_ @_ @k @ktype
+            fmap fst $ balanceTransaction
                 (MsgBalanceTx >$< tr)
-                txLayer
-                Nothing
-                Nothing
+                (vkCoinSelection txLayer)
                 protocolParameters
                 ti
                 utxoIndex

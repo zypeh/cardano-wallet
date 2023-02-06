@@ -2146,7 +2146,7 @@ postTransactionOld ctx@ApiLayer{..} argGenChange (ApiT wid) body = do
                 }
         (BuiltTx{..}, txTime) <- atomicallyWithHandler
             (ctx ^. walletLocks) (PostTransactionOld wid) $ liftIO $
-                W.buildSignSubmitTransaction @k @'CredFromKeyK @s @n
+                W.buildSignSubmitTransaction @k @s @n
                     ti
                     db
                     netLayer
@@ -2315,7 +2315,7 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
         wdrl <- case body ^. #withdrawal of
             Nothing -> pure NoWithdrawal
             Just apiWdrl ->
-                fst <$> shelleyOnlyMkWithdrawal @s @k @n @'CredFromKeyK
+                fst <$> shelleyOnlyMkWithdrawal @s @k @n
                     netLayer txLayer db wid era apiWdrl
         let txCtx = defaultTransactionCtx
                 { txWithdrawal = wdrl
@@ -2330,7 +2330,7 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
         AnyRecentEra (recentEra :: WriteTx.RecentEra era)
             <- guardIsRecentEra era
         let runSelection =
-                liftIO $ W.buildUnsignedTransactionFee @k @'CredFromKeyK @s @n
+                liftIO $ W.buildUnsignedTransactionFee @k @s @n
                     (MsgWallet >$< wrk ^. W.logger)
                     pureTimeInterpreter
                     db
@@ -3022,11 +3022,9 @@ balanceTransaction
                 => W.PartialTx era
                 -> Handler (Cardano.Tx era)
             balanceTx partialTx =
-                liftHandler $ fst <$> W.balanceTransaction @_ @IO @s @k @ktype
+                liftHandler $ fst <$> W.balanceTransaction @_ @IO @s
                     (MsgWallet . W.MsgBalanceTx >$< wrk ^. W.logger)
-                    (ctx ^. typed)
-                    genInpScripts
-                    mScriptTemplate
+                    (error "todo")
                     (pp, nodePParams)
                     ti
                     utxoIndex
@@ -3408,10 +3406,9 @@ joinStakePool
         let tr = wrk ^. logger
             db = wrk ^. typed @(DBLayer IO s k)
             ti = timeInterpreter netLayer
-            genChange = W.defaultChangeAddressGen argGenChange
 
         (BuiltTx{..}, txTime) <- liftIO $
-            W.buildSignSubmitTransaction @k @'CredFromKeyK @s @n
+            W.buildSignSubmitTransaction @k @s @n
                 ti
                 db
                 netLayer
@@ -3524,7 +3521,7 @@ quitStakePool ctx@ApiLayer{..} argGenChange (ApiT walletId) body = do
             Just Refl -> liftIO $ WD.quitStakePool netLayer db ti walletId
             _ -> liftHandler $ throwE ErrReadRewardAccountNotAShelleyWallet
         (BuiltTx{..}, txTime) <- liftIO $ do
-            W.buildSignSubmitTransaction @k @'CredFromKeyK @s @n
+            W.buildSignSubmitTransaction @k @s @n
                 ti
                 db
                 netLayer

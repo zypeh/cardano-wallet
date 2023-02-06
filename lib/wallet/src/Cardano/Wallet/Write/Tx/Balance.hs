@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -5,6 +6,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -43,7 +45,9 @@ import Cardano.Tx.Balance.Internal.CoinSelection
     , toExternalUTxOMap
     )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( BoundedAddressLength (..) )
+    ( BoundedAddressLength, Depth (..) )
+import Cardano.Wallet.Primitive.AddressDerivation.Shared
+    ( SharedKey (..) )
 import Cardano.Wallet.Primitive.Slotting
     ( PastHorizonException, TimeInterpreter )
 import Cardano.Wallet.Primitive.Types
@@ -78,6 +82,7 @@ import Cardano.Wallet.Transaction
     , TransactionLayer (..)
     , TxFeeAndChange (..)
     , TxFeeUpdate (UseNewTxFee)
+    , WitnessCount (verificationKey)
     , WitnessCountCtx (..)
     , defaultTransactionCtx
     )
@@ -155,8 +160,8 @@ import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
 import qualified Cardano.Wallet.Primitive.Types.Tx as W
 import qualified Cardano.Wallet.Primitive.Types.Tx.TxIn as W
 import qualified Cardano.Wallet.Primitive.Types.Tx.TxOut as W
-import qualified Cardano.Wallet.Primitive.Types.UTxO as W
 import qualified Cardano.Wallet.Primitive.Types.UTxO as UTxO
+import qualified Cardano.Wallet.Primitive.Types.UTxO as W
 import qualified Cardano.Wallet.Primitive.Types.UTxOIndex as UTxOIndex
 import qualified Cardano.Wallet.Primitive.Types.UTxOSelection as UTxOSelection
 import qualified Data.Map as Map
@@ -277,16 +282,53 @@ instance Buildable (PartialTx era) where
         cardanoTxF :: Cardano.Tx era -> Builder
         cardanoTxF tx' = pretty $ pShow tx'
 
+data CoinSelection = forall k ktype. BoundedAddressLength k => CoinSelection
+    { txLayer
+        :: TransactionLayer k ktype SealedTx
+        -- TODO: Replace with smaller and smaller parts of 'TransactionLayer'
+    , inputScriptLookup
+        :: Maybe ([(W.TxIn, W.TxOut)] -> [CA.Script KeyHash])
+    , inputScriptTemplate
+        :: Maybe ScriptTemplate
+
+
+    -- | Returns the longest address that the wallet can generate for a given
+    --   key.
+    --
+    -- This is useful in situations where we want to compute some function of
+    -- an output under construction (such as a minimum UTxO value), but don't
+    -- yet have convenient access to a real address.
+    --
+    -- Please note that this address should:
+    --
+    --  - never be used for anything besides its length and validity properties.
+    --  - never be used as a payment target within a real transaction.
+    --
+    , maxLengthAddress :: W.Address
+    }
+
+-- Coin-selection assuming wallet UTxOs are either
+vkCoinSelection
+    :: BoundedAddressLength k
+    => TransactionLayer k 'CredFromKeyK SealedTx
+    -> CoinSelection
+vkCoinSelection = error "todo"
+
+-- | Coin-selection from wallet UTxOs locked by scripts
+scriptCoinSelection
+    :: ScriptTemplate
+    -> ([(W.TxIn, W.TxOut)] -> [CA.Script KeyHash])
+    -> TransactionLayer SharedKey 'CredFromScriptK SealedTx
+    -> CoinSelection
+scriptCoinSelection = error "todo"
+
 balanceTransaction
-    :: forall era m s k ktype.
+    :: forall era m s.
         ( MonadRandom m
         , IsRecentEra era
-        , BoundedAddressLength k
         )
     => Tracer m BalanceTxLog
-    -> TransactionLayer k ktype SealedTx
-    -> Maybe ([(W.TxIn, W.TxOut)] -> [CA.Script KeyHash])
-    -> Maybe ScriptTemplate
+    -> CoinSelection
     -> (W.ProtocolParameters, Cardano.ProtocolParameters)
     -- ^ 'Cardano.ProtocolParameters' can be retrieved via a Local State Query
     -- to a local node.
@@ -312,8 +354,7 @@ balanceTransaction
     -> s
     -> PartialTx era
     -> ExceptT ErrBalanceTx m (Cardano.Tx era, s)
-balanceTransaction
-    tr txLayer toInpScriptsM mScriptTemplate pp ti idx genChange s unadjustedPtx = do
+balanceTransaction tr coinSelection pp ti idx genChange s unadjustedPtx = do
     -- TODO [ADP-1490] Take 'Ledger.PParams era' directly as argument, and avoid
     -- converting to/from Cardano.ProtocolParameters. This may affect
     -- performance. The addition of this one specific conversion seems to have
@@ -325,8 +366,8 @@ balanceTransaction
 
     let balanceWith strategy =
             balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
-                @era @m @s @k @ktype
-                tr txLayer toInpScriptsM mScriptTemplate
+                @era @m @s
+                tr coinSelection
                 pp ti idx genChange s strategy adjustedPtx
     balanceWith SelectionStrategyOptimal
         `catchE` \e ->
@@ -403,14 +444,11 @@ increaseZeroAdaOutputs era pp = modifyLedgerBody $
 -- | Internal helper to 'balanceTransaction'
 balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
     :: forall era m s k ktype.
-        ( BoundedAddressLength k
-        , MonadRandom m
+        ( MonadRandom m
         , IsRecentEra era
         )
     => Tracer m BalanceTxLog
-    -> TransactionLayer k ktype SealedTx
-    -> Maybe ([(W.TxIn, W.TxOut)] -> [CA.Script KeyHash])
-    -> Maybe ScriptTemplate
+    -> CoinSelection
     -> (W.ProtocolParameters, Cardano.ProtocolParameters)
     -> TimeInterpreter (Either PastHorizonException)
     -> UTxOIndex WalletUTxO
@@ -421,9 +459,7 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
     -> ExceptT ErrBalanceTx m (Cardano.Tx era, s)
 balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
     tr
-    txLayer
-    toInpScriptsM
-    mScriptTemplate
+    (CoinSelection txLayer toInpScriptsM mScriptTemplate maxLengthAddress)
     (pp, nodePParams)
     ti
     internalUtxoAvailable
@@ -851,7 +887,7 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
                 , minimumCollateralPercentage =
                     view #minimumCollateralPercentage pp
                 , maximumLengthChangeAddress =
-                    maxLengthAddressFor $ Proxy @k
+                    maxLengthAddress
                 }
 
             selectionParams = SelectionParams

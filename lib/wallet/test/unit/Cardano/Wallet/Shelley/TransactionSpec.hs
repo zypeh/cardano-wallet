@@ -100,7 +100,8 @@ import Cardano.Wallet.Byron.Compatibility
 import Cardano.Wallet.Gen
     ( genMnemonic, genScript )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( DelegationAddress (delegationAddress)
+    ( BoundedAddressLength (maxLengthAddressFor)
+    , DelegationAddress (delegationAddress)
     , Depth (..)
     , DerivationIndex (..)
     , DerivationType (Soft)
@@ -274,6 +275,7 @@ import Cardano.Wallet.Unsafe
     ( unsafeFromHex )
 import Cardano.Wallet.Write.Tx.Balance
     ( ChangeAddressGen (..)
+    , CoinSelection (..)
     , ErrBalanceTx (..)
     , ErrBalanceTxInternalError (..)
     , ErrSelectAssets (..)
@@ -295,54 +297,106 @@ import Control.Monad.Random
     )
 import Control.Monad.Random.Strict
     ( StdGen )
+import Control.Monad.Random.Strict
+    ( StdGen )
+import Control.Monad.Trans.Except
+    ( except, runExceptT )
 import Control.Monad.Trans.Except
     ( except, runExceptT )
 import Control.Monad.Trans.State.Strict
     ( evalState, state )
+import Control.Monad.Trans.State.Strict
+    ( evalState, state )
+import Crypto.Hash.Utils
+    ( blake2b224 )
 import Crypto.Hash.Utils
     ( blake2b224 )
 import Data.ByteArray.Encoding
     ( Base (..), convertToBase )
+import Data.ByteArray.Encoding
+    ( Base (..), convertToBase )
+import Data.ByteString
+    ( ByteString )
 import Data.ByteString
     ( ByteString )
 import Data.Default
     ( Default (..) )
+import Data.Default
+    ( Default (..) )
+import Data.Either
+    ( isLeft, isRight )
 import Data.Either
     ( isLeft, isRight )
 import Data.Function
     ( on, (&) )
+import Data.Function
+    ( on, (&) )
+import Data.Functor.Identity
+    ( Identity, runIdentity )
 import Data.Functor.Identity
     ( Identity, runIdentity )
 import Data.Generics.Internal.VL.Lens
     ( over, view )
+import Data.Generics.Internal.VL.Lens
+    ( over, view )
+import Data.List
+    ( isSuffixOf, nub )
 import Data.List
     ( isSuffixOf, nub )
 import Data.List.NonEmpty
     ( NonEmpty (..) )
+import Data.List.NonEmpty
+    ( NonEmpty (..) )
+import Data.Map.Strict
+    ( Map )
 import Data.Map.Strict
     ( Map )
 import Data.Maybe
     ( fromJust, fromMaybe, isJust )
+import Data.Maybe
+    ( fromJust, fromMaybe, isJust )
+import Data.Ord
+    ( comparing )
 import Data.Ord
     ( comparing )
 import Data.Proxy
     ( Proxy (..) )
+import Data.Proxy
+    ( Proxy (..) )
+import Data.Quantity
+    ( Quantity (..) )
 import Data.Quantity
     ( Quantity (..) )
 import Data.Ratio
     ( (%) )
+import Data.Ratio
+    ( (%) )
+import Data.Semigroup
+    ( Sum (Sum), getSum, mtimesDefault )
 import Data.Semigroup
     ( Sum (Sum), getSum, mtimesDefault )
 import Data.Set
     ( Set )
+import Data.Set
+    ( Set )
+import Data.Text
+    ( Text )
 import Data.Text
     ( Text )
 import Data.Time.Clock.POSIX
     ( posixSecondsToUTCTime )
+import Data.Time.Clock.POSIX
+    ( posixSecondsToUTCTime )
+import Data.Typeable
+    ( Typeable, typeRep )
 import Data.Typeable
     ( Typeable, typeRep )
 import Data.Word
     ( Word16, Word64, Word8 )
+import Data.Word
+    ( Word16, Word64, Word8 )
+import Fmt
+    ( Buildable (..), blockListF', fmt, nameF, pretty, (+||), (||+) )
 import Fmt
     ( Buildable (..), blockListF', fmt, nameF, pretty, (+||), (||+) )
 import Ouroboros.Consensus.BlockchainTime.WallClock.Types
@@ -2579,9 +2633,12 @@ balanceTransactionSpec = describe "balanceTransaction" $ do
     balanceTx tx = flip evalRand (stdGenFromSeed testStdGenSeed) $ runExceptT $
        fst <$> balanceTransaction
             nullTracer
-            testTxLayer
-            Nothing
-            Nothing
+            (CoinSelection
+                testTxLayer
+                Nothing
+                Nothing
+                (maxLengthAddressFor
+                (Proxy @ShelleyKey)))
             mockProtocolParametersForBalancing
             (dummyTimeInterpreterWithHorizon horizon)
             utxoIndex
@@ -3463,9 +3520,12 @@ balanceTransaction' (Wallet' utxoIndex wallet _pending) seed tx  =
     flip evalRand (stdGenFromSeed seed) $ runExceptT $
         fst <$> balanceTransaction
             nullTracer
-            testTxLayer
-            Nothing
-            Nothing
+            (CoinSelection
+                testTxLayer
+                Nothing
+                Nothing
+                (maxLengthAddressFor
+                (Proxy @ShelleyKey)))
             mockProtocolParametersForBalancing
             dummyTimeInterpreter
             utxoIndex
@@ -3516,9 +3576,11 @@ balanceTransactionWithDummyChangeState utxo seed ptx =
     flip evalRand (stdGenFromSeed seed) $ runExceptT $
         balanceTransaction @_ @(Rand StdGen)
             (nullTracer @(Rand StdGen))
-            testTxLayer
-            Nothing
-            Nothing
+            (CoinSelection
+                testTxLayer
+                Nothing
+                Nothing
+                (maxLengthAddressFor (Proxy @ShelleyKey)))
             mockProtocolParametersForBalancing
             dummyTimeInterpreter
             utxoIndex
