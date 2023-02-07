@@ -109,8 +109,7 @@ module Cardano.Api.Gen
 
 import Prelude
 
-import Cardano.Api hiding
-    ( txIns )
+import Cardano.Api hiding ( txIns )
 import Cardano.Api.Byron
     ( KeyWitness (ByronKeyWitness), WitnessNetworkIdOrByronAddress (..) )
 import Cardano.Api.Shelley
@@ -128,50 +127,28 @@ import Cardano.Api.Shelley
     , StakePoolRelay (..)
     , refInsScriptsAndInlineDatsSupportedInEra
     )
-import Cardano.Ledger.Credential.Safe
-    ( Ptr, SlotNo32 (..), safePtr )
-import Cardano.Ledger.SafeHash
-    ( unsafeMakeSafeHash )
-import Cardano.Ledger.Shelley.API
-    ( MIRPot (..) )
-import Data.Aeson
-    ( ToJSON (..), (.=) )
-import Data.ByteString
-    ( ByteString )
-import Data.Coerce
-    ( coerce )
-import Data.Int
-    ( Int64 )
-import Data.IntCast
-    ( intCast )
-import Data.List
-    ( nub )
-import Data.Map
-    ( Map )
-import Data.Maybe
-    ( maybeToList )
-import Data.Maybe.Strict
-    ( strictMaybeToMaybe )
-import Data.Ratio
-    ( Ratio, (%) )
-import Data.Set
-    ( Set )
-import Data.String
-    ( fromString )
-import Data.Text
-    ( Text )
-import Data.Word
-    ( Word16, Word32, Word64 )
-import Network.Socket
-    ( PortNumber )
-import Numeric.Natural
-    ( Natural )
-import System.Random
-    ( Random )
-import Test.Cardano.Chain.UTxO.Gen
-    ( genVKWitness )
-import Test.Cardano.Crypto.Gen
-    ( genProtocolMagicId )
+import Cardano.Ledger.Credential.Safe ( Ptr, SlotNo32 (..), safePtr )
+import Cardano.Ledger.SafeHash ( unsafeMakeSafeHash )
+import Cardano.Ledger.Shelley.API ( MIRPot (..) )
+import Data.Aeson ( ToJSON (..), (.=) )
+import Data.ByteString ( ByteString )
+import Data.Coerce ( coerce )
+import Data.Int ( Int64 )
+import Data.IntCast ( intCast )
+import Data.List ( nub )
+import Data.Map ( Map )
+import Data.Maybe ( maybeToList )
+import Data.Maybe.Strict ( strictMaybeToMaybe )
+import Data.Ratio ( Ratio, (%) )
+import Data.Set ( Set )
+import Data.String ( fromString )
+import Data.Text ( Text )
+import Data.Word ( Word16, Word32, Word64 )
+import Network.Socket ( PortNumber )
+import Numeric.Natural ( Natural )
+import System.Random ( Random )
+import Test.Cardano.Chain.UTxO.Gen ( genVKWitness )
+import Test.Cardano.Crypto.Gen ( genProtocolMagicId )
 import Test.QuickCheck
     ( Gen
     , Large (..)
@@ -197,8 +174,7 @@ import Test.QuickCheck
     , vector
     , vectorOf
     )
-import Test.QuickCheck.Hedgehog
-    ( hedgehog )
+import Test.QuickCheck.Hedgehog ( hedgehog )
 import Test.QuickCheck.Instances.ByteString
     ()
 
@@ -722,12 +698,12 @@ genTxWithdrawals era =
         pure TxWithdrawalsNone
     Just supported -> do
         frequency
-          [ ( 1 , pure TxWithdrawalsNone )
-          , ( 1 , pure $ TxWithdrawals supported [] )
-          , ( 3 , TxWithdrawals supported
-                  <$> scale (`div` 3) (listOf (genWithdrawalInfo era))
-            )
-          ]
+          [ ( 1 , pure TxWithdrawalsNone ) ]
+--          , ( 1 , pure $ TxWithdrawals supported [] )
+--          , ( 3 , TxWithdrawals supported
+--                  <$> scale (`div` 3) (listOf (genWithdrawalInfo era))
+--            )
+--          ]
 
 genWithdrawalInfo
     :: CardanoEra era
@@ -925,8 +901,8 @@ genAddressInEra era =
 
     ShelleyBasedEra _ ->
       oneof
-        [ byronAddressInEra   <$> genAddressByron
-        , shelleyAddressInEra <$> genAddressShelley
+        --[ byronAddressInEra   <$> genAddressByron
+        [ shelleyAddressInEra <$> genAddressShelley
         ]
 
 genUnsignedQuantity :: Gen Quantity

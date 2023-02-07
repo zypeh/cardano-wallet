@@ -61,12 +61,12 @@ module Cardano.Wallet.Shelley.Transaction
     , distributeSurplusDelta
     , sizeOfCoin
     , maximumCostOfIncreasingCoin
+    , sizeOf_NativeScript
     ) where
 
 import Prelude
 
-import Cardano.Address.Derivation
-    ( XPrv, toXPub )
+import Cardano.Address.Derivation ( XPrv, toXPub )
 import Cardano.Address.Script
     ( Cosigner
     , KeyHash
@@ -86,22 +86,14 @@ import Cardano.Api
     , ShelleyBasedEra (..)
     , ToCBOR
     )
-import Cardano.Binary
-    ( serialize' )
-import Cardano.Crypto.Wallet
-    ( XPub )
-import Cardano.Ledger.Alonzo.Tools
-    ( evaluateTransactionExecutionUnits )
-import Cardano.Ledger.Crypto
-    ( DSIGN )
-import Cardano.Ledger.Era
-    ( Crypto, ValidateScript (..) )
-import Cardano.Ledger.Shelley.API
-    ( StrictMaybe (..) )
-import Cardano.Slotting.EpochInfo
-    ( EpochInfo )
-import Cardano.Slotting.EpochInfo.API
-    ( hoistEpochInfo )
+import Cardano.Binary ( serialize' )
+import Cardano.Crypto.Wallet ( XPub )
+import Cardano.Ledger.Alonzo.Tools ( evaluateTransactionExecutionUnits )
+import Cardano.Ledger.Crypto ( DSIGN )
+import Cardano.Ledger.Era ( Crypto, ValidateScript (..) )
+import Cardano.Ledger.Shelley.API ( StrictMaybe (..) )
+import Cardano.Slotting.EpochInfo ( EpochInfo )
+import Cardano.Slotting.EpochInfo.API ( hoistEpochInfo )
 import Cardano.Tx.Balance.Internal.CoinSelection
     ( SelectionLimitOf (..)
     , SelectionOf (..)
@@ -110,18 +102,14 @@ import Cardano.Tx.Balance.Internal.CoinSelection
     )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( Depth (..), RewardAccount (..), WalletKey (..) )
-import Cardano.Wallet.Primitive.AddressDerivation.Byron
-    ( ByronKey )
-import Cardano.Wallet.Primitive.AddressDerivation.Icarus
-    ( IcarusKey )
-import Cardano.Wallet.Primitive.AddressDerivation.Shared
-    ( SharedKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Byron ( ByronKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Icarus ( IcarusKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Shared ( SharedKey )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
     ( ShelleyKey, toRewardAccountRaw )
 import Cardano.Wallet.Primitive.AddressDiscovery.Shared
     ( estimateMaxWitnessRequiredPerInput )
-import Cardano.Wallet.Primitive.Passphrase
-    ( Passphrase (..) )
+import Cardano.Wallet.Primitive.Passphrase ( Passphrase (..) )
 import Cardano.Wallet.Primitive.Slotting
     ( PastHorizonException, TimeInterpreter, getSystemStart, toEpochInfo )
 import Cardano.Wallet.Primitive.Types
@@ -133,22 +121,14 @@ import Cardano.Wallet.Primitive.Types
     , ProtocolParameters (..)
     , TxParameters (..)
     )
-import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
-import Cardano.Wallet.Primitive.Types.Coin
-    ( Coin (..) )
-import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.Redeemer
-    ( Redeemer, redeemerData )
-import Cardano.Wallet.Primitive.Types.TokenBundle
-    ( TokenBundle (..) )
-import Cardano.Wallet.Primitive.Types.TokenMap
-    ( AssetId (..), TokenMap )
-import Cardano.Wallet.Primitive.Types.TokenPolicy
-    ( TokenName (..) )
-import Cardano.Wallet.Primitive.Types.TokenQuantity
-    ( TokenQuantity (..) )
+import Cardano.Wallet.Primitive.Types.Address ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Coin ( Coin (..) )
+import Cardano.Wallet.Primitive.Types.Hash ( Hash (..) )
+import Cardano.Wallet.Primitive.Types.Redeemer ( Redeemer, redeemerData )
+import Cardano.Wallet.Primitive.Types.TokenBundle ( TokenBundle (..) )
+import Cardano.Wallet.Primitive.Types.TokenMap ( AssetId (..), TokenMap )
+import Cardano.Wallet.Primitive.Types.TokenPolicy ( TokenName (..) )
+import Cardano.Wallet.Primitive.Types.TokenQuantity ( TokenQuantity (..) )
 import Cardano.Wallet.Primitive.Types.Tx
     ( SealedTx (..)
     , Tx (..)
@@ -160,12 +140,9 @@ import Cardano.Wallet.Primitive.Types.Tx
     )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
     ( TxConstraints (..), TxSize (..), txSizeDistance )
-import Cardano.Wallet.Primitive.Types.Tx.TxIn
-    ( TxIn (..) )
-import Cardano.Wallet.Primitive.Types.Tx.TxOut
-    ( TxOut (..) )
-import Cardano.Wallet.Read.Primitive.Tx
-    ( fromCardanoTx )
+import Cardano.Wallet.Primitive.Types.Tx.TxIn ( TxIn (..) )
+import Cardano.Wallet.Primitive.Types.Tx.TxOut ( TxOut (..) )
+import Cardano.Wallet.Read.Primitive.Tx ( fromCardanoTx )
 import Cardano.Wallet.Shelley.Compatibility
     ( cardanoCertKeysForWitnesses
     , fromCardanoAddress
@@ -211,60 +188,35 @@ import Cardano.Wallet.Transaction
     , mapTxFeeAndChange
     , withdrawalToCoin
     )
-import Cardano.Wallet.Util
-    ( HasCallStack, internalError, modifyM )
-import Cardano.Wallet.Write.Tx
-    ( fromCardanoUTxO )
-import Codec.Serialise
-    ( deserialiseOrFail )
-import Control.Arrow
-    ( left, second )
-import Control.Monad
-    ( forM, guard )
-import Control.Monad.Trans.Class
-    ( lift )
-import Control.Monad.Trans.Except
-    ( runExceptT )
+import Cardano.Wallet.Util ( HasCallStack, internalError, modifyM )
+import Cardano.Wallet.Write.Tx ( fromCardanoUTxO )
+import Codec.Serialise ( deserialiseOrFail )
+import Control.Arrow ( left, second )
+import Control.Monad ( forM, guard )
+import Control.Monad.Trans.Class ( lift )
+import Control.Monad.Trans.Except ( runExceptT )
 import Control.Monad.Trans.State.Strict
     ( StateT (..), execStateT, get, modify' )
-import Data.Bifunctor
-    ( bimap )
-import Data.Either
-    ( fromRight )
-import Data.Function
-    ( (&) )
-import Data.Functor
-    ( ($>), (<&>) )
-import Data.Functor.Identity
-    ( runIdentity )
-import Data.Generics.Internal.VL.Lens
-    ( view, (^.) )
+import Data.Bifunctor ( bimap )
+import Data.Either ( fromRight )
+import Data.Function ( (&) )
+import Data.Functor ( ($>), (<&>) )
+import Data.Functor.Identity ( runIdentity )
+import Data.Generics.Internal.VL.Lens ( view, (^.) )
 import Data.Generics.Labels
     ()
-import Data.IntCast
-    ( intCast )
-import Data.Kind
-    ( Type )
-import Data.Map.Strict
-    ( Map, (!) )
-import Data.Maybe
-    ( mapMaybe )
-import Data.Quantity
-    ( Quantity (..) )
-import Data.Set
-    ( Set )
-import Data.Type.Equality
-    ( type (==) )
-import Data.Word
-    ( Word16, Word64, Word8 )
-import GHC.Generics
-    ( Generic )
-import Numeric.Natural
-    ( Natural )
-import Ouroboros.Consensus.Shelley.Eras
-    ( StandardAlonzo, StandardBabbage )
-import Ouroboros.Network.Block
-    ( SlotNo )
+import Data.IntCast ( intCast )
+import Data.Kind ( Type )
+import Data.Map.Strict ( Map, (!) )
+import Data.Maybe ( mapMaybe )
+import Data.Quantity ( Quantity (..) )
+import Data.Set ( Set )
+import Data.Type.Equality ( type (==) )
+import Data.Word ( Word16, Word64, Word8 )
+import GHC.Generics ( Generic )
+import Numeric.Natural ( Natural )
+import Ouroboros.Consensus.Shelley.Eras ( StandardAlonzo, StandardBabbage )
+import Ouroboros.Network.Block ( SlotNo )
 
 import qualified Cardano.Api as Cardano
 import qualified Cardano.Api.Byron as Byron
@@ -2265,74 +2217,74 @@ estimateTxSize era skeleton =
     --      ; Timelock validity intervals are half-open intervals [a, b).
     --      ; This field specifies the right (excluded) endpoint b.
     --   ]
-    sizeOf_NativeScript :: Script object -> Integer
-    sizeOf_NativeScript = \case
-        RequireSignatureOf _ ->
-            sizeOf_SmallUInt + sizeOf_Hash28
-        RequireAllOf ss ->
-            sizeOf_SmallUInt + sizeOf_Array + sumVia sizeOf_NativeScript ss
-        RequireAnyOf ss ->
-            sizeOf_SmallUInt + sizeOf_Array + sumVia sizeOf_NativeScript ss
-        RequireSomeOf _ ss ->
-            sizeOf_SmallUInt
-                + sizeOf_UInt
-                + sizeOf_Array
-                + sumVia sizeOf_NativeScript ss
-        ActiveFromSlot _ ->
-            sizeOf_SmallUInt + sizeOf_UInt
-        ActiveUntilSlot _ ->
-            sizeOf_SmallUInt + sizeOf_UInt
+sizeOf_NativeScript :: Script object -> Integer
+sizeOf_NativeScript = \case
+    RequireSignatureOf _ ->
+        sizeOf_SmallUInt + sizeOf_Hash28
+    RequireAllOf ss ->
+        sizeOf_SmallUInt + sizeOf_Array + sumVia sizeOf_NativeScript ss
+    RequireAnyOf ss ->
+        sizeOf_SmallUInt + sizeOf_Array + sumVia sizeOf_NativeScript ss
+    RequireSomeOf _ ss ->
+        sizeOf_SmallUInt
+            + sizeOf_UInt
+            + sizeOf_Array
+            + sumVia sizeOf_NativeScript ss
+    ActiveFromSlot _ ->
+        sizeOf_SmallUInt + sizeOf_UInt
+    ActiveUntilSlot _ ->
+        sizeOf_SmallUInt + sizeOf_UInt
 
-    -- A Blake2b-224 hash, resulting in a 28-byte digest wrapped in CBOR, so
-    -- with 2 bytes overhead (length <255, but length > 23)
-    sizeOf_Hash28
-        = 30
+-- A Blake2b-224 hash, resulting in a 28-byte digest wrapped in CBOR, so
+-- with 2 bytes overhead (length <255, but length > 23)
+sizeOf_Hash28
+    = 30
 
-    -- A Blake2b-256 hash, resulting in a 32-byte digest wrapped in CBOR, so
-    -- with 2 bytes overhead (length <255, but length > 23)
-    sizeOf_Hash32
-        = 34
+-- A Blake2b-256 hash, resulting in a 32-byte digest wrapped in CBOR, so
+-- with 2 bytes overhead (length <255, but length > 23)
+sizeOf_Hash32
+    = 34
 
-    -- A 32-byte Ed25519 public key, encoded as a CBOR-bytestring so with 2
-    -- bytes overhead (length < 255, but length > 23)
-    sizeOf_VKey
-        = 34
+-- A 32-byte Ed25519 public key, encoded as a CBOR-bytestring so with 2
+-- bytes overhead (length < 255, but length > 23)
+sizeOf_VKey
+    = 34
 
-    -- A 64-byte Ed25519 signature, encoded as a CBOR-bytestring so with 2
-    -- bytes overhead (length < 255, but length > 23)
-    sizeOf_Signature
-        = 66
+-- A 64-byte Ed25519 signature, encoded as a CBOR-bytestring so with 2
+-- bytes overhead (length < 255, but length > 23)
+sizeOf_Signature
+    = 66
 
-    -- A CBOR UInt which is less than 23 in value fits on a single byte. Beyond,
-    -- the first byte is used to encode the number of bytes necessary to encode
-    -- the number itself, followed by the number itself.
-    --
-    -- When considering a 'UInt', we consider the worst case scenario only where
-    -- the uint is encoded over 4 bytes, so up to 2^32 which is fine for most
-    -- cases but coin values.
-    sizeOf_SmallUInt = 1
-    sizeOf_UInt = 5
-    sizeOf_LargeUInt = 9
+-- A CBOR UInt which is less than 23 in value fits on a single byte. Beyond,
+-- the first byte is used to encode the number of bytes necessary to encode
+-- the number itself, followed by the number itself.
+--
+-- When considering a 'UInt', we consider the worst case scenario only where
+-- the uint is encoded over 4 bytes, so up to 2^32 which is fine for most
+-- cases but coin values.
+sizeOf_SmallUInt = 1
+sizeOf_UInt = 5
+sizeOf_LargeUInt = 9
 
-    -- A CBOR Int which is less than 23 in value fits on a single byte. Beyond,
-    -- the first byte is used to encode the number of bytes necessary to encode
-    -- the number, followed by the number itself. In this case, 8 bytes are used
-    -- to encode an int64, plus one byte to encode the number of bytes
-    -- necessary.
-    sizeOf_Int64 = 9
+-- A CBOR Int which is less than 23 in value fits on a single byte. Beyond,
+-- the first byte is used to encode the number of bytes necessary to encode
+-- the number, followed by the number itself. In this case, 8 bytes are used
+-- to encode an int64, plus one byte to encode the number of bytes
+-- necessary.
+sizeOf_Int64 = 9
 
-    -- A CBOR array with less than 23 elements, fits on a single byte, followed
-    -- by each key-value pair (encoded as two concatenated CBOR elements).
-    sizeOf_SmallMap = 1
+-- A CBOR array with less than 23 elements, fits on a single byte, followed
+-- by each key-value pair (encoded as two concatenated CBOR elements).
+sizeOf_SmallMap = 1
 
-    -- A CBOR array with less than 23 elements, fits on a single byte, followed
-    -- by each elements. Otherwise, the length of the array is encoded first,
-    -- very much like for UInt.
-    --
-    -- When considering an 'Array', we consider large scenarios where arrays can
-    -- have up to 65536 elements.
-    sizeOf_SmallArray = 1
-    sizeOf_Array = 3
+-- A CBOR array with less than 23 elements, fits on a single byte, followed
+-- by each elements. Otherwise, the length of the array is encoded first,
+-- very much like for UInt.
+--
+-- When considering an 'Array', we consider large scenarios where arrays can
+-- have up to 65536 elements.
+sizeOf_SmallArray = 1
+sizeOf_Array = 3
 
 -- Small helper function for summing values. Given a list of values, get the sum
 -- of the values, after the given function has been applied to each value.

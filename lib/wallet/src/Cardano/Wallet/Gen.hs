@@ -26,6 +26,7 @@ module Cardano.Wallet.Gen
     , genScript
     , genScriptCosigners
     , genScriptTemplate
+    , genReadyScriptTemplate
     , genMockXPub
     , genNatural
     , genWalletId
@@ -33,8 +34,7 @@ module Cardano.Wallet.Gen
 
 import Prelude
 
-import Cardano.Address.Derivation
-    ( XPub, xpubFromBytes )
+import Cardano.Address.Derivation ( XPub, xpubFromBytes )
 import Cardano.Address.Script
     ( Cosigner (..), Script (..), ScriptTemplate (..) )
 import Cardano.Api
@@ -45,8 +45,7 @@ import Cardano.Api
     )
 import Cardano.Mnemonic
     ( ConsistentEntropy, EntropySize, Mnemonic, entropyToMnemonic )
-import Cardano.Wallet.Primitive.AddressDiscovery.Shared
-    ( retrieveAllCosigners )
+import Cardano.Wallet.Primitive.AddressDiscovery.Shared ( retrieveAllCosigners )
 import Cardano.Wallet.Primitive.Types
     ( ActiveSlotCoefficient (..)
     , BlockHeader (..)
@@ -56,42 +55,25 @@ import Cardano.Wallet.Primitive.Types
     , WalletId (..)
     , WithOrigin (..)
     )
-import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
-import Cardano.Wallet.Primitive.Types.Hash
-    ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.ProtocolMagic
-    ( ProtocolMagic (..) )
+import Cardano.Wallet.Primitive.Types.Address ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Hash ( Hash (..) )
+import Cardano.Wallet.Primitive.Types.ProtocolMagic ( ProtocolMagic (..) )
 import Cardano.Wallet.Unsafe
     ( unsafeFromHex, unsafeMkEntropy, unsafeMkPercentage )
-import Control.Monad
-    ( replicateM )
-import Crypto.Hash
-    ( hash )
-import Data.Aeson
-    ( ToJSON (..) )
-import Data.ByteArray.Encoding
-    ( Base (..), convertToBase )
-import Data.List
-    ( sortOn )
-import Data.List.Extra
-    ( nubOrdOn )
-import Data.Maybe
-    ( fromMaybe )
-import Data.Proxy
-    ( Proxy (..) )
-import Data.Quantity
-    ( Percentage (..), Quantity (..) )
-import Data.Ratio
-    ( denominator, numerator, (%) )
-import Data.Text
-    ( Text )
-import Data.Word
-    ( Word32 )
-import GHC.TypeLits
-    ( natVal )
-import Numeric.Natural
-    ( Natural )
+import Control.Monad ( replicateM )
+import Crypto.Hash ( hash )
+import Data.Aeson ( ToJSON (..) )
+import Data.ByteArray.Encoding ( Base (..), convertToBase )
+import Data.List ( sortOn )
+import Data.List.Extra ( nubOrdOn )
+import Data.Maybe ( fromMaybe )
+import Data.Proxy ( Proxy (..) )
+import Data.Quantity ( Percentage (..), Quantity (..) )
+import Data.Ratio ( denominator, numerator, (%) )
+import Data.Text ( Text )
+import Data.Word ( Word32 )
+import GHC.TypeLits ( natVal )
+import Numeric.Natural ( Natural )
 import Test.QuickCheck
     ( Arbitrary (..)
     , Gen
@@ -348,6 +330,13 @@ genScriptTemplate = do
     cosignersSubset <- sublistOf scriptCosigners `suchThat` (not . null)
     xpubs <- vectorOf (length cosignersSubset) genMockXPub
     pure $ ScriptTemplate (Map.fromList $ zip cosignersSubset xpubs) script
+
+genReadyScriptTemplate :: Gen ScriptTemplate
+genReadyScriptTemplate = do
+    script <- genScriptCosigners `suchThat` (not . null . retrieveAllCosigners)
+    let scriptCosigners = retrieveAllCosigners script
+    xpubs <- vectorOf (length scriptCosigners) genMockXPub
+    pure $ ScriptTemplate (Map.fromList $ zip scriptCosigners xpubs) script
 
 genMockXPub :: Gen XPub
 genMockXPub = fromMaybe impossible . xpubFromBytes . BS.pack <$> genBytes

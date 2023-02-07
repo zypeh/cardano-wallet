@@ -34,7 +34,7 @@ import Cardano.Address.Script
     ( Cosigner (..)
     , KeyHash (..)
     , KeyRole (Delegation, Payment, Policy)
-    , Script
+    , Script (..)
     , ScriptTemplate (..)
     , foldScript
     , serializeScript
@@ -101,7 +101,12 @@ import Cardano.Wallet
 import Cardano.Wallet.Byron.Compatibility
     ( maryTokenBundleMaxSize )
 import Cardano.Wallet.Gen
-    ( genMnemonic, genMockXPub, genScript, genScriptTemplate )
+    ( genMnemonic
+    , genMockXPub
+    , genReadyScriptTemplate
+    , genScript
+    , genScriptTemplate
+    )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( BoundedAddressLength (maxLengthAddressFor)
     , DelegationAddress (delegationAddress)
@@ -122,6 +127,8 @@ import Cardano.Wallet.Primitive.AddressDerivation.Byron
     ( ByronKey )
 import Cardano.Wallet.Primitive.AddressDerivation.Icarus
     ( IcarusKey )
+import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
+    ( SharedKey, replaceCosignersWithVerKeys )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
     ( ShelleyKey, generateKeyFromSeed )
 import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
@@ -255,6 +262,7 @@ import Cardano.Wallet.Shelley.Transaction
     , newTransactionLayer
     , noTxUpdate
     , sizeOfCoin
+    , sizeOf_NativeScript
     , txConstraints
     , updateSealedTx
     , _decodeSealedTx
@@ -472,17 +480,33 @@ import Test.QuickCheck
     )
 import Test.QuickCheck.Arbitrary.Generic
     ( genericArbitrary, genericShrink )
+import Test.QuickCheck.Arbitrary.Generic
+    ( genericArbitrary, genericShrink )
 import Test.QuickCheck.Extra
     ( chooseNatural, report )
+import Test.QuickCheck.Extra
+    ( chooseNatural, report, shrinkMapWith )
+import Test.QuickCheck.Gen
+    ( Gen (..), listOf1 )
 import Test.QuickCheck.Gen
     ( Gen (..), listOf1 )
 import Test.QuickCheck.Random
     ( QCGen, mkQCGen )
+import Test.QuickCheck.Random
+    ( QCGen, mkQCGen )
+import Test.Utils.Paths
+    ( getTestData )
 import Test.Utils.Paths
     ( getTestData )
 import Test.Utils.Pretty
     ( Pretty (..), (====) )
+import Test.Utils.Pretty
+    ( Pretty (..), (====) )
 
+import qualified Cardano.Address as CA
+import qualified Cardano.Address.Derivation as CA
+import qualified Cardano.Address.Script as CA
+import qualified Cardano.Address.Style.Shelley as CA
 import qualified Cardano.Api as Cardano
 import qualified Cardano.Api.Gen as Cardano
 import qualified Cardano.Api.Shelley as Cardano
@@ -502,8 +526,6 @@ import qualified Cardano.Ledger.Serialization as Ledger
 import qualified Cardano.Ledger.Shelley.API as SL
 import qualified Cardano.Ledger.Val as Value
 import qualified Cardano.Tx.Balance.Internal.CoinSelection as CS
-import Cardano.Wallet.Primitive.AddressDerivation.SharedKey
-    ( SharedKey )
 import qualified Cardano.Wallet.Primitive.AddressDerivation.Shelley as Shelley
 import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
 import qualified Cardano.Wallet.Primitive.Types.TokenBundle as TokenBundle
@@ -533,6 +555,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
+import qualified Debug.Trace as Tr
 import qualified Ouroboros.Consensus.HardFork.History.EraParams as HF
 import qualified Ouroboros.Consensus.HardFork.History.Qry as HF
 import qualified Ouroboros.Consensus.HardFork.History.Summary as HF
@@ -2408,35 +2431,22 @@ instance Arbitrary KeyHash where
 instance Arbitrary StdGenSeed  where
   arbitrary = StdGenSeed . fromIntegral @Int <$> arbitrary
 
+instance Arbitrary ScriptTemplate where
+    arbitrary = genReadyScriptTemplate
+
 instance Arbitrary CoinSelection where
     arbitrary = oneof [shared, shelleyVk]
 
       where
         shared = do
-            (Positive (Small n)) <- arbitrary
-            (accPubs :: [KeyHash])  <- vectorOf n arbitrary
-            infiniteScripts <- infiniteListOf $ genScript accPubs
-            template <- genScriptTemplate n
-            let scriptLookup ins = take (length ins) infiniteScripts
+            template <- genReadyScriptTemplate
+            let scriptLookup = genDummyScriptLookupForTemplate template
             pure $ CoinSelection
                 testTxLayer -- TODO: Should really use 'CredFromScriptK
                 (Just scriptLookup)
                 (Just template)
                 (maxLengthAddressFor
                     (Proxy @SharedKey))
-            where
-                genScriptCosigners :: Int -> Gen (Script Cosigner)
-                genScriptCosigners n = do
-                    genScript $ Cosigner <$> [0.. fromIntegral n]
-
-                genScriptTemplate :: Int -> Gen ScriptTemplate
-                genScriptTemplate n = do
-                    script <- genScriptCosigners n `suchThat` (not . null . retrieveAllCosigners)
-                    let scriptCosigners = retrieveAllCosigners script
-                    cosignersSubset <- sublistOf scriptCosigners `suchThat` (not . null)
-                    xpubs <- vectorOf (length cosignersSubset) genMockXPub
-                    pure $ ScriptTemplate (Map.fromList $ zip cosignersSubset xpubs) script
-
         shelleyVk = pure $
             (CoinSelection
                 testTxLayer
@@ -2445,9 +2455,99 @@ instance Arbitrary CoinSelection where
                 (maxLengthAddressFor
                 (Proxy @ShelleyKey)))
 
+genDummyScriptLookupForTemplate
+    :: ScriptTemplate
+    -> ([(TxIn, TxOut)] -> [Script KeyHash])
+genDummyScriptLookupForTemplate template@(ScriptTemplate m t) =
+    let
+        scriptAtIx i = replaceCosignersWithVerKeys CA.UTxOExternal template (toEnum i)
+        scriptLookup ins = map scriptAtIx $ take (length ins) $ [0 ..]
+    in
+        scriptLookup
+
+prop_sizeOf_NativeScript
+    :: Script KeyHash
+    -> Property
+prop_sizeOf_NativeScript s = (sizeOf_NativeScript s + 3)
+    .>= ledgerSize s
+  where
+    a .>= b = counterexample (show a <> " not >= " <> show b) $ property $ a >= b
+    ledgerSize = fromIntegral . Ledger.sizedSize . Ledger.mkSized . toLedger
+    toLedger s = Cardano.toShelleyScript $
+        Cardano.ScriptInEra Cardano.SimpleScriptV2InBabbage
+        (Cardano.SimpleScript Cardano.SimpleScriptV2 (Compatibility.toCardanoSimpleScript  s))
+
+prop_estimateTxSize
+    :: ScriptTemplate
+    -> Positive Int
+    -> Cardano.TxBody Cardano.BabbageEra
+    -> Property
+prop_estimateTxSize template@(ScriptTemplate _ temp) (Positive nInputs) body = do
+
+
+    let ins = flip map [1 .. nInputs] $ \i ->
+            (dummyScriptInput i, dummyTxOut)
+
+    let update = TxUpdate
+            { extraInputs = map dummyScriptInput [1 .. nInputs]
+            , extraInputScripts  = map scriptAtIx [1 .. nInputs]
+            , extraCollateral = []
+            , extraOutputs = []
+            , feeUpdate = UseOldTxFee
+            }
+    let tx = Cardano.Tx body []
+    let Right tx' = updateSealedTx tx update
+
+    property $ sizeOfInputs >= (size tx' - size tx)
+
+  where
+    dummyScriptInput i = (TxIn dummyTxId (fromIntegral i), error "not used")
+
+    dummyTxOut = TxOut
+        (Address $ unsafeFromHex "7100000000000000000000000000000000000000000000000000000000")
+        mempty
+
+
+
+    scriptAtIx :: Int -> Script KeyHash
+    scriptAtIx i = replaceCosignersWithVerKeys CA.UTxOExternal template (toEnum i)
+    size :: Cardano.Tx Cardano.BabbageEra -> Int
+    size tx = fromIntegral $ unTxSize $ estimateSignedTxSize tl (snd mockProtocolParametersForBalancing)
+        (utxoPromisingInputsHaveScriptPaymentCreds tx)
+        tx
+
+    utxoPromisingInputsHaveScriptPaymentCreds
+        :: Cardano.Tx Cardano.BabbageEra
+        -> Cardano.UTxO Cardano.BabbageEra
+    utxoPromisingInputsHaveScriptPaymentCreds (Cardano.Tx (Cardano.TxBody body) _) =
+        Cardano.UTxO $ Map.fromList $
+            [ (i
+               , Compatibility.toCardanoTxOut
+                     (shelleyBasedEra @Cardano.BabbageEra)
+                     (TxOut paymentAddr mempty)
+               )
+            | i <- map fst $ Cardano.txIns body
+            ]
+
+      where
+        paymentAddr = Address $ unsafeFromHex "7100000000000000000000000000000000000000000000000000000000"
+
+    sizeOfInputs :: Int
+    sizeOfInputs = cost nInputs - cost 0
+      where
+        cost n = fromIntegral $ unTxSize $ estimateTxSize
+            (Cardano.AnyCardanoEra Cardano.BabbageEra)
+            emptyTxSkeleton
+                {txInputCount = n, txPaymentTemplate = Just temp }
+
+    tl :: TransactionLayer SharedKey 'CredFromScriptK SealedTx
+    tl = newTransactionLayer Compatibility.Mainnet
+
 balanceTransactionSpec :: Spec
 balanceTransactionSpec = describe "balanceTransaction" $ do
     -- TODO: Create a test to show that datums are passed through...
+    --
+    it "prop_estimateTxSize" $ property prop_estimateTxSize
 
     it "doesn't balance transactions with existing 'totalCollateral'"
         $ property prop_balanceTransactionExistingTotalCollateral
@@ -2457,6 +2557,9 @@ balanceTransactionSpec = describe "balanceTransaction" $ do
 
     it "produces valid transactions or fails"
         $ property prop_balanceTransactionValid
+
+    it "prop_sizeOf_NativeScript" $
+        property prop_sizeOf_NativeScript
 
     balanceTransactionGoldenSpec
 
@@ -3353,6 +3456,8 @@ instance Arbitrary (PartialTx Cardano.BabbageEra) where
         | tx' <- shrinkTxBabbage tx
         ]
 
+instance Arbitrary (Cardano.TxBody Cardano.BabbageEra) where
+    arbitrary = (\(Cardano.Tx body _) -> body) <$> genTxForBalancing Cardano.BabbageEra
 
 shrinkInputResolution
     :: forall era.
@@ -3386,8 +3491,8 @@ instance Monoid (Cardano.UTxO era) where
 
 shrinkTxAlonzo ::
     Cardano.Tx Cardano.AlonzoEra -> [Cardano.Tx Cardano.AlonzoEra]
-shrinkTxAlonzo (Cardano.Tx bod wits) = []
---    [ Cardano.Tx bod' wits | bod' <- shrinkTxBodyAlonzo bod ]
+shrinkTxAlonzo (Cardano.Tx bod wits) =
+    [ Cardano.Tx bod' wits | bod' <- shrinkTxBodyAlonzo bod ]
 
 shrinkTxBabbage ::
     Cardano.Tx Cardano.BabbageEra -> [Cardano.Tx Cardano.BabbageEra]
@@ -3412,49 +3517,50 @@ restrictResolution (PartialTx tx (Cardano.UTxO u) redeemers) =
 shrinkTxBodyAlonzo
     :: Cardano.TxBody Cardano.AlonzoEra
     -> [Cardano.TxBody Cardano.AlonzoEra]
-shrinkTxBodyAlonzo (Cardano.ShelleyTxBody e bod scripts scriptData aux val) =
-    tail
-        [ Cardano.ShelleyTxBody e bod' scripts' scriptData' aux' val'
-        | bod' <- prependOriginal shrinkLedgerTxBody bod
-        , aux' <- aux : filter (/= aux) [Nothing]
-        , scriptData' <- prependOriginal shrinkScriptData scriptData
-        , scripts' <- prependOriginal (shrinkList (const [])) scripts
-        , val' <- case Cardano.txScriptValiditySupportedInShelleyBasedEra e of
-            Nothing -> [val]
-            Just txsvsie -> val : filter (/= val)
-                [ Cardano.TxScriptValidity txsvsie Cardano.ScriptValid ]
-        ]
+shrinkTxBodyAlonzo (Cardano.ShelleyTxBody e bod scripts scriptData aux val) = []
+--    tail
+--        [ Cardano.ShelleyTxBody e bod' scripts' scriptData' aux' val'
+--        | bod' <- prependOriginal shrinkLedgerTxBody bod
+--        , aux' <- aux : filter (/= aux) [Nothing]
+--        , scriptData' <- prependOriginal shrinkScriptData scriptData
+--        , scripts' <- prependOriginal (shrinkList (const [])) scripts
+--        , val' <- case Cardano.txScriptValiditySupportedInShelleyBasedEra e of
+--            Nothing -> [val]
+--            Just txsvsie -> val : filter (/= val)
+--                [ Cardano.TxScriptValidity txsvsie Cardano.ScriptValid ]
+--        ]
   where
     shrinkLedgerTxBody
         :: Ledger.TxBody (Cardano.ShelleyLedgerEra Cardano.AlonzoEra)
         -> [Ledger.TxBody (Cardano.ShelleyLedgerEra Cardano.AlonzoEra)]
-    shrinkLedgerTxBody body = tail
-        [ body
-            { Alonzo.txwdrls = wdrls' }
-            { Alonzo.outputs = outs' }
-            { Alonzo.inputs = ins' }
-            { Alonzo.txcerts = certs' }
-            { Alonzo.mint = mint' }
-            { Alonzo.reqSignerHashes = rsh' }
-            { Alonzo.txUpdates = updates' }
-            { Alonzo.txfee = txfee' }
-        | updates' <-
-            prependOriginal shrinkStrictMaybe (Alonzo.txUpdates body)
-        , wdrls' <-
-            prependOriginal shrinkWdrl (Alonzo.txwdrls body)
-        , outs' <-
-            prependOriginal (shrinkSeq (const [])) (Alonzo.outputs body)
-        , ins' <-
-            prependOriginal (shrinkSet (const [])) (Alonzo.inputs body)
-        , certs' <-
-            prependOriginal (shrinkSeq (const [])) (Alonzo.txcerts body)
-        , mint' <-
-            prependOriginal shrinkValue (Alonzo.mint body)
-        , rsh' <-
-            prependOriginal (shrinkSet (const [])) (Alonzo.reqSignerHashes body)
-        , txfee' <-
-            prependOriginal shrinkFee (Alonzo.txfee body)
-        ]
+    shrinkLedgerTxBody body = [] -- tail
+--        [ body
+--            { Alonzo.txwdrls = wdrls'
+--            , Alonzo.outputs = outs'
+--            , Alonzo.inputs = ins'
+--            , Alonzo.txcerts = certs'
+--            , Alonzo.mint = mint'
+--            , Alonzo.reqSignerHashes = rsh'
+--            , Alonzo.txUpdates = updates'
+--            , Alonzo.txfee = txfee'
+--            }
+--        | updates' <-
+--            prependOriginal shrinkStrictMaybe (Alonzo.txUpdates body)
+--        , wdrls' <-
+--            prependOriginal shrinkWdrl (Alonzo.txwdrls body)
+--        , outs' <-
+--            prependOriginal (shrinkSeq (const [])) (Alonzo.outputs body)
+--        , ins' <-
+--            prependOriginal (shrinkSet (const [])) (Alonzo.inputs body)
+--        , certs' <-
+--            prependOriginal (shrinkSeq (const [])) (Alonzo.txcerts body)
+--        , mint' <-
+--            prependOriginal shrinkValue (Alonzo.mint body)
+--        , rsh' <-
+--            prependOriginal (shrinkSet (const [])) (Alonzo.reqSignerHashes body)
+--        , txfee' <-
+--            prependOriginal shrinkFee (Alonzo.txfee body)
+--        ]
 
 shrinkTxBodyBabbage
     :: Cardano.TxBody Cardano.BabbageEra -> [Cardano.TxBody Cardano.BabbageEra]
@@ -3474,36 +3580,36 @@ shrinkTxBodyBabbage (Cardano.ShelleyTxBody e bod scripts scriptData aux val) =
     shrinkLedgerTxBody
         :: Ledger.TxBody (Cardano.ShelleyLedgerEra Cardano.BabbageEra)
         -> [Ledger.TxBody (Cardano.ShelleyLedgerEra Cardano.BabbageEra)]
-    shrinkLedgerTxBody body = tail
-        [ body
-            { Babbage.txwdrls = wdrls'
-            , Babbage.outputs = outs'
-            , Babbage.inputs = ins'
-            , Babbage.txcerts = certs'
-            , Babbage.mint = mint'
-            , Babbage.reqSignerHashes = rsh'
-            , Babbage.txUpdates = updates'
-            , Babbage.txfee = txfee'
-            }
-        | updates' <-
-            prependOriginal shrinkStrictMaybe (Babbage.txUpdates body)
-        , wdrls' <-
-            prependOriginal shrinkWdrl (Babbage.txwdrls body)
-        , outs' <-
-            prependOriginal (shrinkSeq (const [])) (Babbage.outputs body)
-        , ins' <-
-            prependOriginal (shrinkSet (const [])) (Babbage.inputs body)
-        , certs' <-
-            prependOriginal (shrinkSeq (const [])) (Babbage.txcerts body)
-        , mint' <-
-            prependOriginal shrinkValue (Babbage.mint body)
-        , rsh' <-
-            prependOriginal
-                (shrinkSet (const [])) (Babbage.reqSignerHashes body)
-        , txfee' <-
-            prependOriginal shrinkFee (Babbage.txfee body)
-        ]
-
+    shrinkLedgerTxBody body = [] -- tail
+--        [ body
+----            { Babbage.txwdrls = wdrls'
+----            , Babbage.outputs = outs'
+----            , Babbage.inputs = ins'
+----            , Babbage.txcerts = certs'
+----            , Babbage.mint = mint'
+----            , Babbage.reqSignerHashes = rsh'
+----            { Babbage.txUpdates = updates'
+--            { Babbage.txfee = txfee'
+--            }
+----        | updates' <-
+----            prependOriginal shrinkStrictMaybe (Babbage.txUpdates body)
+----        , wdrls' <-
+----            prependOriginal shrinkWdrl (Babbage.txwdrls body)
+----        , outs' <-
+----            prependOriginal (shrinkSeq (const [])) (Babbage.outputs body)
+----        , ins' <-
+----            prependOriginal (shrinkSet (const [])) (Babbage.inputs body)
+----        , certs' <-
+----            prependOriginal (shrinkSeq (const [])) (Babbage.txcerts body)
+----        , mint' <-
+----            prependOriginal shrinkValue (Babbage.mint body)
+----        , rsh' <-
+----            prependOriginal
+----                (shrinkSet (const [])) (Babbage.reqSignerHashes body)
+--        | txfee' <-
+--            prependOriginal shrinkFee (Babbage.txfee body)
+--        ]
+--
 shrinkScriptData
     :: Era (Cardano.ShelleyLedgerEra era)
     => Cardano.TxBodyScriptData era
@@ -3540,12 +3646,12 @@ shrinkFee _ = [Ledger.Coin 0]
 
 shrinkWdrl :: Wdrl era -> [Wdrl era]
 shrinkWdrl (Wdrl m) = map (Wdrl . Map.fromList) $
-    shrinkList shrinkWdrl' (Map.toList m)
+    shrinkList (const []) (Map.toList m)
     where
-    shrinkWdrl' (acc, Ledger.Coin c) =
-        [ (acc, Ledger.Coin c')
-        | c' <- filter (>= 1) $ shrink c
-        ]
+--    _shrinkWdrl' (acc, Ledger.Coin c) =
+--        [ (acc, Ledger.Coin c')
+--        | c' <- filter (>= 1) $ shrink c
+--        ]
 
 shrinkStrictMaybe :: StrictMaybe a -> [StrictMaybe a]
 shrinkStrictMaybe = \case
