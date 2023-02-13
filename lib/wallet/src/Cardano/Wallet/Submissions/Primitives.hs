@@ -92,7 +92,7 @@ applyPrimitive (AddSubmission expiring tx meta ) s
         = s & transactionsL %~ Map.insert (txId tx)
                 (TxStatusMeta (InSubmission expiring tx) meta)
     | otherwise
-        = s
+        = error "Invalid primitive: AddSubmission"
 applyPrimitive (MoveToLedger acceptance txid) s =
     s & transactionsL . ix txid . txStatus %~ f
   where
