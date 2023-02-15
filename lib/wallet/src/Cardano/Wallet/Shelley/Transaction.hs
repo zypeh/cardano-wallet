@@ -56,6 +56,8 @@ module Cardano.Wallet.Shelley.Transaction
     , mkTxSkeleton
     , mkUnsignedTx
     , txConstraints
+    , estimateNumberOfWitnesses
+    , KeyWitnessCount (..)
     , costOfIncreasingCoin
     , _distributeSurplus
     , distributeSurplusDelta
@@ -66,7 +68,8 @@ module Cardano.Wallet.Shelley.Transaction
 
 import Prelude
 
-import Cardano.Address.Derivation ( XPrv, toXPub )
+import Cardano.Address.Derivation
+    ( XPrv, toXPub )
 import Cardano.Address.Script
     ( Cosigner
     , KeyHash
@@ -86,14 +89,22 @@ import Cardano.Api
     , ShelleyBasedEra (..)
     , ToCBOR
     )
-import Cardano.Binary ( serialize' )
-import Cardano.Crypto.Wallet ( XPub )
-import Cardano.Ledger.Alonzo.Tools ( evaluateTransactionExecutionUnits )
-import Cardano.Ledger.Crypto ( DSIGN )
-import Cardano.Ledger.Era ( Crypto, ValidateScript (..) )
-import Cardano.Ledger.Shelley.API ( StrictMaybe (..) )
-import Cardano.Slotting.EpochInfo ( EpochInfo )
-import Cardano.Slotting.EpochInfo.API ( hoistEpochInfo )
+import Cardano.Binary
+    ( serialize' )
+import Cardano.Crypto.Wallet
+    ( XPub )
+import Cardano.Ledger.Alonzo.Tools
+    ( evaluateTransactionExecutionUnits )
+import Cardano.Ledger.Crypto
+    ( DSIGN )
+import Cardano.Ledger.Era
+    ( Crypto, ValidateScript (..) )
+import Cardano.Ledger.Shelley.API
+    ( StrictMaybe (..) )
+import Cardano.Slotting.EpochInfo
+    ( EpochInfo )
+import Cardano.Slotting.EpochInfo.API
+    ( hoistEpochInfo )
 import Cardano.Tx.Balance.Internal.CoinSelection
     ( SelectionLimitOf (..)
     , SelectionOf (..)
@@ -102,14 +113,18 @@ import Cardano.Tx.Balance.Internal.CoinSelection
     )
 import Cardano.Wallet.Primitive.AddressDerivation
     ( Depth (..), RewardAccount (..), WalletKey (..) )
-import Cardano.Wallet.Primitive.AddressDerivation.Byron ( ByronKey )
-import Cardano.Wallet.Primitive.AddressDerivation.Icarus ( IcarusKey )
-import Cardano.Wallet.Primitive.AddressDerivation.Shared ( SharedKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Byron
+    ( ByronKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Icarus
+    ( IcarusKey )
+import Cardano.Wallet.Primitive.AddressDerivation.Shared
+    ( SharedKey )
 import Cardano.Wallet.Primitive.AddressDerivation.Shelley
     ( ShelleyKey, toRewardAccountRaw )
 import Cardano.Wallet.Primitive.AddressDiscovery.Shared
     ( estimateMaxWitnessRequiredPerInput )
-import Cardano.Wallet.Primitive.Passphrase ( Passphrase (..) )
+import Cardano.Wallet.Primitive.Passphrase
+    ( Passphrase (..) )
 import Cardano.Wallet.Primitive.Slotting
     ( PastHorizonException, TimeInterpreter, getSystemStart, toEpochInfo )
 import Cardano.Wallet.Primitive.Types
@@ -121,14 +136,22 @@ import Cardano.Wallet.Primitive.Types
     , ProtocolParameters (..)
     , TxParameters (..)
     )
-import Cardano.Wallet.Primitive.Types.Address ( Address (..) )
-import Cardano.Wallet.Primitive.Types.Coin ( Coin (..) )
-import Cardano.Wallet.Primitive.Types.Hash ( Hash (..) )
-import Cardano.Wallet.Primitive.Types.Redeemer ( Redeemer, redeemerData )
-import Cardano.Wallet.Primitive.Types.TokenBundle ( TokenBundle (..) )
-import Cardano.Wallet.Primitive.Types.TokenMap ( AssetId (..), TokenMap )
-import Cardano.Wallet.Primitive.Types.TokenPolicy ( TokenName (..) )
-import Cardano.Wallet.Primitive.Types.TokenQuantity ( TokenQuantity (..) )
+import Cardano.Wallet.Primitive.Types.Address
+    ( Address (..) )
+import Cardano.Wallet.Primitive.Types.Coin
+    ( Coin (..) )
+import Cardano.Wallet.Primitive.Types.Hash
+    ( Hash (..) )
+import Cardano.Wallet.Primitive.Types.Redeemer
+    ( Redeemer, redeemerData )
+import Cardano.Wallet.Primitive.Types.TokenBundle
+    ( TokenBundle (..) )
+import Cardano.Wallet.Primitive.Types.TokenMap
+    ( AssetId (..), TokenMap )
+import Cardano.Wallet.Primitive.Types.TokenPolicy
+    ( TokenName (..) )
+import Cardano.Wallet.Primitive.Types.TokenQuantity
+    ( TokenQuantity (..) )
 import Cardano.Wallet.Primitive.Types.Tx
     ( SealedTx (..)
     , Tx (..)
@@ -140,9 +163,12 @@ import Cardano.Wallet.Primitive.Types.Tx
     )
 import Cardano.Wallet.Primitive.Types.Tx.Constraints
     ( TxConstraints (..), TxSize (..), txSizeDistance )
-import Cardano.Wallet.Primitive.Types.Tx.TxIn ( TxIn (..) )
-import Cardano.Wallet.Primitive.Types.Tx.TxOut ( TxOut (..) )
-import Cardano.Wallet.Read.Primitive.Tx ( fromCardanoTx )
+import Cardano.Wallet.Primitive.Types.Tx.TxIn
+    ( TxIn (..) )
+import Cardano.Wallet.Primitive.Types.Tx.TxOut
+    ( TxOut (..) )
+import Cardano.Wallet.Read.Primitive.Tx
+    ( fromCardanoTx )
 import Cardano.Wallet.Shelley.Compatibility
     ( cardanoCertKeysForWitnesses
     , fromCardanoAddress
@@ -188,35 +214,60 @@ import Cardano.Wallet.Transaction
     , mapTxFeeAndChange
     , withdrawalToCoin
     )
-import Cardano.Wallet.Util ( HasCallStack, internalError, modifyM )
-import Cardano.Wallet.Write.Tx ( fromCardanoUTxO )
-import Codec.Serialise ( deserialiseOrFail )
-import Control.Arrow ( left, second )
-import Control.Monad ( forM, guard )
-import Control.Monad.Trans.Class ( lift )
-import Control.Monad.Trans.Except ( runExceptT )
+import Cardano.Wallet.Util
+    ( HasCallStack, internalError, modifyM )
+import Cardano.Wallet.Write.Tx
+    ( fromCardanoUTxO )
+import Codec.Serialise
+    ( deserialiseOrFail )
+import Control.Arrow
+    ( left, second )
+import Control.Monad
+    ( forM, guard )
+import Control.Monad.Trans.Class
+    ( lift )
+import Control.Monad.Trans.Except
+    ( runExceptT )
 import Control.Monad.Trans.State.Strict
     ( StateT (..), execStateT, get, modify' )
-import Data.Bifunctor ( bimap )
-import Data.Either ( fromRight )
-import Data.Function ( (&) )
-import Data.Functor ( ($>), (<&>) )
-import Data.Functor.Identity ( runIdentity )
-import Data.Generics.Internal.VL.Lens ( view, (^.) )
+import Data.Bifunctor
+    ( bimap )
+import Data.Either
+    ( fromRight )
+import Data.Function
+    ( (&) )
+import Data.Functor
+    ( ($>), (<&>) )
+import Data.Functor.Identity
+    ( runIdentity )
+import Data.Generics.Internal.VL.Lens
+    ( view, (^.) )
 import Data.Generics.Labels
     ()
-import Data.IntCast ( intCast )
-import Data.Kind ( Type )
-import Data.Map.Strict ( Map, (!) )
-import Data.Maybe ( mapMaybe )
-import Data.Quantity ( Quantity (..) )
-import Data.Set ( Set )
-import Data.Type.Equality ( type (==) )
-import Data.Word ( Word16, Word64, Word8 )
-import GHC.Generics ( Generic )
-import Numeric.Natural ( Natural )
-import Ouroboros.Consensus.Shelley.Eras ( StandardAlonzo, StandardBabbage )
-import Ouroboros.Network.Block ( SlotNo )
+import Data.IntCast
+    ( intCast )
+import Data.Kind
+    ( Type )
+import Data.Map.Strict
+    ( Map, (!) )
+import Data.Maybe
+    ( mapMaybe )
+import Data.Quantity
+    ( Quantity (..) )
+import Data.Set
+    ( Set )
+import Data.Type.Equality
+    ( type (==) )
+import Data.Word
+    ( Word16, Word64, Word8 )
+import GHC.Generics
+    ( Generic )
+import Numeric.Natural
+    ( Natural )
+import Ouroboros.Consensus.Shelley.Eras
+    ( StandardAlonzo, StandardBabbage )
+import Ouroboros.Network.Block
+    ( SlotNo )
 
 import qualified Cardano.Api as Cardano
 import qualified Cardano.Api.Byron as Byron

@@ -73,7 +73,9 @@ import Cardano.Wallet.Primitive.Types.UTxOSelection
 import Cardano.Wallet.Shelley.Compatibility
     ( fromCardanoTxIn, fromCardanoTxOut, toCardanoUTxO )
 import Cardano.Wallet.Shelley.Transaction
-    ( TxUpdate (..) )
+    ( KeyWitnessCount (..), TxUpdate (..) )
+import Cardano.Wallet.Shelley.Transaction
+    ( estimateNumberOfWitnesses )
 import Cardano.Wallet.Transaction
     ( ErrAssignRedeemers
     , ErrMoreSurplusNeeded (..)
@@ -228,7 +230,7 @@ data ErrSelectAssets
     deriving (Generic, Eq, Show)
 
 data ErrBalanceTxInternalError
-    = ErrUnderestimatedFee W.Coin SealedTx
+    = ErrUnderestimatedFee W.Coin SealedTx Word
     | ErrFailedBalancing Cardano.Value
     deriving (Show, Eq)
 
@@ -484,7 +486,7 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
 
     let era = Cardano.anyCardanoEra $ Cardano.cardanoEra @era
 
-    (balance0, minfee0) <- balanceAfterSettingMinFee partialTx
+    (balance0, minfee0, _) <- balanceAfterSettingMinFee partialTx
 
     (extraInputs, extraCollateral', extraOutputs, s') <- do
 
@@ -573,7 +575,7 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
         , feeUpdate = UseNewTxFee $ unsafeFromLovelace minfee0
         }
 
-    (balance, candidateMinFee) <- balanceAfterSettingMinFee candidateTx
+    (balance, candidateMinFee, nWits) <- balanceAfterSettingMinFee candidateTx
     surplus <- case Cardano.selectLovelace balance of
         (Cardano.Lovelace c)
             | c >= 0 ->
@@ -583,6 +585,7 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
                 ErrUnderestimatedFee
                     (Coin.unsafeFromIntegral (-c))
                     (toSealed candidateTx)
+                    nWits
 
     let feeAndChange = TxFeeAndChange
             (unsafeFromLovelace candidateMinFee)
@@ -594,7 +597,7 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
     TxFeeAndChange updatedFee updatedChange <- withExceptT
         (\(ErrMoreSurplusNeeded c) ->
             ErrBalanceTxInternalError $
-                ErrUnderestimatedFee c (toSealed candidateTx))
+                ErrUnderestimatedFee c (toSealed candidateTx) nWits)
         (ExceptT . pure $
             distributeSurplus txLayer feePolicy surplus feeAndChange)
 
@@ -676,7 +679,7 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
 
     balanceAfterSettingMinFee
         :: Cardano.Tx era
-        -> ExceptT ErrBalanceTx m (Cardano.Value, Cardano.Lovelace)
+        -> ExceptT ErrBalanceTx m (Cardano.Value, Cardano.Lovelace, Word)
     balanceAfterSettingMinFee tx = ExceptT . pure $ do
         -- NOTE: evaluateMinimumFee relies on correctly estimating the required
         -- number of witnesses.
@@ -685,7 +688,9 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
         tx' <- left ErrBalanceTxUpdateError $ updateTx txLayer tx update
         let balance = evaluateTransactionBalance txLayer tx' nodePParams combinedUTxO
         let minfee' = Cardano.Lovelace $ fromIntegral $ W.unCoin minfee
-        return (balance, minfee')
+        let Cardano.Tx txBody' _ = tx'
+        let KeyWitnessCount wits _ = estimateNumberOfWitnesses combinedUTxO txBody'
+        return (balance, minfee', wits)
 
     -- | Ensure the wallet UTxO is consistent with a provided @Cardano.UTxO@.
     --

@@ -4011,12 +4011,14 @@ prop_balanceTransactionValid cs walletUTxO (ShowBuildable partialTx) seed
                 (SelectionBalanceErrorOf EmptyUTxO))) ->
                 label "empty UTxO" $ property True
             Left (ErrBalanceTxInternalError
-                 (ErrUnderestimatedFee delta candidateTx)) ->
+                 (ErrUnderestimatedFee delta candidateTx nWits)) ->
                 let counterexampleText = mconcat
                         [ "underestimated fee by "
                         , pretty delta
                         , "\n candidate tx: "
                         , pretty candidateTx
+                        , "\nassuming key witness count: "
+                        , show nWits
                         ]
                 in
                     counterexample counterexampleText $ property False
