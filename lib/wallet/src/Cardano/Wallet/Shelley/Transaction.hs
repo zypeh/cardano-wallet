@@ -95,7 +95,7 @@ import Cardano.Ledger.Alonzo.Tools
 import Cardano.Ledger.Crypto
     ( DSIGN )
 import Cardano.Ledger.Era
-    ( Crypto, ValidateScript (..) )
+    ( Crypto )
 import Cardano.Ledger.Shelley.API
     ( StrictMaybe (..) )
 import Cardano.Slotting.EpochInfo
@@ -283,8 +283,8 @@ import qualified Cardano.Ledger.Babbage.PParams as Babbage
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
 import qualified Cardano.Ledger.Coin as Ledger
 import qualified Cardano.Ledger.Core as Ledger
+import qualified Cardano.Ledger.Keys.Bootstrap as SL
 import qualified Cardano.Ledger.Serialization as Ledger
-import qualified Cardano.Ledger.Shelley.Address.Bootstrap as SL
 import qualified Cardano.Ledger.Shelley.API as Shelley
 import qualified Cardano.Ledger.ShelleyMA.TxBody as ShelleyMA
 import qualified Cardano.Wallet.Primitive.Types.Coin as Coin
@@ -866,7 +866,7 @@ modifyShelleyTxBody txUpdate era ledgerBody = case era of
         }
     ShelleyBasedEraMary ->
         let
-            ShelleyMA.TxBody
+            ShelleyMA.MATxBody
                 inputs outputs certs wdrls txfee vldt update adHash mint
                     = ledgerBody
             toTxOut
@@ -874,7 +874,7 @@ modifyShelleyTxBody txUpdate era ledgerBody = case era of
                 . Cardano.toCtxUTxOTxOut
                 . toCardanoTxOut era
         in
-        ShelleyMA.TxBody
+        ShelleyMA.MATxBody
             (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
             (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
             certs
@@ -886,7 +886,7 @@ modifyShelleyTxBody txUpdate era ledgerBody = case era of
             mint
     ShelleyBasedEraAllegra ->
         let
-            ShelleyMA.TxBody
+            ShelleyMA.MATxBody
                 inputs outputs certs wdrls txfee vldt update adHash mint
                     = ledgerBody
             toTxOut
@@ -894,7 +894,7 @@ modifyShelleyTxBody txUpdate era ledgerBody = case era of
                 . Cardano.toCtxUTxOTxOut
                 . toCardanoTxOut era
         in
-        ShelleyMA.TxBody
+        ShelleyMA.MATxBody
             (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
             (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
             certs
@@ -906,14 +906,14 @@ modifyShelleyTxBody txUpdate era ledgerBody = case era of
             mint
     ShelleyBasedEraShelley ->
         let
-            Shelley.TxBody inputs outputs certs wdrls txfee ttl txUpdate' mdHash
+            Shelley.ShelleyTxBody inputs outputs certs wdrls txfee ttl txUpdate' mdHash
                 = ledgerBody
             toTxOut
                 = Cardano.toShelleyTxOut era
                 . Cardano.toCtxUTxOTxOut
                 . toCardanoTxOut era
         in
-        Shelley.TxBody
+        Shelley.ShelleyTxBody
             (inputs <> Set.fromList (Cardano.toShelleyTxIn <$> extraInputs'))
             (outputs <> StrictSeq.fromList (toTxOut <$> extraOutputs))
             certs
@@ -1417,7 +1417,7 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
             langs =
                 [ l
                 | (_hash, script) <- Map.toList (Alonzo.txscripts wits)
-                , (not . isNativeScript @StandardAlonzo) script
+                , (not . Ledger.isNativeScript @StandardAlonzo) script
                 , Just l <- [Alonzo.language script]
                 ]
         in
@@ -1442,7 +1442,7 @@ _assignScriptRedeemers pparams ti utxo redeemers tx =
             langs =
                 [ l
                 | (_hash, script) <- Map.toList (Alonzo.txscripts wits)
-                , (not . isNativeScript @StandardBabbage) script
+                , (not . Ledger.isNativeScript @StandardBabbage) script
                 , Just l <- [Alonzo.language script]
                 ]
         in
@@ -2331,7 +2331,7 @@ mkUnsignedTx
     -> Either ErrMkTransaction (Cardano.TxBody era)
 mkUnsignedTx
     era ttl cs md wdrls certs fees mintData burnData mintingScripts inpsScripts =
-    left toErrMkTx $ fmap removeDummyInput $ Cardano.makeTransactionBody
+    left toErrMkTx $ fmap removeDummyInput $ Cardano.createAndValidateTransactionBody
     Cardano.TxBodyContent
     { Cardano.txIns = inputWits
 

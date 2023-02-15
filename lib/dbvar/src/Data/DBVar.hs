@@ -36,9 +36,7 @@ import Prelude
 
 import Control.Applicative
     ( liftA2 )
-import Control.Exception
-    ( Exception, SomeException, toException )
-import Control.Monad.Class.MonadSTM
+import Control.Concurrent.Class.MonadSTM
     ( MonadSTM
     , atomically
     , modifyTVar'
@@ -48,6 +46,8 @@ import Control.Monad.Class.MonadSTM
     , retry
     , writeTVar
     )
+import Control.Exception
+    ( Exception, SomeException, toException )
 import Control.Monad.Class.MonadThrow
     ( MonadEvaluate, MonadMask, MonadThrow, bracket, evaluate, mask, throwIO )
 import Data.Delta

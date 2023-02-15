@@ -89,36 +89,36 @@ mint = EraFun
         noMints = const $ K (emptyTokenMapWithScripts, emptyTokenMapWithScripts)
 
 maryMint ::
-    ( Era era
-    , SL.Core.Script era ~ ShelleyMA.Timelock StandardCrypto
+    ( SL.Core.Script era ~ ShelleyMA.Timelock StandardCrypto
     , Crypto era ~ StandardCrypto
+    , SL.Core.EraScript era
     )
-    => SL.Value StandardCrypto
+    => SL.MaryValue StandardCrypto
     -> SL.WitnessSet era
     -> (TokenMapWithScripts, TokenMapWithScripts)
 maryMint = yesMints $ fromMaryScriptMap . scriptWits
 
 alonzoMint ::
-    (   SL.Core.Script era ~ Alonzo.Script (AlonzoEra StandardCrypto)
+    (   SL.Core.Script era ~ Alonzo.AlonzoScript (AlonzoEra StandardCrypto)
     ,   Crypto era ~ StandardCrypto
     )
-    => SL.Value StandardCrypto
+    => SL.MaryValue StandardCrypto
     -> AL.TxWitness era
     -> (TokenMapWithScripts, TokenMapWithScripts)
 alonzoMint  =  yesMints $ fromAlonzoScriptMap . AL.txscripts'
 
 babbageMint ::
     (   SL.Core.Script era
-        ~ Alonzo.Script (BabbageEra StandardCrypto)
+        ~ Alonzo.AlonzoScript (BabbageEra StandardCrypto)
     , Crypto era ~ StandardCrypto
     )
-    => SL.Value StandardCrypto
+    => SL.MaryValue StandardCrypto
     -> AL.TxWitness era
     -> (TokenMapWithScripts, TokenMapWithScripts)
 babbageMint = yesMints $ fromBabbageScriptMap . AL.txscripts'
 
 yesMints :: (t -> Map TokenPolicyId AnyScript)
-    -> SL.Value StandardCrypto
+    -> SL.MaryValue StandardCrypto
     -> t
     -> (TokenMapWithScripts, TokenMapWithScripts)
 yesMints scriptMapOf mint' wits =
@@ -133,9 +133,9 @@ yesMints scriptMapOf mint' wits =
     )
 
 fromLedgerMintValue
-    :: SL.Value StandardCrypto
+    :: SL.MaryValue StandardCrypto
     -> (TokenMap, TokenMap)
-fromLedgerMintValue (SL.Value _ ledgerTokens) =
+fromLedgerMintValue (SL.MaryValue _ ledgerTokens) =
     (assetsToMint, assetsToBurn)
   where
     assetsToMint = ledgerTokens

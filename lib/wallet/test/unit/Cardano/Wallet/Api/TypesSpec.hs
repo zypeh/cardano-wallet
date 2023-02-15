@@ -25,6 +25,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 
 -- |
 -- Copyright: © 2018-2022 IOHK
@@ -396,6 +397,8 @@ import Data.Data
     ( dataTypeConstrs, dataTypeOf, showConstr )
 import Data.Either
     ( lefts )
+import Data.Either.Combinators
+    ( fromRight' )
 import Data.FileEmbed
     ( embedFile, makeRelativeToProject )
 import Data.Function
@@ -1961,7 +1964,7 @@ instance Arbitrary StakeAddress where
     arbitrary = do
         header  <- elements [ BS.singleton 241, BS.singleton 224 ]
         payload <- BS.pack <$> vector 28
-        pure $ fromJust $ deserialiseFromRawBytes
+        pure $ fromRight' $ deserialiseFromRawBytes
             (proxyToAsType Proxy)
             (header <> payload)
 
