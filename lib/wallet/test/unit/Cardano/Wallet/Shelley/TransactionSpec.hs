@@ -293,6 +293,7 @@ import Cardano.Wallet.Write.Tx.Balance
     , PartialTx (..)
     , balanceTransaction
     , posAndNegFromCardanoValue
+    , vkCoinSelection
     )
 import Control.Arrow
     ( first )
@@ -2576,6 +2577,7 @@ balanceTransactionSpec = describe "balanceTransaction" $ do
                 ]
         let balance =
                 balanceTransactionWithDummyChangeState
+                    (vkCoinSelection testTxLayer)
                     walletUTxO
                     testStdGenSeed
 

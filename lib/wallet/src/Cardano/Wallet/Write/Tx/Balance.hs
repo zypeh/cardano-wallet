@@ -45,7 +45,7 @@ import Cardano.Tx.Balance.Internal.CoinSelection
     , toExternalUTxOMap
     )
 import Cardano.Wallet.Primitive.AddressDerivation
-    ( BoundedAddressLength, Depth (..) )
+    ( BoundedAddressLength (..), Depth (..) )
 import Cardano.Wallet.Primitive.AddressDerivation.Shared
     ( SharedKey (..) )
 import Cardano.Wallet.Primitive.Slotting
@@ -316,10 +316,11 @@ instance Eq CoinSelection where
 
 -- Coin-selection assuming wallet UTxOs are either
 vkCoinSelection
-    :: BoundedAddressLength k
+    :: forall k. BoundedAddressLength k
     => TransactionLayer k 'CredFromKeyK SealedTx
     -> CoinSelection
-vkCoinSelection = error "todo"
+vkCoinSelection tl =
+    CoinSelection tl Nothing Nothing (maxLengthAddressFor $ Proxy @k)
 
 -- | Coin-selection from wallet UTxOs locked by scripts
 scriptCoinSelection
