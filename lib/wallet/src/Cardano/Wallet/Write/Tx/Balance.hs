@@ -854,7 +854,8 @@ balanceTransactionWithSelectionStrategyAndNoZeroAdaAdjustment
 
                     -- Could be made smarter by only padding for the script
                     -- integrity hash when we intend to add one. [ADP-2621]
-                    scriptIntegrityHashBytes = if redeemers == [] then 0 else 32 + 2
+                    scriptIntegrityHashBytes = 32 + 2
+                    -- FIXME: failures from fixing this are interesting
 
                     -- Add padding to allow the fee value to increase.
                     -- Out of caution, assume it can increase by the theoretical

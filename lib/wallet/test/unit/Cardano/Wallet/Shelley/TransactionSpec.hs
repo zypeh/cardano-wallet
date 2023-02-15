@@ -2436,25 +2436,29 @@ instance Arbitrary ScriptTemplate where
     arbitrary = genReadyScriptTemplate
 
 instance Arbitrary CoinSelection where
-    arbitrary = oneof [shared, shelleyVk]
-
+    arbitrary = oneof [shelleyVk]
       where
-        shared = do
+        _shared = do
             template <- genReadyScriptTemplate
             let scriptLookup = genDummyScriptLookupForTemplate template
             pure $ CoinSelection
-                testTxLayer -- TODO: Should really use 'CredFromScriptK
+                tl
                 (Just scriptLookup)
                 (Just template)
                 (maxLengthAddressFor
                     (Proxy @SharedKey))
+          where
+            tl = newTransactionLayer @SharedKey Cardano.Mainnet
+
         shelleyVk = pure $
             (CoinSelection
-                testTxLayer
+                tl
                 Nothing
                 Nothing
                 (maxLengthAddressFor
                 (Proxy @ShelleyKey)))
+          where
+            tl = newTransactionLayer @ShelleyKey Cardano.Mainnet
 
 genDummyScriptLookupForTemplate
     :: ScriptTemplate
@@ -3294,7 +3298,6 @@ instance Show Wallet' where
         , nameF "UTxOIndex" (""+||u||+"")
         , nameF "pending" (""+||pending||+"")
         ]
-
 
 mkTestWallet :: ShelleyKey 'RootK XPrv -> UTxO -> Wallet'
 mkTestWallet rootK utxo = Wallet'
