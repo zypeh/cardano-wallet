@@ -41,6 +41,8 @@ module Cardano.Wallet.Primitive.AddressDerivation.Byron
     , deriveAccountPrivateKey
     , deriveAddressPrivateKey
 
+      -- * Misc
+    , minLengthAddress
     ) where
 
 import Prelude
@@ -204,6 +206,25 @@ instance BoundedAddressLength ByronKey where
         xpub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
           where
             xprvPass = mempty :: BS.ByteString
+
+-- | Analogous to @maxLengthAddressFor (Protxy @ByronKey)@, but the shortest
+-- one.
+minLengthAddress :: Address
+minLengthAddress = Address
+    $ CBOR.toStrictByteString
+    $ CBOR.encodeAddress xpub
+        [ CBOR.encodeDerivationPathAttr passphrase minBound minBound
+        , CBOR.encodeProtocolMagicAttr (ProtocolMagic minBound)
+        ]
+  where
+    -- Must apparently always be 32 bytes:
+    passphrase :: Passphrase "addr-derivation-payload"
+    passphrase = Passphrase $ BA.convert $ BS.replicate 32 0
+
+    xpub :: CC.XPub
+    xpub = CC.toXPub $ CC.generate (BS.replicate 32 0) xprvPass
+      where
+        xprvPass = mempty :: BS.ByteString
 
 {-------------------------------------------------------------------------------
                                  Key generation

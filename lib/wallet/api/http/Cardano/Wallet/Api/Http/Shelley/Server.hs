@@ -681,6 +681,8 @@ import qualified Network.Ntp as Ntp
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.WarpTLS as Warp
 
+import Control.Monad.State.Strict
+    ( StateT, evalStateT, get, put )
 import qualified Data.Aeson as Aeson
 import qualified Debug.Trace as Tr
 
@@ -2329,28 +2331,42 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
         pureTimeInterpreter <- liftIO $ snapshot $ timeInterpreter netLayer
         AnyRecentEra (recentEra :: WriteTx.RecentEra era)
             <- guardIsRecentEra era
-        let runSelection =
-                liftIO $ W.buildUnsignedTransactionFee @k @s @n
+        let
+            runSelection :: StateT Bool IO Coin
+            runSelection = do
+                s <- get
+                (fee, s') <- lift $ W.buildUnsignedTransactionFee @k @s @n
                     (MsgWallet >$< wrk ^. W.logger)
                     pureTimeInterpreter
                     db
                     netLayer
                     txLayer
                     wid
-                    (\s -> (dummyGenChange, s))
+                    (W.ChangeAddressGen dummyGenChange)
+                    s
                     recentEra
                     (PreSelection $ NE.toList outs)
                     txCtx
+                put s'
+                return fee
+
         minCoins <- liftIO
             $ W.calcMinimumCoinValues @_ @k @'CredFromKeyK
                 wrk era (F.toList outs)
 
-        fees <- liftHandler $ W.estimateFee runSelection
-        let fees' = fees { estMinFee = estMinFee fees - 600 } -- FIXME
-        return $ mkApiFee Nothing minCoins fees'
+        fees <- liftHandler $ W.estimateFee (liftIO $ evalStateT runSelection changeState0)
+        return $ mkApiFee Nothing minCoins fees
   where
-    dummyGenChange = maxLengthAddressFor $ Proxy @k
+    dummyGenChange True = (minLengthAddress, False)
+    dummyGenChange False = (minLengthAddress, True)
 
+    changeState0 = True
+
+    maxLengthAddress = maxLengthAddressFor $ Proxy @k
+    minLengthAddress
+        | isJust (testEquality (typeRep @k) (typeRep @ByronKey))
+            = Byron.minLengthAddress
+        | otherwise = maxLengthAddress
 
 constructTransaction
     :: forall (n :: NetworkDiscriminant)
@@ -3024,7 +3040,11 @@ balanceTransaction
             balanceTx partialTx =
                 liftHandler $ fst <$> W.balanceTransaction @_ @IO @s
                     (MsgWallet . W.MsgBalanceTx >$< wrk ^. W.logger)
-                    (error "todo")
+                    (W.CoinSelection
+                        txLayer
+                        genInpScripts
+                        mScriptTemplate
+                        (maxLengthAddressFor $ Proxy @k))
                     (pp, nodePParams)
                     ti
                     utxoIndex

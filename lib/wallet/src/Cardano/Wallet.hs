@@ -2139,7 +2139,7 @@ buildAndSignTransactionPure
 -- Build a tx just to get its fee. This is absurd, but needed as long as we keep
 -- the old tx workflow fee endpoints.
 buildUnsignedTransactionFee
-    :: forall k s (n :: NetworkDiscriminant) era
+    :: forall k s (n :: NetworkDiscriminant) era changeState
      . ( Typeable n
        , Typeable s
        , Typeable k
@@ -2155,13 +2155,14 @@ buildUnsignedTransactionFee
     -> NetworkLayer IO Read.Block
     -> TransactionLayer k 'CredFromKeyK SealedTx
     -> WalletId
-    -> (s -> (Address, s))
+    -> ChangeAddressGen changeState
+    -> changeState
     -> WriteTx.RecentEra era
     -> PreSelection
     -> TransactionCtx
-    -> IO Coin
+    -> IO (Coin, changeState)
 buildUnsignedTransactionFee
-    tr ti db netLayer txLayer walletId genChange era preSelection txCtx = do
+    tr ti db netLayer txLayer walletId genChange changeState era preSelection txCtx = do
     (utxoIndex, wallet, _history) <-
         errorToException ErrConstructTxNoSuchWallet <=< runExceptT $
             readWalletUTxOIndex @_ @_ @k db walletId
@@ -2172,12 +2173,12 @@ buildUnsignedTransactionFee
                 (unsafeShelleyOnlyGetRewardXPub wallet)
                 protocolParams txCtx (Left preSelection)
 
-    Cardano.Tx (Cardano.TxBody bodyContent) _ <-
+    (Cardano.Tx (Cardano.TxBody bodyContent) _, changeState') <-
         balanceTx protocolParams utxoIndex unsignedTxBody
 
     return $ case Cardano.txFee bodyContent of
         Cardano.TxFeeExplicit _ c ->
-            fromCardanoLovelace c
+            (fromCardanoLovelace c, changeState')
         Cardano.TxFeeImplicit Cardano.TxFeesImplicitInByronEra ->
             case era of {}
   where
@@ -2188,7 +2189,7 @@ buildUnsignedTransactionFee
         => ProtocolParameters
         -> UTxOIndex WalletUTxO
         -> Cardano.TxBody era
-        -> IO (Cardano.Tx era)
+        -> IO (Cardano.Tx era, changeState)
     balanceTx protocolParams utxoIndex unsignedTxBody = do
         let protocolParameters =
                 ( protocolParams
@@ -2196,16 +2197,15 @@ buildUnsignedTransactionFee
                 )
             partialTx = PartialTx
                 (Cardano.Tx unsignedTxBody [])(Cardano.UTxO mempty) mempty
-            dummyChangeAddr = maxLengthAddressFor $ Proxy @k
         either (throwIO . ExceptionBalanceTx) pure <=< runExceptT $
-            fmap fst $ balanceTransaction
+            balanceTransaction
                 (MsgBalanceTx >$< tr)
                 (vkCoinSelection txLayer)
                 protocolParameters
                 ti
                 utxoIndex
-                (ChangeAddressGen $ \() -> (dummyChangeAddr, ()))
-                ()
+                genChange
+                changeState
                 partialTx
 
     -- HACK: 'mkUnsignedTransaction' takes a reward account 'XPub' even when the
