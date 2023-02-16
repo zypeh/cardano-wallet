@@ -213,8 +213,9 @@ minLengthAddress :: Address
 minLengthAddress = Address
     $ CBOR.toStrictByteString
     $ CBOR.encodeAddress xpub
-        [ CBOR.encodeDerivationPathAttr passphrase minBound minBound
-        , CBOR.encodeProtocolMagicAttr (ProtocolMagic minBound)
+        [ CBOR.encodeDerivationPathAttr passphrase (toEnum $ 2^32 - 1) (toEnum $ 2^32 - 1)
+        , CBOR.encodeProtocolMagicAttr (ProtocolMagic 0)
+            -- minBound @Int32 is negative, so 0 is likely the actual minBound.
         ]
   where
     -- Must apparently always be 32 bytes:

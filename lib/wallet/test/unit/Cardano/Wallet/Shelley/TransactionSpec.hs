@@ -2456,9 +2456,9 @@ instance Arbitrary CoinSelection where
                 Nothing
                 Nothing
                 (maxLengthAddressFor
-                (Proxy @ShelleyKey)))
+                (Proxy @ByronKey)))
           where
-            tl = newTransactionLayer @ShelleyKey Cardano.Mainnet
+            tl = newTransactionLayer @ByronKey Cardano.Mainnet
 
 genDummyScriptLookupForTemplate
     :: ScriptTemplate

@@ -2314,6 +2314,9 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
     withWorkerCtx ctx wid liftE liftE $ \wrk -> do
         let db = wrk ^. dbLayer
         era <- liftIO $ NW.currentNodeEra netLayer
+        let mTTL = body ^? #timeToLive . traverse . #getQuantity
+        let ti = timeInterpreter netLayer
+        ttl <- liftIO $ W.transactionExpirySlot ti mTTL
         wdrl <- case body ^. #withdrawal of
             Nothing -> pure NoWithdrawal
             Just apiWdrl ->
@@ -2323,6 +2326,7 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
                 { txWithdrawal = wdrl
                 , txMetadata = body
                     ^? #metadata . traverse . #txMetadataWithSchema_metadata
+                , txValidityInterval = (Nothing, ttl)
                 }
         (utxoAvailable, wallet, pendingTxs) <-
             liftHandler $ W.readWalletUTxOIndex @_ @s @k wrk wid
@@ -2361,6 +2365,8 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
     dummyGenChange False = (minLengthAddress, True)
 
     changeState0 = True
+
+    -- FIXME: Don't do this! Just add a bit of fuzz factor instead!!!
 
     maxLengthAddress = maxLengthAddressFor $ Proxy @k
     minLengthAddress
