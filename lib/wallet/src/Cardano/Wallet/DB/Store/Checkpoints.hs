@@ -125,6 +125,8 @@ import Data.Bifunctor
     ( bimap, second )
 import Data.DBVar
     ( Store (..) )
+import Data.Foldable
+    ( for_ )
 import Data.Functor
     ( (<&>) )
 import Data.Generics.Internal.VL.Lens
@@ -160,7 +162,7 @@ import Database.Persist.Sql
 import Database.Persist.Sqlite
     ( SqlPersistT )
 import UnliftIO.Exception
-    ( toException )
+    ( SomeException, toException )
 
 import qualified Cardano.Wallet.Primitive.AddressDerivation as W
 import qualified Cardano.Wallet.Primitive.AddressDiscovery.Random as Rnd
@@ -236,6 +238,7 @@ mkStoreWallet wid =
     write wallet = do
         insertPrologue wid (wallet ^. #prologue)
         writeS storeCheckpoints (wallet ^. #checkpoints)
+        writeS submissions (wallet ^. #submissions)
 
     update =
          -- first update in list is last to be applied!
@@ -246,8 +249,14 @@ mkStoreWallet wid =
         -- FIXME LATER during ADP-1043: remove 'undefined'
         updateS storeCheckpoints undefined delta
     update1 (UpdateSubmissions delta) =
-        -- FIXME LATER during ADP-1043: remove 'undefined'
-        updateS submissions undefined delta
+        for_ (reverse delta) (updateReadS submissions)
+
+updateReadS :: Monad m => Store m da -> da -> m (Either SomeException ())
+updateReadS x d = do
+    ey <- loadS x
+    case ey of
+        Left e -> pure $ Left  e
+        Right y -> Right <$> updateS x y d
 
 -- | Store for the 'Checkpoints' belonging to a 'WalletState'.
 mkStoreCheckpoints
