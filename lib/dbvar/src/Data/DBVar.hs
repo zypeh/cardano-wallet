@@ -303,6 +303,46 @@ the case of an empty list.
 data NotInitialized = NotInitialized deriving (Eq, Show)
 instance Exception NotInitialized
 
+-- | Create an almost identical 'Store',
+-- except that the stored value is also kept in memory,
+-- and retrieved from there when applying 'loadS'.
+--
+-- Ideally, you should use 'DBVar' to work with an in-memory value
+-- that is also written to a 'Store'.
+--
+-- However, in selected circumstances, it useful to present
+-- the 'DBVar' as 
+--
+-- TODO: More attention to exception, asynchronous exceptions,
+-- and concurrency.
+newCachedStore
+    ::  ( MonadSTM m, MonadThrow m, MonadEvaluate m, MonadMask m
+        , Delta da
+        )
+    => Store m da
+    -> m (Store m da)
+newCachedStore store = do
+    varvar <- newTVarIO Nothing
+    let loadVar = do
+            mvar <- readTVarIO varvar
+            case mvar of
+                Nothing -> do
+                    var <- loadDBVar store
+                    atomically $ writeTVar varvar (Just var)
+                    pure var
+                Just var -> pure var
+    pure $ Store
+        { loadS = do
+            var <- loadVar
+            Right <$> readDBVar var
+        , writeS = \a -> do
+            var <- initDBVar store a
+            atomically $ writeTVar varvar (Just var)
+        , updateS = \_ da -> do
+            var <- loadVar
+            updateDBVar var da
+        }
+
 {-
 -- | Add a caching layer to a 'Store'.
 --
