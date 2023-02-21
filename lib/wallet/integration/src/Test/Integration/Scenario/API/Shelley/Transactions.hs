@@ -1312,6 +1312,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
         verify r
             [ expectResponseCode HTTP.status403
             , expectErrorInfo CannotCoverFee
+            , expectErrorMessage errMsg403Fee
             ]
 
     it "TRANS_ESTIMATE_03b - \
