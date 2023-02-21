@@ -33,6 +33,7 @@ module Test.Integration.Framework.DSL
     , expectSuccess
     , expectError
     , expectErrorMessage
+    , expectErrorInfo
     , expectField
     , expectListField
     , expectListSize
@@ -562,6 +563,14 @@ expectResponseCode expected (actual, a) =
     if actual == expected
         then pure ()
         else actual `shouldBe` expected
+
+expectErrorInfo
+    :: (HasCallStack, MonadUnliftIO m, Show a)
+    => ApiErrorInfo
+    -> (s, Either RequestException a)
+    -> m ()
+expectErrorInfo expected r = do
+    decodeErrorInfo r `shouldBe` expected
 
 expectField
     :: (HasCallStack, MonadIO m)
