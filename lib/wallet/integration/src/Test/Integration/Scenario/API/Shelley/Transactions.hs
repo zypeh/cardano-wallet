@@ -1144,7 +1144,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
             (Link.createTransactionOld @'Shelley wa) Default payload
 
         expectResponseCode HTTP.status403 r
-        expectErrorMessage errMsg403TxTooBig r
+        decodeErrorInfo r `shouldBe` TransactionIsTooBig
 
     it "TRANSMETA_ESTIMATE_01a - \
         \fee estimation includes metadata" $
@@ -1276,10 +1276,8 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
         r <- request @ApiFee ctx
             (Link.getTransactionFeeOld @'Shelley wa) Default payload
 
-        verify r
-            [ expectResponseCode HTTP.status403
-            , expectErrorMessage errMsg403TxTooBig
-            ]
+        expectResponseCode HTTP.status403 r
+        decodeErrorInfo r `shouldBe` TransactionIsTooBig
 
     describe "TRANS_ESTIMATE_08 - Bad payload" $ do
         let matrix =
