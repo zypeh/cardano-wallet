@@ -51,7 +51,7 @@ import Cardano.Wallet.Shelley.Network.Discriminant
 import Cardano.Wallet.Unsafe
     ( unsafeFromHex, unsafeMkPercentage )
 import Control.Monad
-    ( forM_, when )
+    ( forM_ )
 import Control.Monad.IO.Class
     ( liftIO )
 import Control.Monad.Trans.Resource
@@ -651,8 +651,8 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
             , expectField (#withdrawals)
                 (\[ApiWithdrawal _ c] -> c .> Quantity 0)
             ]
-    -- TODO: ADP-2662
-    when False $ it "STAKE_POOLS_JOIN_05 - \
+
+    it "STAKE_POOLS_JOIN_05 - \
         \Can join when stake key already exists" $ \ctx -> runResourceT $ do
         let walletWithPreRegKey =
                 [ "over", "decorate", "flock", "badge", "beauty"
@@ -671,11 +671,12 @@ spec = describe "SHELLEY_STAKE_POOLS" $ do
                 ctx (Link.listStakePools arbitraryStake) Empty
 
         eventually "wallet join a pool" $ do
-            joinStakePool @n ctx (SpecificPool pool) (w, fixturePassphrase) >>= flip verify
-                [ expectResponseCode HTTP.status202
-                , expectField (#status . #getApiT) (`shouldBe` Pending)
-                , expectField (#direction . #getApiT) (`shouldBe` Outgoing)
-                ]
+            joinStakePool @n ctx (SpecificPool pool) (w, fixturePassphrase)
+                >>= flip verify
+                    [ expectResponseCode HTTP.status202
+                    , expectField (#status . #getApiT) (`shouldBe` Pending)
+                    , expectField (#direction . #getApiT) (`shouldBe` Outgoing)
+                    ]
 
     describe "STAKE_POOLS_JOIN_UNSIGNED_01" $ do
         it "Can join a pool that's not retiring" $ \ctx -> runResourceT $ do
