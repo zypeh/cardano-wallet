@@ -2833,7 +2833,7 @@ estimateFee
             (_, samples') ->
                 Right samples'
 
-    repeats = 100 -- TODO: modify repeats based on data
+    repeats = 20 -- TODO: modify repeats based on data
 
     -- | When estimating fee, it is rather cumbersome to return "cannot cover fee"
     -- if clients are just asking for an estimation. Therefore, we convert
