@@ -112,6 +112,7 @@ import Test.Integration.Framework.DSL
     , emptyRandomWallet
     , emptyWallet
     , eventually
+    , expectErrorInfo
     , expectErrorMessage
     , expectField
     , expectListField
@@ -1301,7 +1302,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
                 (Link.getTransactionFeeOld @'Shelley w) Default payload
             expectResponseCode HTTP.status400 r
 
-    it "TRANS_ESTIMATE_03a - we see result when we can't cover fee" $
+    it "TRANS_ESTIMATE_03a - we don't see result when we can't cover fee" $
         \ctx -> runResourceT $ do
 
         wSrc <- fixtureWallet ctx
@@ -1310,8 +1311,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
             (Link.getTransactionFeeOld @'Shelley wSrc) Default payload
         verify r
             [ expectResponseCode HTTP.status202
-            , expectField (#estimatedMin . #getQuantity) (.>= 0)
-            , expectField (#estimatedMax . #getQuantity) (.<= oneAda)
+            , expectErrorInfo CannotCoverFee
             ]
 
     it "TRANS_ESTIMATE_03b - \
