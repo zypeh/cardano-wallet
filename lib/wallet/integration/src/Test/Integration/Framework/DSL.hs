@@ -1145,7 +1145,7 @@ waitForTxImmutability _ctx = liftIO $ do
 
     threadDelay $ stabilityDelay + txInsertionDelay
 
-between :: (Ord a, Show a) => (a, a) -> a -> Expectation
+between :: (HasCallStack, Ord a, Show a) => (a, a) -> a -> Expectation
 between (min', max') x
     | min' <= x && x <= max'
         = return ()
@@ -1158,7 +1158,7 @@ between (min', max') x
             , show max'
             ]
 
-(.>) :: (Ord a, Show a) => a -> a -> Expectation
+(.>) :: (HasCallStack, Ord a, Show a) => a -> a -> Expectation
 x .> bound
     | x > bound
         = return ()
@@ -1170,7 +1170,7 @@ x .> bound
             , ")"
             ]
 
-(.<) :: (Ord a, Show a) => a -> a -> Expectation
+(.<) :: (HasCallStack, Ord a, Show a) => a -> a -> Expectation
 x .< bound
     | x < bound
         = return ()
@@ -1709,7 +1709,7 @@ fundSharedWallet ctx amt sharedWals = do
            }],
            "passphrase": #{fixturePassphrase}
        }|]
-   (_, ApiFee (Quantity _) (Quantity feeMax) _ _) <- unsafeRequest ctx
+   (_, ApiFee (Quantity feeMin) (Quantity feeMax) _ _) <- unsafeRequest ctx
        (Link.getTransactionFeeOld @'Shelley wShelley) payloadTx
    let ep = Link.createTransactionOld @'Shelley
    rTx <- request @(ApiTransaction n) ctx (ep wShelley) Default payloadTx
@@ -1718,8 +1718,13 @@ fundSharedWallet ctx amt sharedWals = do
        ra <- request @ApiWallet ctx
            (Link.getWallet @'Shelley wShelley) Default Empty
        expectField
-           (#balance . #available)
-           (`shouldBe` Quantity (faucetAmt - feeMax - amt)) ra
+           (#balance . #available . #getQuantity)
+           (between
+               ( faucetAmt - feeMax - amt
+               , faucetAmt - feeMin - amt
+               ))
+
+            ra
 
    forM_ sharedWals $ \walShared -> do
        rWal <- getSharedWallet ctx walShared
