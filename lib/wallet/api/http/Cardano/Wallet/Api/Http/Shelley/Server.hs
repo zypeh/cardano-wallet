@@ -2359,7 +2359,9 @@ postTransactionFeeOld ctx@ApiLayer{..} (ApiT wid) body =
                 wrk era (F.toList outs)
 
         fees <- liftHandler $ W.estimateFee (liftIO $ evalStateT runSelection changeState0)
-        return $ mkApiFee Nothing minCoins fees
+        let fuzz :: Quantity "byte" Word
+            fuzz = Quantity 10
+        return $ mkApiFee Nothing minCoins (W.extendEstimationInterval pp fuzz fees)
   where
     dummyGenChange True = (minLengthAddress, False)
     dummyGenChange False = (minLengthAddress, True)
@@ -4492,7 +4494,7 @@ mkApiFee mDeposit minCoins (FeeEstimation estMin estMax) = ApiFee
     , deposit = Quantity . Coin.toNatural $ fromMaybe (Coin 0) mDeposit
     }
   where
-    qty = Quantity . fromIntegral
+    qty = Quantity . Coin.toNatural
 
 mkApiWithdrawal
     :: forall (n :: NetworkDiscriminant). ()

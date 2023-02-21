@@ -161,6 +161,7 @@ module Cardano.Wallet
     , estimateFee
     , calcMinimumDeposit
     , calcMinimumCoinValues
+    , extendEstimationInterval
 
     -- ** Transaction
     , forgetTx
@@ -389,6 +390,7 @@ import Cardano.Wallet.Primitive.Types
     , BlockHeader (..)
     , ChainPoint (..)
     , DelegationCertificate (..)
+    , FeePolicy (..)
     , GenesisParameters (..)
     , NetworkParameters (..)
     , ProtocolParameters (..)
@@ -403,6 +405,7 @@ import Cardano.Wallet.Primitive.Types
     , WalletName (..)
     , WithOrigin (..)
     , dlgCertPoolId
+    , slope
     , stabilityWindowShelley
     , toSlot
     , wholeRange
@@ -554,6 +557,8 @@ import Data.Maybe
     ( fromJust, fromMaybe, isJust, mapMaybe )
 import Data.Proxy
     ( Proxy (..) )
+import Data.Quantity
+    ( Quantity (..) )
 import Data.Set
     ( Set )
 import Data.Text
@@ -1974,6 +1979,7 @@ buildSignSubmitTransaction ti db@DBLayer{..} netLayer txLayer pwd walletId
                 & interpretQuery (neverFails "slot is ahead of the node tip" ti)
                 & fmap (BuiltTx{..},)
                 & liftIO
+
   where
     throwOnErr :: (MonadIO m, Exception e) => Either e a -> m a
     throwOnErr = either (liftIO . throwIO) pure
@@ -2752,9 +2758,9 @@ migrationPlanToSelectionWithdrawals plan rewardWithdrawal outputAddressesToCycle
 
 -- | Result of a fee estimation process given a wallet and payment order.
 data FeeEstimation = FeeEstimation
-    { estMinFee :: Word64
+    { estMinFee :: Coin
     -- ^ Most coin selections will result in a fee higher than this.
-    , estMaxFee :: Word64
+    , estMaxFee :: Coin
     -- ^ Most coin selections will result in a fee lower than this.
     } deriving (Show, Eq, Generic)
 
@@ -2806,7 +2812,7 @@ estimateFee
     -- Use method R-8 from to get top 90%.
     -- https://en.wikipedia.org/wiki/Quantile#Estimating_quantiles_from_a_sample
     deciles = mkFeeEstimation
-        . map round
+        . map (Coin . round)
         . V.toList
         . quantiles medianUnbiased (V.fromList [1, 10]) 10
         . V.fromList
@@ -2844,6 +2850,24 @@ estimateFee
                 throwE  e
         e ->
             throwE e
+
+-- | Make a 'FeeEstimation' more imprecise
+extendEstimationInterval
+    :: ProtocolParameters
+    -> (Quantity "byte" Word)
+    -- ^ Number of bytes by which to extend interval in both directions.
+    -> FeeEstimation
+    -> FeeEstimation
+extendEstimationInterval pp (Quantity byteDelta) (FeeEstimation a b) =
+    FeeEstimation (a `Coin.difference` coinDelta) (b `Coin.add` coinDelta)
+  where
+    coinDelta :: Coin
+    coinDelta = Coin.fromNatural
+        . ceiling
+        $ fromIntegral byteDelta * slope feeFunction
+
+    LinearFee feeFunction = pp ^. (#txParameters . #getFeePolicy)
+
 
 {-------------------------------------------------------------------------------
                                   Key Store

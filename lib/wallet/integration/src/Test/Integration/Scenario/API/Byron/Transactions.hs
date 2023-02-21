@@ -360,9 +360,14 @@ spec = describe "BYRON_TRANSACTIONS" $ do
 
             ra2 <- request @ApiByronWallet ctx
                 (Link.getWallet @'Byron wByron) Default Empty
-            expectField
-                (#balance . #available)
-                (`shouldBe` Quantity (faucetAmt - feeEstMax - amt)) ra2
+            verify ra2
+                [ expectField
+                    (#balance . #available . #getQuantity) $
+                    between
+                        ( faucetAmt - feeEstMax - amt
+                        , faucetAmt - feeEstMin - amt
+                        )
+                ]
 
     it "BYRON_TRANS_CREATE_02 -\
         \ Cannot create tx on Byron wallet using shelley ep" $ \ctx -> runResourceT $ do
