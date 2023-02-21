@@ -1310,7 +1310,7 @@ spec = describe "SHELLEY_TRANSACTIONS" $ do
         r <- request @ApiFee ctx
             (Link.getTransactionFeeOld @'Shelley wSrc) Default payload
         verify r
-            [ expectResponseCode HTTP.status202
+            [ expectResponseCode HTTP.status403
             , expectErrorInfo CannotCoverFee
             ]
 
