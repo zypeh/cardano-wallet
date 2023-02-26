@@ -52,7 +52,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Logger
   ( NoLoggingT,
   )
-import qualified Control.Monad.STM as STM
 import Data.Chain
   ( DeltaChain (..),
     Edge (..),
@@ -190,14 +189,14 @@ newStoreAddress = embedStore addressChainIntoTable =<< newEntityStore
 instance MonadSTM (NoLoggingT (ResourceT IO)) where
   type STM (NoLoggingT (ResourceT IO)) = WrapSTM
   type TVar (NoLoggingT (ResourceT IO)) = TVar IO
-  atomically = liftIO . STM.atomically . unWrapSTM
-  newTVar = WrapSTM . STM.newTVar
-  readTVar = WrapSTM . STM.readTVar
-  writeTVar = \v -> WrapSTM . STM.writeTVar v
-  modifyTVar' = \v -> WrapSTM . STM.modifyTVar' v
+  atomically = liftIO . atomically . unWrapSTM
+  newTVar = WrapSTM . newTVar
+  readTVar = WrapSTM . readTVar
+  writeTVar = \v -> WrapSTM . writeTVar v
+  modifyTVar' = \v -> WrapSTM . modifyTVar' v
 
 -- | Helper type for the above instance.
-newtype WrapSTM a = WrapSTM {unWrapSTM :: STM.STM a}
+newtype WrapSTM a = WrapSTM {unWrapSTM :: STM a}
   deriving (Applicative, Functor, Monad)
 
 deriving instance MonadPlus WrapSTM
