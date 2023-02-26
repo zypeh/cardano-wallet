@@ -38,7 +38,7 @@ import Control.Applicative
     ( liftA2 )
 import Control.Exception
     ( Exception, SomeException, toException )
-import Control.Monad.Class.MonadSTM
+import Control.Concurrent.Class.MonadSTM.TVar
     ( MonadSTM
     , atomically
     , modifyTVar'
